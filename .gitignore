@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.log
+logs.txt
+server/uploads
+server/scratch
+.DS_Store
+.vscode
+.idea

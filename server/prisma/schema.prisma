@@ -1,0 +1,694 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth & Users ─────────────────────────────────────────────────────────────
+
+enum Role {
+  super_admin
+  admin
+  principal
+  teacher
+  clerk
+  parent
+  student
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role
+  profilePhoto  String?
+  phone         String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  refreshToken  String?   @db.Text
+  schoolId      String?   // null for super_admin; FK to School for all other users
+  school        School?   @relation("UserSchool", fields: [schoolId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  student       Student?
+  teacher     Teacher?
+  parent        Parent?
+  staff         Staff?
+
+  @@map("users")
+}
+
+// ── Academic Structure ───────────────────────────────────────────────────────
+
+model AcademicYear {
+  id          String    @id @default(uuid())
+  name        String    // e.g., "2024-25"
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean   @default(false)
+  schoolId    String?   // null = legacy; scoped per school
+  school      School?   @relation("AcademicYearSchool", fields: [schoolId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  students    Student[]
+  admissions  Admission[]
+  exams       Exam[]
+  feeStructures FeeStructure[]
+
+  @@unique([name, schoolId])
+  @@map("academic_years")
+}
+
+model Class {
+  id           String    @id @default(uuid())
+  name         String    // e.g., "Class 10"
+  numericValue Int
+  schoolId     String?   // scoped per school
+  school       School?   @relation("ClassSchool", fields: [schoolId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sections     Section[]
+  students     Student[]
+  subjects     Subject[]
+  admissions   Admission[]
+  exams        Exam[]
+  feeStructures FeeStructure[]
+  timetables    Timetable[]
+  homework      Homework[]
+  teachers      Teacher[] // Assigned Teachers
+
+  @@unique([name, schoolId])
+  @@map("classes")
+}
+
+model Section {
+  id        String    @id @default(uuid())
+  name      String    // e.g., "A"
+  capacity  Int       @default(40)
+  classId   String
+  class     Class     @relation(fields: [classId], references: [id])
+  classTeacherId String?
+  classTeacher   Teacher?  @relation("ClassTeacherOf", fields: [classTeacherId], references: [id])
+  schoolId  String?   // Multi-tenancy
+  school    School?   @relation(fields: [schoolId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  students   Student[]
+  admissions Admission[]
+  timetables Timetable[]
+  homework   Homework[]
+
+  @@map("sections")
+}
+
+model Subject {
+  id            String    @id @default(uuid())
+  name          String
+  code          String    @unique
+  type          String    @default("theory") // theory, practical, both
+  classId       String
+  class         Class     @relation(fields: [classId], references: [id])
+  teacherId     String?
+  teacher       Teacher?  @relation(fields: [teacherId], references: [id])
+  isActive      Boolean   @default(true)
+  schoolId      String?   // Multi-tenancy
+  school        School?   @relation(fields: [schoolId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  results       Result[]
+  timetableEntries TimetableEntry[]
+  homework      Homework[]
+
+  @@map("subjects")
+}
+
+// ── People ───────────────────────────────────────────────────────────────────
+
+enum Gender {
+  male
+  female
+  other
+}
+
+model Student {
+  id              String    @id @default(uuid())
+  admissionNumber String    @unique
+  rollNumber      String?
+  userId          String?   @unique
+  user            User?     @relation(fields: [userId], references: [id])
+  firstName       String
+  lastName        String
+  fullName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  bloodGroup      String?
+  religion        String?
+  category        String?   @default("general")
+  parentId        String
+  parent          Parent    @relation(fields: [parentId], references: [id])
+  classId         String
+  class           Class     @relation(fields: [classId], references: [id])
+  sectionId       String
+  section         Section   @relation(fields: [sectionId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  status          String    @default("active")
+  
+  // Flattened address for SQL performance
+  addressStreet   String?
+  addressCity     String?
+  addressState    String?
+  addressPincode  String?
+
+  emergencyName   String?
+  emergencyPhone  String?
+  emergencyRel    String?
+
+  house           String?
+  previousSchool  String?
+  aadhaarNumber   String?
+  medicalNote     String?   @db.Text
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  attendance      Attendance[]
+  feePayments     FeePayment[]
+  results         Result[]
+  bookIssues      BookIssue[]
+  assignedFees    StudentFee[]
+  leaveRequests   LeaveRequest[]
+  activityLogs    ActivityLog[]
+
+  @@map("students")
+}
+
+model Parent {
+  id              String    @id @default(uuid())
+  userId          String?   @unique
+  user            User?     @relation(fields: [userId], references: [id])
+  fatherName      String
+  fatherOcc       String?
+  fatherPhone     String
+  motherName      String?
+  motherOcc       String?
+  motherPhone     String?
+  annualIncome    Float?
+  address         String?   @db.Text
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  children        Student[]
+
+  @@map("parents")
+}
+
+model Teacher {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  employeeId      String    @unique
+  designation     String
+  qualification   String
+  experience      Int?      @default(0)
+  joiningDate     DateTime
+  specialization  String?
+  status          String    @default("active")
+  canViewAllStudents Boolean  @default(false)
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  subjects        Subject[]
+  timetableEntries TimetableEntry[]
+  homework      Homework[]
+  assignedClasses Class[]
+  classTeacherOf Section[] @relation("ClassTeacherOf")
+
+  @@map("teachers")
+}
+
+model Staff {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  employeeId      String    @unique
+  department      String
+  designation     String
+  joiningDate     DateTime
+  status          String    @default("active")
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("staff")
+}
+
+// ── Academic Activities ──────────────────────────────────────────────────────
+
+model Attendance {
+  id          String   @id @default(uuid())
+  date        DateTime
+  status      String   // present, absent, late, etc.
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  remark      String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, studentId])
+  @@map("attendance")
+}
+
+model Exam {
+  id          String       @id @default(uuid())
+  name        String
+  type        String       // internal, term, annual
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id])
+  academicYearId String
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  status      String       @default("scheduled")
+  description String?      @db.Text
+  fileUrl     String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  results     Result[]
+
+  @@map("exams")
+}
+
+model Result {
+  id          String   @id @default(uuid())
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id])
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  marksObtained Int
+  maxMarks    Int
+  grade       String?
+  remark      String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([examId, studentId, subjectId])
+  @@map("results")
+}
+
+// ── Financials ───────────────────────────────────────────────────────────────
+
+model FeeStructure {
+  id              String   @id @default(uuid())
+  classId         String?
+  class           Class?    @relation(fields: [classId], references: [id])
+  academicYearId  String?
+  academicYear    AcademicYear? @relation(fields: [academicYearId], references: [id])
+  name            String   // e.g., "Standard Class 10 Fee"
+  components      Json?    // Array of {category, name, amount, frequency}
+  totalAmount     Float    @default(0)
+  description     String?  @db.Text
+  isActive        Boolean  @default(true)
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  admissions      AdmissionFee[]
+  students        StudentFee[]
+
+  @@map("fee_structures")
+}
+
+model StudentFee {
+  id              String   @id @default(uuid())
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  feeStructureId  String
+  feeStructure    FeeStructure @relation(fields: [feeStructureId], references: [id])
+  customAmount    Float?
+  status          String   @default("pending")
+  academicYearId  String?
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  
+  @@unique([studentId, feeStructureId, academicYearId])
+  @@map("student_fees")
+}
+
+model FeePayment {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  amountPaid    Float
+  paymentDate   DateTime @default(now())
+  paymentMode   String   // cash, upi, online
+  receiptNumber String   @unique
+  status        String   @default("completed")
+  remarks       String?
+  academicYearId String?
+  schoolId      String?   // Multi-tenancy
+  school        School?   @relation(fields: [schoolId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("fee_payments")
+}
+
+model Archive {
+  id          String   @id @default(uuid())
+  entityType  String   // 'student', 'teacher', 'staff', 'parent', 'notice'
+  entityId    String
+  entityName  String?
+  data        Json
+  deletedAt   DateTime @default(now())
+  deletedBy   String?
+  
+  @@map("archives")
+}
+
+// ── Communications ───────────────────────────────────────────────────────────
+
+model Notice {
+  id          String   @id @default(uuid())
+  title       String
+  content     String   @db.LongText
+  targetRoles String   // JSON array or comma separated
+  priority    String   @default("normal")
+  type        String   @default("text") // text or file
+  fileUrl     String?
+  publishDate DateTime @default(now())
+  isPublished Boolean  @default(true)
+  createdBy   String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notices")
+}
+
+model Enquiry {
+  id          String   @id @default(uuid())
+  studentName String
+  parentName  String
+  phone       String
+  email       String?
+  class       String?
+  message     String?  @db.Text
+  status      String   @default("new")
+  source      String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("enquiries")
+}
+
+// ── Admissions ───────────────────────────────────────────────────────────────
+
+model Admission {
+  id              String   @id @default(uuid())
+  applicationNo   String   @unique
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  classId         String
+  class           Class    @relation(fields: [classId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  parentName      String
+  parentPhone     String
+  parentEmail     String?
+  fatherName      String?
+  fatherPhone     String?
+  motherName      String?
+  motherPhone     String?
+  aadhaarNumber   String?
+  address         String?
+  status          String   @default("new")
+  previousSchool  String?
+  remarks         String?
+  sectionId       String?
+  section         Section? @relation(fields: [sectionId], references: [id])
+  assignedFees    AdmissionFee[]
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("admissions")
+}
+
+model AdmissionFee {
+  id              String   @id @default(uuid())
+  admissionId     String
+  admission       Admission @relation(fields: [admissionId], references: [id])
+  feeStructureId  String
+  feeStructure    FeeStructure @relation(fields: [feeStructureId], references: [id])
+  customAmount    Float?
+  
+  @@unique([admissionId, feeStructureId])
+  @@map("admission_fees")
+}
+
+// ── Assets & Library ─────────────────────────────────────────────────────────
+
+model Book {
+  id          String   @id @default(uuid())
+  title       String
+  author      String
+  isbn        String   @unique
+  category    String?
+  shelf       String?
+  quantity    Int      @default(1)
+  available   Int      @default(1)
+  status      String   @default("available")
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  issues      BookIssue[]
+
+  @@map("books")
+}
+
+model BookIssue {
+  id          String   @id @default(uuid())
+  bookId      String
+  book        Book     @relation(fields: [bookId], references: [id])
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  returnDate  DateTime?
+  status      String   @default("issued")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("book_issues")
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  quantity    Int      @default(0)
+  unit        String   @default("pcs")
+  minStock    Int      @default(5)
+  status      String   @default("in_stock")
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions InventoryTransaction[]
+
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id          String   @id @default(uuid())
+  itemId      String
+  item        InventoryItem @relation(fields: [itemId], references: [id], map: "fk_inventory_transaction_item")
+  type        String   // in, out
+  quantity    Int
+  purpose     String?
+  date        DateTime @default(now())
+  performedBy String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inventory_transactions")
+}
+
+model Timetable {
+  id              String           @id @default(uuid())
+  classId         String
+  class           Class            @relation(fields: [classId], references: [id])
+  sectionId       String
+  section         Section          @relation(fields: [sectionId], references: [id])
+  academicYearId  String           @default("") // Linking to current year
+  isActive        Boolean          @default(true)
+  entries         TimetableEntry[]
+  fileUrl         String?
+  notes           String?          @db.Text
+  schoolId        String?   // Multi-tenancy
+  school          School?   @relation(fields: [schoolId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([sectionId, academicYearId])
+  @@map("timetables")
+}
+
+model TimetableEntry {
+  id          String    @id @default(uuid())
+  timetableId String
+  timetable   Timetable @relation(fields: [timetableId], references: [id])
+  day         String    // monday, tuesday, etc.
+  subjectId   String
+  subject     Subject   @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     Teacher   @relation(fields: [teacherId], references: [id])
+  startTime   String
+  endTime     String
+  room        String?
+
+  @@map("timetable_entries")
+}
+
+model Homework {
+  id            String    @id @default(uuid())
+  title         String
+  description   String    @db.Text
+  classId       String
+  class         Class     @relation(fields: [classId], references: [id])
+  sectionId     String?
+  section       Section?  @relation(fields: [sectionId], references: [id])
+  subjectId     String
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+  assignedDate  DateTime  @default(now())
+  dueDate       DateTime
+  assignedById  String
+  assignedBy    Teacher   @relation(fields: [assignedById], references: [id])
+  attachments   String?   @db.Text // Stored as JSON string
+  fileUrl       String?
+  schoolId      String?   // Multi-tenancy
+  school        School?   @relation(fields: [schoolId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("homework")
+}
+
+model School {
+  id          String   @id @default(uuid())
+  name        String
+  address     String   @db.Text
+  phone       String
+  email       String
+  website     String?
+  logo        String?
+  principal   String?
+  affiliation String?
+  tagline     String?
+  slug        String?  @unique  // e.g. "vidya-public-school"
+  enabledModules Json?
+  licensedRoles  Json?     // JSON array e.g. ["admin","staff","teacher","student","parent"]
+  licensePlan    String?   @default("enterprise") // starter | professional | business | enterprise
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users         User[]          @relation("UserSchool")
+  classes       Class[]         @relation("ClassSchool")
+  academicYears AcademicYear[]  @relation("AcademicYearSchool")
+  sections      Section[]
+  subjects      Subject[]
+  students      Student[]
+  parents       Parent[]
+  teachers      Teacher[]
+  staff         Staff[]
+  attendance    Attendance[]
+  exams         Exam[]
+  results       Result[]
+  feeStructures FeeStructure[]
+  feePayments   FeePayment[]
+  studentFees   StudentFee[]
+  notices       Notice[]
+  enquiries     Enquiry[]
+  admissions    Admission[]
+  books         Book[]
+  inventoryItems InventoryItem[]
+  timetables    Timetable[]
+  homeworks     Homework[]
+  leaveRequests LeaveRequest[]
+  activityLogs  ActivityLog[]
+
+  @@map("school_settings")
+}
+
+model LeaveRequest {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  type        String   // sick, casual, emergency, etc.
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?  @db.Text
+  status      String   @default("pending") // pending, approved, rejected
+  remarks     String?
+  approvedBy  String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("leave_requests")
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  action      String   // admission, promotion, fee_paid, password_reset, etc.
+  description String?  @db.Text
+  performedBy String?
+  schoolId    String?   // Multi-tenancy
+  school      School?   @relation(fields: [schoolId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@map("activity_logs")
+}

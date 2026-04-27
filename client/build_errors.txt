@@ -1,0 +1,93 @@
+
+> client@0.0.0 build
+> tsc -b && vite build
+
+src/components/layout/TopBar.tsx(40,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/features/admissions/AdmissionDetailsModal.tsx(8,45): error TS2305: Module '"../../types"' has no exported member 'FeeStructure'.
+src/features/admissions/AdmissionDetailsModal.tsx(178,17): error TS2304: Cannot find name 'Badge'.
+src/features/admissions/AdmissionDetailsModal.tsx(178,55): error TS2304: Cannot find name 'Badge'.
+src/features/admissions/AdmissionDetailsModal.tsx(373,77): error TS2322: Type '{ children: string; size: "sm"; icon: Element; loading: boolean; onClick: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/admissions/AdmissionDetailsModal.tsx(410,84): error TS2322: Type '{ children: string; variant: "secondary"; icon: Element; loading: boolean; onClick: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/admissions/AdmissionDetailsModal.tsx(416,72): error TS2322: Type '{ children: string; icon: Element; loading: boolean; onClick: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/admissions/AdmissionDetailsModal.tsx(419,85): error TS2322: Type '{ children: string; variant: "danger"; icon: Element; loading: boolean; onClick: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/admissions/AdmissionDetailsModal.tsx(472,74): error TS2322: Type '{ children: string; className: string; loading: boolean; onClick: () => Promise<string | undefined>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/admissions/AdmissionFormPage.tsx(11,33): error TS2305: Module '"../../types"' has no exported member 'FeeStructure'.
+src/features/attendance/AttendancePage.tsx(117,56): error TS2322: Type '{ children: string; icon: Element; loading: boolean; onClick: () => Promise<void>; disabled: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/classes/ClassesPage.tsx(43,9): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(46,9): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(54,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(70,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(73,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(88,9): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(91,9): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(99,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(114,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/ClassesPage.tsx(117,7): error TS2304: Cannot find name 'toast'.
+src/features/classes/SectionDashboardPage.tsx(123,93): error TS2339: Property 'id' does not exist on type 'never'.
+src/features/classes/SectionDashboardPage.tsx(148,31): error TS2353: Object literal may only specify known properties, and 'path' does not exist in type 'BreadcrumbItem'.
+src/features/classes/SectionDashboardPage.tsx(149,37): error TS2339: Property 'name' does not exist on type 'string'.
+src/features/classes/SectionDashboardPage.tsx(159,86): error TS2339: Property 'name' does not exist on type 'string'.
+src/features/classes/SectionDashboardPage.tsx(164,87): error TS2322: Type '{ children: string; icon: Element; onClick: () => Promise<void>; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/classes/SectionDashboardPage.tsx(307,74): error TS2339: Property 'email' does not exist on type 'Student'.
+src/features/classes/SectionDashboardPage.tsx(323,109): error TS2322: Type '{ children: Element[]; className: string; onClick: () => void | Promise<void>; }' is not assignable to type 'IntrinsicAttributes & CardProps'.
+  Property 'onClick' does not exist on type 'IntrinsicAttributes & CardProps'.
+src/features/classes/SectionDashboardPage.tsx(330,112): error TS2322: Type '{ children: Element[]; className: string; onClick: () => void | Promise<void>; }' is not assignable to type 'IntrinsicAttributes & CardProps'.
+  Property 'onClick' does not exist on type 'IntrinsicAttributes & CardProps'.
+src/features/exams/ExamsPage.tsx(16,41): error TS2305: Module '"../../types"' has no exported member 'Subject'.
+src/features/exams/ExamsPage.tsx(175,36): error TS2353: Object literal may only specify known properties, and 'onClick' does not exist in type 'BreadcrumbItem'.
+src/features/exams/ExamsPage.tsx(197,17): error TS2322: Type '{ children: string; variant: "primary"; icon: Element; onClick: () => Promise<string | undefined>; loading: boolean; disabled: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/exams/ExamsPage.tsx(383,29): error TS2322: Type '"error" | "secondary"' is not assignable to type 'BadgeVariant | undefined'.
+  Type '"error"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/exams/ExamsPage.tsx(540,38): error TS2322: Type '{ children: string; type: "submit"; loading: boolean; icon: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/fees/FeeCollectPage.tsx(166,42): error TS2322: Type '{ children: string; onClick: () => Promise<void>; loading: boolean; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/fees/FeeCollectPage.tsx(200,31): error TS2322: Type '"secondary"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/fees/FeeCollectPage.tsx(201,31): error TS2322: Type '"secondary"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/fees/FeeCollectPage.tsx(377,38): error TS2322: Type '{ children: string; type: "submit"; loading: boolean; className: string; icon: Element; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/fees/FeesPage.tsx(65,58): error TS2322: Type '{ children: Element; hoverable: true; className: string; onClick: () => void | Promise<void>; }' is not assignable to type 'IntrinsicAttributes & CardProps'.
+  Property 'onClick' does not exist on type 'IntrinsicAttributes & CardProps'.
+src/features/fees/FeesPage.tsx(79,58): error TS2322: Type '{ children: Element; hoverable: true; className: string; onClick: () => void | Promise<void>; }' is not assignable to type 'IntrinsicAttributes & CardProps'.
+  Property 'onClick' does not exist on type 'IntrinsicAttributes & CardProps'.
+src/features/fees/StudentFeesPage.tsx(87,20): error TS2322: Type '"success" | "warning"' is not assignable to type 'BadgeVariant | undefined'.
+  Type '"success"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/homework/HomeworkPage.tsx(15,45): error TS2305: Module '"../../types"' has no exported member 'Subject'.
+src/features/homework/HomeworkPage.tsx(15,54): error TS2305: Module '"../../types"' has no exported member 'Homework'.
+src/features/homework/HomeworkPage.tsx(156,26): error TS2322: Type '"red" | "emerald"' is not assignable to type 'BadgeVariant | undefined'.
+  Type '"emerald"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/homework/HomeworkPage.tsx(168,15): error TS2739: Type 'ReactElement<any, any>' is missing the following properties from type '{ label: string; onClick: () => void; icon?: ReactNode; }': label, onClick
+src/features/homework/HomeworkPage.tsx(269,38): error TS2322: Type '{ children: string; type: "submit"; loading: boolean; icon: Element; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/inventory/InventoryPage.tsx(99,76): error TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ReactNode'.
+src/features/inventory/InventoryPage.tsx(100,90): error TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ReactNode'.
+src/features/inventory/InventoryPage.tsx(100,121): error TS2322: Type 'string' is not assignable to type '{ value: number; label: string; positive?: boolean | undefined; }'.
+src/features/inventory/InventoryPage.tsx(101,146): error TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ReactNode'.
+src/features/inventory/InventoryPage.tsx(102,59): error TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ReactNode'.
+src/features/library/LibraryPage.tsx(139,39): error TS2304: Cannot find name 'clsx'.
+src/features/notices/NoticesPage.tsx(383,35): error TS2322: Type '{ children: string; type: "submit"; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/reports/ReportsPage.tsx(75,29): error TS2322: Type '{ children: string; variant: "primary"; size: "sm"; className: string; loading: boolean; onClick: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/reports/ReportsPage.tsx(99,20): error TS2304: Cannot find name 'Badge'.
+src/features/reports/ReportsPage.tsx(99,75): error TS2304: Cannot find name 'Badge'.
+src/features/reports/ReportsPage.tsx(100,20): error TS2304: Cannot find name 'Badge'.
+src/features/reports/ReportsPage.tsx(100,66): error TS2304: Cannot find name 'Badge'.
+src/features/roles/RolesPage.tsx(14,3): error TS1117: An object literal cannot have multiple properties with the same name.
+src/features/settings/SettingsPage.tsx(81,11): error TS2322: Type '{ children: string; onClick: (e: FormEvent<Element>) => Promise<void>; loading: boolean; icon: Element; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/students/StudentAttendancePage.tsx(78,30): error TS2353: Object literal may only specify known properties, and 'path' does not exist in type 'BreadcrumbItem'.
+src/features/students/StudentFormPage.tsx(385,33): error TS2322: Type '{ children: string; type: "submit"; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & ButtonProps'. Did you mean 'isLoading'?
+src/features/students/StudentProfilePage.tsx(383,37): error TS2322: Type '"orange" | "emerald"' is not assignable to type 'BadgeVariant | undefined'.
+  Type '"emerald"' is not assignable to type 'BadgeVariant | undefined'.
+src/features/students/StudentProfilePage.tsx(448,131): error TS2322: Type '{ label: string; value: string; onChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, HTMLInputElement>) => void; isTextArea: true; }' is not assignable to type 'IntrinsicAttributes & InputProps & RefAttributes<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>'.
+  Property 'isTextArea' does not exist on type 'IntrinsicAttributes & InputProps & RefAttributes<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>'.
