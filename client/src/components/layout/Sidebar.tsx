@@ -91,7 +91,7 @@ const navItems: NavItem[] = [
     label: 'Settings', icon: Settings,
     children: [
       { label: 'School Setup', href: '/settings' },
-      { label: 'Module Licensing', href: '/settings/modules', roles: ['super_admin'] },
+      { label: 'Module Licensing', href: '/settings/modules' },
       { label: 'Permissions', href: '/roles' },
     ],
     permission: 'settings:view',

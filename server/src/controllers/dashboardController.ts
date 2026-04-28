@@ -28,6 +28,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         upcomingExams,
         classesWithCounts,
         admissionsResult,
+        totalSchools,
       ] = await Promise.all([
         prisma.student.count({ where: { status: 'active', ...scope } }),
         prisma.teacher.count({ where: { status: 'active', ...scope } }),
@@ -67,7 +68,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         prisma.admission.findMany({
           where: { createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) }, ...scope },
           select: { createdAt: true }
-        })
+        }),
+        prisma.school.count()
       ]);
 
       const attendanceMap: Record<string, number> = {};
@@ -87,6 +89,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
             totalStudents,
             totalTeachers,
             totalStaff,
+            totalSchools,
             pendingAdmissions,
             totalEnquiries,
             monthlyFeeCollection: feeCollection._sum.amountPaid || 0,

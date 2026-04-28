@@ -425,7 +425,7 @@ const SchoolDetailModal: React.FC<DetailModalProps> = ({ school, isOpen, onClose
             {Object.entries(PLAN_CONFIGS).map(([p, cfg]) => (
               <button key={p} onClick={() => { setPlan(p); setRoles(cfg.roles); }}
                 className={clsx('p-3 rounded-2xl border-2 text-center transition-all',
-                  plan === p ? `${cfg.border} ${cfg.bg} ${cfg.color}` : 'border-slate-100')}>
+                  plan === p ? `${cfg.border} ${cfg.bg} ${cfg.color}` : 'border-slate-100 hover:border-slate-200')}>
                 <div className="text-xs font-black uppercase tracking-wide">{p}</div>
                 <div className="text-[9px] text-slate-400">{cfg.roles.join(', ')}</div>
               </button>
@@ -454,9 +454,23 @@ const SchoolDetailModal: React.FC<DetailModalProps> = ({ school, isOpen, onClose
           </div>
         </div>
 
+        {/* Manage Licensing Prompt */}
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+             <Layers className="w-5 h-5 text-indigo-500" />
+             <div className="text-left">
+                <h4 className="text-[10px] font-black text-slate-900 uppercase">Advanced Modules</h4>
+                <p className="text-[9px] text-slate-500 font-medium">Fine-tune individual feature modules</p>
+             </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleAccess} className="text-[10px] font-black uppercase text-indigo-600 hover:bg-white h-8">
+            Open Dashboard
+          </Button>
+        </div>
+
         <div className="flex gap-3 pt-2 border-t border-slate-100">
           <Button variant="ghost" onClick={onClose} className="w-20">Close</Button>
-          <Button variant="secondary" onClick={handleAccess} className="flex-1 bg-slate-100 border-slate-200 text-slate-700">Access Dashboard</Button>
+          <Button variant="secondary" onClick={handleAccess} className="flex-1 bg-slate-100 border-slate-200 text-slate-700">Access School</Button>
           <Button variant="primary" onClick={handleSave} isLoading={saving}
             className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-700 border-0">
             Save Licensing

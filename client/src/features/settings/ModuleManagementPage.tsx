@@ -70,6 +70,8 @@ const getPlanFromRoles = (roles: string[]): { id: string; name: string; color: s
 
 export const ModuleManagementPage: React.FC = () => {
   const { school } = useSelector((state: RootState) => state.settings);
+  const { user } = useSelector((state: RootState) => state.auth);
+  const isSuperAdmin = user?.role === 'super_admin';
   const dispatch = useDispatch();
   const [selectedModules, setSelectedModules] = useState<string[]>(school?.enabledModules as string[] || []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(school?.licensedRoles as string[] || ['admin']);
@@ -97,12 +99,14 @@ export const ModuleManagementPage: React.FC = () => {
   }, []);
 
   const toggleModule = (id: string) => {
+    if (!isSuperAdmin) return; // Read-only for non-super-admins
     setSelectedModules(prev => 
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
   };
 
   const toggleRole = (id: string) => {
+    if (!isSuperAdmin) return; // Read-only for non-super-admins
     if (id === 'admin') return; // Admin always on
     setSelectedRoles(prev => {
       if (prev.includes(id)) {
@@ -153,15 +157,17 @@ export const ModuleManagementPage: React.FC = () => {
           </h1>
           <p className="text-slate-500 text-sm font-medium pl-14">Manage access portals and feature modules for your institution.</p>
         </div>
-        <Button 
-          variant="primary" 
-          icon={<Save className="w-5 h-5" />} 
-          onClick={handleSave} 
-          isLoading={isSubmitting}
-          className="shadow-2xl shadow-blue-500/30 h-14 px-8 text-base rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 border-0"
-        >
-          Save Configuration
-        </Button>
+        {isSuperAdmin && (
+          <Button 
+            variant="primary" 
+            icon={<Save className="w-5 h-5" />} 
+            onClick={handleSave} 
+            isLoading={isSubmitting}
+            className="shadow-2xl shadow-blue-500/30 h-14 px-8 text-base rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 border-0"
+          >
+            Save Configuration
+          </Button>
+        )}
       </div>
 
       {/* ── SUBSCRIPTION PLAN BANNER ─────────────────────────── */}
@@ -186,6 +192,7 @@ export const ModuleManagementPage: React.FC = () => {
             {PLAN_TIERS.map(tier => (
               <button
                 key={tier.id}
+                disabled={!isSuperAdmin}
                 onClick={() => {
                   setSelectedRoles([...tier.roles]);
                 }}
@@ -193,7 +200,8 @@ export const ModuleManagementPage: React.FC = () => {
                   "px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 border",
                   currentPlan.id === tier.id
                     ? "bg-white text-slate-900 border-white shadow-xl"
-                    : "bg-white/10 text-white/80 border-white/10 hover:bg-white/20"
+                    : "bg-white/10 text-white/80 border-white/10 hover:bg-white/20",
+                  !isSuperAdmin && "cursor-default opacity-80"
                 )}
               >
                 {tier.name}
@@ -373,34 +381,36 @@ export const ModuleManagementPage: React.FC = () => {
       </div>
 
       {/* ── FLOATING STATUS BAR ───────────────────────────────── */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4 pointer-events-none">
-        <Card className="p-5 bg-slate-900/90 backdrop-blur-xl text-white border-0 shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-[2.5rem] flex items-center justify-between pointer-events-auto border-t border-white/10">
-           <div className="flex items-center gap-6 pl-4">
-              <div className="flex flex-col">
-                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 opacity-80">Subscription Plan</span>
-                 <h2 className="text-xl font-black tracking-tight leading-none">
-                    {currentPlan.name} <span className="text-slate-500 font-medium text-sm ml-1">&bull; {selectedRoles.length} Portals</span>
-                 </h2>
-              </div>
-              <div className="h-10 w-px bg-white/10 hidden md:block" />
-              <div className="hidden md:flex flex-col">
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{selectedModules.length} Modules Active</span>
-                   <div className="flex items-center gap-2 text-slate-400 mt-0.5">
-                      <ShieldCheck className="w-4 h-4" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Licensed v2.1</span>
-                   </div>
-              </div>
-           </div>
-           <Button 
-              variant="primary" 
-              onClick={handleSave} 
-              isLoading={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-500 text-white border-0 px-10 h-14 rounded-[1.5rem] shadow-xl shadow-blue-500/20 font-black uppercase tracking-widest text-xs"
-           >
-              Confirm Deployment
-           </Button>
-        </Card>
-      </div>
+      {isSuperAdmin && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4 pointer-events-none">
+          <Card className="p-5 bg-slate-900/90 backdrop-blur-xl text-white border-0 shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-[2.5rem] flex items-center justify-between pointer-events-auto border-t border-white/10">
+             <div className="flex items-center gap-6 pl-4">
+                <div className="flex flex-col">
+                   <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 opacity-80">Subscription Plan</span>
+                   <h2 className="text-xl font-black tracking-tight leading-none">
+                      {currentPlan.name} <span className="text-slate-500 font-medium text-sm ml-1">&bull; {selectedRoles.length} Portals</span>
+                   </h2>
+                </div>
+                <div className="h-10 w-px bg-white/10 hidden md:block" />
+                <div className="hidden md:flex flex-col">
+                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{selectedModules.length} Modules Active</span>
+                     <div className="flex items-center gap-2 text-slate-400 mt-0.5">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Licensed v2.1</span>
+                     </div>
+                </div>
+             </div>
+             <Button 
+                variant="primary" 
+                onClick={handleSave} 
+                isLoading={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-500 text-white border-0 px-10 h-14 rounded-[1.5rem] shadow-xl shadow-blue-500/20 font-black uppercase tracking-widest text-xs"
+             >
+                Confirm Deployment
+             </Button>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
