@@ -1,6 +1,6 @@
 import prisma from '../config/prisma';
 
-export type EntityType = 'student' | 'teacher' | 'staff' | 'parent' | 'notice' | 'exam' | 'subject';
+export type EntityType = 'student' | 'teacher' | 'staff' | 'parent' | 'notice' | 'exam' | 'subject' | 'class';
 
 export class ArchiveService {
   static async moveToArchive(type: EntityType, id: string, deletedBy?: string) {
@@ -53,6 +53,17 @@ export class ArchiveService {
           record = await tx.notice.findUnique({ where: { id } });
           name = record?.title || name;
           break;
+        case 'class':
+          record = await tx.class.findUnique({ 
+            where: { id },
+            include: { sections: true, subjects: true, students: true }
+          });
+          name = record?.name || name;
+          break;
+        case 'subject':
+          record = await tx.subject.findUnique({ where: { id } });
+          name = record?.name || name;
+          break;
       }
 
       if (!record) throw new Error(`${type} record not found`);
@@ -97,6 +108,13 @@ export class ArchiveService {
           break;
         case 'notice':
           await tx.notice.delete({ where: { id } });
+          break;
+        case 'class':
+          // We only delete the class itself, Prisma might prevent deletion if students exist
+          await tx.class.delete({ where: { id } });
+          break;
+        case 'subject':
+          await tx.subject.delete({ where: { id } });
           break;
       }
 
@@ -164,6 +182,14 @@ export class ArchiveService {
 
         case 'notice':
           await tx.notice.create({ data: { ...data } });
+          break;
+        case 'class':
+          const { sections: clsSections, subjects: clsSubjects, students: clsStudents, ...classData } = data;
+          await tx.class.create({ data: classData });
+          if (clsSections) await tx.section.createMany({ data: clsSections });
+          break;
+        case 'subject':
+          await tx.subject.create({ data: { ...data } });
           break;
       }
 

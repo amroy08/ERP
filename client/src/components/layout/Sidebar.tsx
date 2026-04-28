@@ -92,7 +92,6 @@ const navItems: NavItem[] = [
     children: [
       { label: 'School Setup', href: '/settings' },
       { label: 'Module Licensing', href: '/settings/modules', roles: ['super_admin'] },
-      { label: 'System Archive', href: '/settings/archive', roles: ['super_admin'] },
       { label: 'Permissions', href: '/roles' },
     ],
     permission: 'settings:view',
@@ -102,6 +101,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Schools & Institutes', href: '/super-admin/schools' },
       { label: 'Module Licensing', href: '/settings/modules' },
+      { label: 'System Archive', href: '/settings/archive' },
     ],
     roles: ['super_admin'],
   },
@@ -264,9 +264,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
         {!isCollapsed && (
           <div className="overflow-hidden">
             <div className="text-slate-900 font-extrabold text-[15px] uppercase tracking-wider leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
-              {school?.name || 'School ERP'}
+              {user?.role === 'super_admin' && !scopedSchoolId ? 'Vantage ERP' : (school?.name || 'School ERP')}
             </div>
-            <div className="text-blue-600/60 text-[10px] font-black uppercase tracking-[0.2em] mt-0.5">Academic Core</div>
+            <div className="text-blue-600/60 text-[10px] font-black uppercase tracking-[0.2em] mt-0.5">
+              {user?.role === 'super_admin' && !scopedSchoolId ? 'Global Platform' : 'Academic Core'}
+            </div>
           </div>
         )}
       </div>

@@ -142,12 +142,16 @@ export const DashboardPage: React.FC = () => {
                   </p>
                 )}
             </div>
-            <div className="flex items-center gap-4">
-               {isAdmin && (
-                 <Link to="/admissions/new" className="h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 active:scale-95">
-                    <UserPlus className="w-5 h-5" /> Enlist Student
-                 </Link>
-               )}
+             <div className="flex items-center gap-4">
+                {user?.role === 'super_admin' && !scopedSchoolId ? (
+                  <Link to="/super-admin/schools" className="h-14 px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/20 flex items-center gap-2 active:scale-95">
+                     <School className="w-5 h-5" /> Manage Schools
+                  </Link>
+                ) : isAdmin && (
+                  <Link to="/admissions/new" className="h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 active:scale-95">
+                     <UserPlus className="w-5 h-5" /> Enlist Student
+                  </Link>
+                )}
                <button className="w-14 h-14 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-white/20 transition-all text-white relative flex items-center justify-center">
                   <Bell className="w-6 h-6" />
                   <span className="absolute top-4 right-4 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-indigo-950 animate-pulse"></span>

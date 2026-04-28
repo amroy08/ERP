@@ -91,11 +91,23 @@ export const ArchivePage: React.FC = () => {
     { 
       key: 'entityType', 
       label: 'Type',
-      render: (val: any) => (
-        <Badge variant={val === 'student' ? 'info' : val === 'teacher' ? 'warning' : 'secondary'} className="capitalize">
-          {String(val)}
-        </Badge>
-      )
+      render: (val: any) => {
+        const typeVariants: any = {
+          student: 'info',
+          teacher: 'warning',
+          staff: 'purple',
+          parent: 'orange',
+          notice: 'pink',
+          class: 'teal',
+          subject: 'cyan',
+          exam: 'emerald'
+        };
+        return (
+          <Badge variant={typeVariants[String(val)] || 'secondary'} className="capitalize">
+            {String(val)}
+          </Badge>
+        );
+      }
     },
     { 
       key: 'deletedAt', 
@@ -173,7 +185,7 @@ export const ArchivePage: React.FC = () => {
             />
           </div>
           <div className="flex gap-2">
-             {['all', 'student', 'teacher', 'staff', 'parent', 'notice'].map(type => (
+             {['all', 'student', 'teacher', 'staff', 'parent', 'notice', 'class', 'subject'].map(type => (
                <button
                  key={type}
                  onClick={() => setFilterType(type)}

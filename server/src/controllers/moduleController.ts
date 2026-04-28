@@ -716,11 +716,10 @@ export const updateClass = async (req: Request, res: Response, next: NextFunctio
   } catch (error) { next(error); }
 };
 
-export const deleteClass = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
-    await prisma.class.delete({ where: { id: id as string } });
-    res.json({ success: true, message: 'Class deleted successfully' });
+    const result = await ArchiveService.moveToArchive('class', req.params.id as string, req.user?.id);
+    res.json({ success: true, message: `Class ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
 
@@ -760,11 +759,10 @@ export const updateSubject = async (req: Request, res: Response, next: NextFunct
   } catch (error) { next(error); }
 };
 
-export const deleteSubject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteSubject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
-    await prisma.subject.delete({ where: { id: id as string } });
-    res.json({ success: true, message: 'Subject deleted successfully' });
+    const result = await ArchiveService.moveToArchive('subject', req.params.id as string, req.user?.id);
+    res.json({ success: true, message: `Subject ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
 
