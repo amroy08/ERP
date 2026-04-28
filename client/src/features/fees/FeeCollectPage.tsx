@@ -294,7 +294,7 @@ export const FeeCollectPage: React.FC = () => {
                                 </p>
                                 <p className="text-sm font-bold text-slate-800">{s.name}</p>
                              </div>
-                             <p className="text-base font-black text-slate-800 group-hover:text-blue-600">₹{(s.totalAmount || 0).toLocaleString('en-IN')}</p>
+                             <p className="text-base font-black text-slate-800 group-hover:text-blue-600">₹{(s.effectiveAmount ?? s.totalAmount ?? 0).toLocaleString('en-IN')}</p>
                           </div>
                        ))}
                     </div>

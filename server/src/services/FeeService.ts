@@ -62,7 +62,11 @@ export class FeeService {
   }
 
   static async recordPayment(data: any & { collectedBy: string }) {
-    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+    // Inherit schoolId from student first
+    const student = await prisma.student.findUnique({ where: { id: data.studentId }, select: { schoolId: true } });
+    if (!student) throw createError('Student record not found', 404);
+
+    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, schoolId: student.schoolId } });
     if (!academicYear) throw createError('No active academic year', 400);
 
     // Make feeStructure optional
@@ -93,6 +97,9 @@ export class FeeService {
     }
     const receiptNumber = `RCP-${new Date().getFullYear()}-${String(nextNum).padStart(5, '0')}`;
 
+
+
+
     return await prisma.feePayment.create({
       data: {
         amountPaid,
@@ -101,8 +108,10 @@ export class FeeService {
         receiptNumber,
         remarks: data.remarks || '',
         status: 'completed',
-        academicYearId: academicYear.id
+        academicYearId: academicYear.id,
+        schoolId: student.schoolId
       }
     });
+
   }
 }

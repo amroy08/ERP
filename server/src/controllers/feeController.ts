@@ -51,7 +51,7 @@ export const createFeeStructure = async (req: AuthRequest, res: Response, next: 
         academicYearId: academicYear.id,
         components,
         totalAmount,
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       },
       include: { class: { select: { name: true } } }
     });
@@ -126,7 +126,7 @@ export const collectFee = async (req: AuthRequest, res: Response, next: NextFunc
     const payment = await FeeService.recordPayment({
       ...req.body,
       collectedBy: req.user!.id as string,
-      schoolId: req.user?.schoolId
+      schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
     });
     
     const populated = await prisma.feePayment.findFirst({
@@ -193,7 +193,7 @@ export const addStudentFee = async (req: AuthRequest, res: Response, next: NextF
         customAmount: customAmount ? parseFloat(customAmount) : null,
         academicYearId: academicYear?.id || null,
         status: 'pending',
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       },
       include: { feeStructure: { select: { name: true, totalAmount: true } } }
     });

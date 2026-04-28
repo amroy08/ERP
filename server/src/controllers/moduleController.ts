@@ -290,7 +290,7 @@ export const createStaff = async (req: AuthRequest, res: Response, next: NextFun
           role: 'clerk',
           phone: phone,
           isActive: status === 'active',
-          schoolId: req.user?.schoolId
+          schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
         }
       });
 
@@ -312,7 +312,7 @@ export const createStaff = async (req: AuthRequest, res: Response, next: NextFun
           designation: role,
           joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
           status: status || 'active',
-          schoolId: req.user?.schoolId
+          schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
         }
       });
 
@@ -483,7 +483,7 @@ export const createNotice = async (req: AuthRequest, res: Response, next: NextFu
         type: type || (req.file ? 'file' : 'text'),
         fileUrl,
         createdBy: req.user!.id,
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
     res.status(201).json({ success: true, data: notice });
@@ -601,7 +601,7 @@ export const getAdmission = async (req: Request, res: Response, next: NextFuncti
 
 export const createAdmission = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, ...getSchoolScope(req) } });
     if (!academicYear) { next(createError('No active academic year', 400)); return; }
     
     // Generate application number
@@ -616,7 +616,7 @@ export const createAdmission = async (req: AuthRequest, res: Response, next: Nex
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(),
         applicationNo,
         academicYearId: academicYear.id,
-        schoolId: req.user?.schoolId,
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId,
         assignedFees: feeAssignments && feeAssignments.length > 0 ? {
           create: feeAssignments.map((fa: { feeStructureId: string; amount: number }) => ({ 
             feeStructureId: fa.feeStructureId,
@@ -663,7 +663,8 @@ export const convertAdmissionToStudent = async (req: AuthRequest, res: Response,
 export const getClasses = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authUser = req.user!;
-    const where: any = {};
+    const scope = getSchoolScope(req);
+    const where: any = { ...scope };
 
     if (authUser.role === 'teacher') {
       const teacher = await prisma.teacher.findUnique({
@@ -694,27 +695,32 @@ export const getClasses = async (req: AuthRequest, res: Response, next: NextFunc
   } catch (error) { next(error); }
 };
 
+
 export const createClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+    const scope = getSchoolScope(req) as any;
+    const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, ...scope } });
     if (!academicYear) { next(createError('No active academic year', 400)); return; }
+    
     const cls = await prisma.class.create({ 
-      data: { ...req.body, schoolId: req.user?.schoolId }
+      data: { ...req.body, schoolId: scope.schoolId || req.user?.schoolId }
     });
     res.status(201).json({ success: true, data: cls });
   } catch (error) { next(error); }
 };
 
-export const updateClass = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+export const updateClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const cls = await prisma.class.update({
-      where: { id: id as string },
+      where: { id: id as string, ...getSchoolScope(req) },
       data: req.body
     });
     res.json({ success: true, data: cls });
   } catch (error) { next(error); }
 };
+
 
 export const deleteClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -984,40 +990,83 @@ export const updateSchoolSettings = async (req: AuthRequest, res: Response, next
 // ── Academic Years ────────────────────────────────────
 
 
-export const getAcademicYears = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getAcademicYears = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const years = await prisma.academicYear.findMany({
+      where: getSchoolScope(req),
       orderBy: { startDate: 'desc' }
     });
     res.json({ success: true, data: years });
   } catch (error) { next(error); }
 };
 
-export const createAcademicYear = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+export const createAcademicYear = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const year = await prisma.academicYear.create({
-      data: req.body
+    const scope = getSchoolScope(req) as any;
+    const { isCurrent, ...rest } = req.body;
+
+    const year = await prisma.$transaction(async (tx) => {
+      if (isCurrent) {
+        await tx.academicYear.updateMany({
+          where: { schoolId: scope.schoolId || req.user?.schoolId },
+          data: { isCurrent: false }
+        });
+      }
+      return await tx.academicYear.create({
+        data: {
+          ...rest,
+          isCurrent,
+          schoolId: scope.schoolId || req.user?.schoolId
+        }
+      });
     });
+
     res.status(201).json({ success: true, data: year });
   } catch (error) { next(error); }
 };
 
-export const updateAcademicYear = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+export const updateAcademicYear = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const year = await prisma.academicYear.update({
-      where: { id: req.params.id as string },
-      data: req.body
+    const scope = getSchoolScope(req) as any;
+    const { isCurrent, ...rest } = req.body;
+
+    const year = await prisma.$transaction(async (tx) => {
+      if (isCurrent) {
+        await tx.academicYear.updateMany({
+          where: { schoolId: scope.schoolId || req.user?.schoolId },
+          data: { isCurrent: false }
+        });
+      }
+      return await tx.academicYear.update({
+        where: { 
+          id: req.params.id as string,
+          ...scope
+        },
+        data: {
+          ...rest,
+          isCurrent
+        }
+      });
     });
+
     res.json({ success: true, data: year });
   } catch (error) { next(error); }
 };
+
+
 
 // ── Sections ──────────────────────────────────────────
 export const getSections = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { classId } = req.query as Record<string, string>;
     const authUser = req.user!;
-    const where: any = classId ? { classId: classId } : {};
+    const scope = getSchoolScope(req);
+    const where: any = { 
+      ...scope,
+      ...(classId ? { classId: classId } : {})
+    };
 
     if (authUser.role === 'teacher') {
       const teacher = await prisma.teacher.findUnique({
@@ -1035,7 +1084,6 @@ export const getSections = async (req: AuthRequest, res: Response, next: NextFun
         
         const allAllowedClassIds = Array.from(new Set([...assignedClassIds, ...subjectClassIds]));
         
-        // If a class is provided, further filter; otherwise show everything they lead or teach in
         where.OR = [
             { classId: { in: allAllowedClassIds } },
             { id: { in: sectionTeacherIds } }
@@ -1050,6 +1098,7 @@ export const getSections = async (req: AuthRequest, res: Response, next: NextFun
     res.json({ success: true, data: sections });
   } catch (error) { next(error); }
 };
+
 
 export const getSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -1073,25 +1122,31 @@ export const getSection = async (req: Request, res: Response, next: NextFunction
   } catch (error) { next(error); }
 };
 
-export const createSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const scope = getSchoolScope(req) as any;
     const section = await prisma.section.create({
-      data: { ...req.body, schoolId: (req as any).user?.schoolId }
+      data: { 
+        ...req.body, 
+        schoolId: scope.schoolId || req.user?.schoolId 
+      }
     });
     res.status(201).json({ success: true, data: section });
   } catch (error) { next(error); }
 };
 
-export const updateSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+export const updateSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const section = await prisma.section.update({
-      where: { id: id as string },
+      where: { id: id as string, ...getSchoolScope(req) },
       data: req.body
     });
     res.json({ success: true, data: section });
   } catch (error) { next(error); }
 };
+
 
 export const deleteSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -1179,7 +1234,7 @@ export const createHomework = async (req: AuthRequest, res: Response, next: Next
         assignedById: teacher.id,
         assignedDate: req.body.assignedDate || new Date(),
         dueDate: new Date(req.body.dueDate),
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
     res.status(201).json({ success: true, data: homework });
@@ -1254,7 +1309,7 @@ export const createTimetable = async (req: AuthRequest, res: Response, next: Nex
 
     // Resolve current academic year if needed
     if (academicYearId === 'current' || !academicYearId) {
-      const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+      const currentYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, ...getSchoolScope(req) } });
       academicYearId = currentYear?.id || "";
     }
 
@@ -1277,7 +1332,7 @@ export const createTimetable = async (req: AuthRequest, res: Response, next: Nex
         academicYearId,
         fileUrl,
         notes,
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
 

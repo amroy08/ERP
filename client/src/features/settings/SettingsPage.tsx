@@ -6,6 +6,9 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Tabs } from '../../components/common/Tabs';
 import { Badge } from '../../components/common/Badge';
+import { Modal } from '../../components/common/Modal';
+import { Select } from '../../components/common/Select';
+
 import axiosInstance from '../../api/axiosInstance';
 import { School, AcademicYear, ApiResponse } from '../../types';
 import { format } from 'date-fns';
@@ -17,6 +20,9 @@ export const SettingsPage: React.FC = () => {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showYearModal, setShowYearModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<Partial<AcademicYear> | null>(null);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +56,31 @@ export const SettingsPage: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  const handleYearSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedYear) return;
+    setIsSaving(true);
+    try {
+      if (selectedYear.id) {
+        await axiosInstance.put(`/academic-years/${selectedYear.id}`, selectedYear);
+        toast.success('Academic year updated');
+      } else {
+        await axiosInstance.post('/academic-years', selectedYear);
+        toast.success('New academic year created');
+      }
+      
+      const yearsRes = await axiosInstance.get<ApiResponse<AcademicYear[]>>('/academic-years');
+      setAcademicYears(yearsRes.data.data);
+      setShowYearModal(false);
+      setSelectedYear(null);
+    } catch (err) {
+      toast.error('Failed to save academic year');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -167,8 +198,19 @@ export const SettingsPage: React.FC = () => {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Academic Year History</h3>
-                <Button size="sm" variant="secondary" icon={<Plus className="w-4 h-4" />}>Add New Year</Button>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={() => {
+                    setSelectedYear({ name: '', startDate: new Date().toISOString(), endDate: new Date().toISOString(), isCurrent: false });
+                    setShowYearModal(true);
+                  }}
+                >
+                  Add New Year
+                </Button>
               </div>
+
               
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-sm text-left">
@@ -195,10 +237,19 @@ export const SettingsPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button className="text-blue-600 font-semibold hover:underline">Edit</button>
+                          <button 
+                            onClick={() => {
+                              setSelectedYear(year);
+                              setShowYearModal(true);
+                            }}
+                            className="text-blue-600 font-semibold hover:underline"
+                          >
+                            Edit
+                          </button>
                         </td>
                       </tr>
                     ))}
+
                     {academicYears.length === 0 && (
                       <tr>
                         <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
@@ -250,6 +301,53 @@ export const SettingsPage: React.FC = () => {
           )}
         </div>
       </Card>
+      
+      {/* Academic Year Modal */}
+      <Modal 
+        isOpen={showYearModal} 
+        onClose={() => setShowYearModal(false)}
+        title={selectedYear?.id ? 'Edit Academic Year' : 'Add New Academic Year'}
+      >
+        <form onSubmit={handleYearSubmit} className="space-y-4">
+          <Input 
+            label="Session Name (e.g., 2026-27)" 
+            value={selectedYear?.name || ''} 
+            onChange={e => setSelectedYear(prev => ({ ...prev!, name: e.target.value }))}
+            required
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Start Date" 
+              type="date"
+              value={selectedYear?.startDate ? format(new Date(selectedYear.startDate), 'yyyy-MM-dd') : ''} 
+              onChange={e => setSelectedYear(prev => ({ ...prev!, startDate: new Date(e.target.value).toISOString() }))}
+              required
+            />
+            <Input 
+              label="End Date" 
+              type="date"
+              value={selectedYear?.endDate ? format(new Date(selectedYear.endDate), 'yyyy-MM-dd') : ''} 
+              onChange={e => setSelectedYear(prev => ({ ...prev!, endDate: new Date(e.target.value).toISOString() }))}
+              required
+            />
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+            <input 
+              type="checkbox" 
+              id="isCurrent"
+              checked={selectedYear?.isCurrent || false}
+              onChange={e => setSelectedYear(prev => ({ ...prev!, isCurrent: e.target.checked }))}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="isCurrent" className="text-sm font-medium text-slate-700">Set as Current Active Session</label>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowYearModal(false)}>Cancel</Button>
+            <Button type="submit" isLoading={isSaving}>Save Session</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
+
   );
 };

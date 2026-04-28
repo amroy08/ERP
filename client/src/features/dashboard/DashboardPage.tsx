@@ -4,7 +4,7 @@ import {
   Bell, TrendingUp, Calendar, DollarSign, ChevronRight,
   Clock, BookOpen, CreditCard, Award, HelpCircle, Activity,
   FileText, Bus, Settings, ArrowRight, ShieldCheck, Heart, School, Wallet,
-  Megaphone, CheckCircle, AlertTriangle, UserPlus, Layers, Compass
+  Megaphone, CheckCircle, AlertTriangle, UserPlus, Layers, Compass, Building2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -138,14 +138,14 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-blue-100/60 font-medium text-lg flex items-center gap-2 mt-2">
-                    <Calendar className="w-5 h-5 opacity-60" /> {todayStr} <span className="opacity-40">|</span> {new Date().getMonth() + 1 >= 4 ? `${new Date().getFullYear()}-${(new Date().getFullYear() + 1).toString().slice(-2)}` : `${new Date().getFullYear() - 1}-${new Date().getFullYear().toString().slice(-2)}`} Session
+                    <Layers className="w-5 h-5 opacity-60" /> Platform Governance Console <span className="opacity-40">|</span> {todayStr}
                   </p>
                 )}
             </div>
              <div className="flex items-center gap-4">
                 {user?.role === 'super_admin' && !scopedSchoolId ? (
                   <Link to="/super-admin/schools" className="h-14 px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/20 flex items-center gap-2 active:scale-95">
-                     <School className="w-5 h-5" /> Manage Schools
+                     <Building2 className="w-5 h-5" /> All Schools
                   </Link>
                 ) : isAdmin && (
                   <Link to="/admissions/new" className="h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 active:scale-95">
@@ -164,11 +164,21 @@ export const DashboardPage: React.FC = () => {
       {isAdmin && stats?.stats && (
         <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center gap-4">
-             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] pl-1">Institutional Metrics</h2>
+             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] pl-1">
+               {user?.role === 'super_admin' && !scopedSchoolId ? 'Platform Governance Metrics' : 'Institutional Metrics'}
+             </h2>
              <div className="h-px bg-slate-100 flex-1" />
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+            {user?.role === 'super_admin' && !scopedSchoolId && (
+              <StatCard 
+                title="Active Schools" value={stats.stats.totalSchools || 0} 
+                icon={<Building2 className="w-6 h-6 text-indigo-600" />} iconBg="bg-indigo-50" 
+                onClick={() => navigate('/super-admin/schools')}
+                className="rounded-[2rem] border-slate-100 hover:border-indigo-200 transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/5 group"
+              />
+            )}
             <StatCard 
               title="Global Enrollment" value={stats.stats.totalStudents} 
               icon={<GraduationCap className="w-6 h-6 text-blue-600" />} iconBg="bg-blue-50" 

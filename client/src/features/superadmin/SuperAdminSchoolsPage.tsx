@@ -46,7 +46,7 @@ interface SchoolData {
   adminUser?: { id: string; name: string; email: string; lastLogin?: string } | null;
 }
 
-const DEFAULT_MODULES = ['attendance','homework','exams','timetable','fees','notices','library','inventory','transport','admissions'];
+const DEFAULT_MODULES = ['attendance','homework','exams','timetable','fees','notices','transport','admissions'];
 
 export const SuperAdminSchoolsPage: React.FC = () => {
   const [schools, setSchools] = useState<SchoolData[]>([]);

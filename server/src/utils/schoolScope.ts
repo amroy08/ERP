@@ -13,11 +13,16 @@ export const getSchoolScope = (req: AuthRequest) => {
   if (user.role === 'super_admin') {
     const scopedId = req.headers['x-school-id'];
     if (scopedId && typeof scopedId === 'string') {
+      console.log(`[SchoolScope] SuperAdmin Scoped to: ${scopedId}`);
       return { schoolId: scopedId };
     }
+    console.log('[SchoolScope] SuperAdmin Global View');
     return {};
   }
 
   // Strict scope for all other roles
-  return { schoolId: user.schoolId };
+  const result = { schoolId: user.schoolId };
+  console.log(`[SchoolScope] Resolved for ${user.role}:`, result);
+  return result;
 };
+

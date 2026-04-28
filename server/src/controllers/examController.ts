@@ -73,7 +73,7 @@ export const createExam = async (req: AuthRequest, res: Response, next: NextFunc
         description,
         fileUrl,
         status: 'scheduled',
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
     res.status(201).json({ success: true, data: exam });

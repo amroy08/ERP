@@ -26,7 +26,7 @@ export const createLeaveRequest = async (req: AuthRequest, res: Response, next: 
         endDate: new Date(endDate),
         reason,
         status: 'pending',
-        schoolId: req.user?.schoolId
+        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
 

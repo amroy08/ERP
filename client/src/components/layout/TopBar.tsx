@@ -5,9 +5,10 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/store';
-import { logout } from '../../features/auth/authSlice';
+import { logout, setSchoolScope } from '../../features/auth/authSlice';
 import axiosInstance from '../../api/axiosInstance';
 import { clsx } from 'clsx';
+
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -20,6 +21,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
   const user = useSelector((state: RootState) => state.auth.user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { scopedSchoolId, scopedSchoolName } = useSelector((state: RootState) => state.auth);
+
+
 
   const handleLogout = async () => {
     try {
@@ -83,6 +87,27 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
+
+        {/* Impersonation Mode Badge */}
+        {user?.role === 'super_admin' && scopedSchoolId && (
+          <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl animate-pulse">
+            <div className="w-2 h-2 bg-amber-500 rounded-full" />
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-none">Impersonating</span>
+              <span className="text-sm font-bold text-slate-800 leading-tight">{scopedSchoolName}</span>
+            </div>
+            <button 
+              onClick={() => {
+                dispatch(setSchoolScope(null));
+                navigate('/dashboard');
+              }}
+              className="ml-2 p-1.5 hover:bg-amber-100 text-amber-600 rounded-lg transition-colors"
+              title="Exit school context"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Profile Dropdown */}
         <div className="relative">

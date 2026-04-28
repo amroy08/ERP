@@ -168,10 +168,13 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
         data: classFees.map(cf => ({
           studentId: student.id,
           feeStructureId: cf.id,
-          customAmount: null
+          customAmount: null,
+          academicYearId: student.academicYearId,
+          schoolId
         }))
       });
     }
+
 
     await createLog(student.id, 'ENROLLMENT', `Student record and user account created. ${classFees.length} fees assigned.`);
 
@@ -296,9 +299,10 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
           OR: [{ classId: newClassId }, { classId: null }],
           isActive: true,
           name: { not: 'Previous Dues' },
-          schoolId: req.user?.schoolId
+          ...getSchoolScope(req)
         }
       });
+
 
       if (newClassFees.length > 0) {
         await tx.studentFee.createMany({
@@ -307,14 +311,16 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
             feeStructureId: cf.id,
             academicYearId: academicYear.id,
             status: 'pending',
-            schoolId: req.user?.schoolId
+            schoolId: cf.schoolId || req.user?.schoolId
           }))
         });
+
       }
 
       // 5. Add Previous Dues if there is any outstanding balance
       if (totalOutstanding > 0) {
-        let prevDues = await tx.feeStructure.findFirst({ where: { name: 'Previous Dues', schoolId: req.user?.schoolId } });
+        const scope = getSchoolScope(req) as any;
+        let prevDues = await tx.feeStructure.findFirst({ where: { name: 'Previous Dues', ...scope } });
         if (!prevDues) {
           prevDues = await tx.feeStructure.create({
             data: {
@@ -322,10 +328,11 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
               description: 'Balance carried forward from previous session',
               totalAmount: 0,
               isActive: true,
-              schoolId: req.user?.schoolId
+              schoolId: scope.schoolId || req.user?.schoolId
             }
           });
         }
+
         await tx.studentFee.create({
           data: {
             studentId,
@@ -333,9 +340,10 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
             customAmount: totalOutstanding,
             academicYearId: academicYear.id,
             status: 'pending',
-            schoolId: req.user?.schoolId
+            schoolId: prevDues.schoolId || req.user?.schoolId
           }
         });
+
       }
 
       return updated;
@@ -444,7 +452,8 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
       return;
     }
 
-    const schoolId = req.user?.schoolId;
+    const scope = getSchoolScope(req) as any;
+    const schoolId = scope.schoolId || req.user?.schoolId;
     const results = { success: 0, failed: 0, errors: [] as string[] };
     const hashedPassword = await bcrypt.hash('Student@123', 10);
 
@@ -603,10 +612,12 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
               studentId: student.id,
               feeStructureId: cf.id,
               customAmount: null, // Use default from structure
+              academicYearId: academicYear.id,
               schoolId
             }))
           });
         }
+
 
         await createLog(student.id, 'IMPORT', `Imported via Excel upload to ${className}. ${classFees.length} fee structures assigned.`);
         results.success++;
