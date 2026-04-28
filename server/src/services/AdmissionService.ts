@@ -6,7 +6,8 @@ export class AdmissionService {
   static async convertToStudent(
     admissionId: string, 
     createdBy: string,
-    options: { classId?: string; sectionId?: string } = {}
+    options: { classId?: string; sectionId?: string } = {},
+    schoolId?: string
   ) {
     return await prisma.$transaction(async (tx) => {
       // 1. Fetch admission details
@@ -31,7 +32,8 @@ export class AdmissionService {
             email: parentEmail,
             password: hashedParentPassword,
             role: 'parent',
-            phone: admission.fatherPhone || admission.parentPhone
+            phone: admission.fatherPhone || admission.parentPhone,
+            schoolId: schoolId || admission.schoolId
           }
         });
       }
@@ -46,6 +48,7 @@ export class AdmissionService {
             motherName: admission.motherName || '',
             motherPhone: admission.motherPhone || '',
             address: admission.address || 'Address to be updated',
+            schoolId: schoolId || admission.schoolId
           }
         });
       }
@@ -60,7 +63,8 @@ export class AdmissionService {
           name: `${admission.firstName} ${admission.lastName}`,
           email: studentEmail,
           password: hashedStudentPassword,
-          role: 'student'
+          role: 'student',
+          schoolId: schoolId || admission.schoolId
         }
       });
 
@@ -79,7 +83,8 @@ export class AdmissionService {
           academicYearId: admission.academicYearId,
           aadhaarNumber: admission.aadhaarNumber || null,
           previousSchool: admission.previousSchool || null,
-          status: 'active'
+          status: 'active',
+          schoolId: schoolId || admission.schoolId
         }
       });
 
@@ -93,7 +98,8 @@ export class AdmissionService {
           data: admissionFees.map(af => ({
             studentId: student.id,
             feeStructureId: af.feeStructureId,
-            customAmount: af.customAmount
+            customAmount: af.customAmount,
+            schoolId: schoolId || admission.schoolId
           }))
         });
       }

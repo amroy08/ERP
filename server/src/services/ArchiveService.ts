@@ -3,16 +3,18 @@ import prisma from '../config/prisma';
 export type EntityType = 'student' | 'teacher' | 'staff' | 'parent' | 'notice' | 'exam' | 'subject' | 'class';
 
 export class ArchiveService {
-  static async moveToArchive(type: EntityType, id: string, deletedBy?: string) {
+  static async moveToArchive(type: EntityType, id: string, deletedBy?: string, schoolId?: string) {
     return await prisma.$transaction(async (tx) => {
       let record: any = null;
       let name = 'Unknown';
 
+      const scope = schoolId ? { schoolId } : {};
+
       // 1. Fetch record with relations
       switch (type) {
         case 'student':
-          record = await tx.student.findUnique({
-            where: { id },
+          record = await tx.student.findFirst({
+            where: { id, ...scope },
             include: { 
               user: true, 
               parent: true, 
@@ -29,39 +31,39 @@ export class ArchiveService {
           name = record?.fullName || name;
           break;
         case 'teacher':
-          record = await tx.teacher.findUnique({
-            where: { id },
+          record = await tx.teacher.findFirst({
+            where: { id, ...scope },
             include: { user: true, assignedClasses: true, classTeacherOf: true, subjects: true }
           });
           name = record?.user?.name || name;
           break;
         case 'staff':
-          record = await tx.staff.findUnique({
-            where: { id },
+          record = await tx.staff.findFirst({
+            where: { id, ...scope },
             include: { user: true }
           });
           name = record?.user?.name || name;
           break;
         case 'parent':
-          record = await tx.parent.findUnique({
-            where: { id },
+          record = await tx.parent.findFirst({
+            where: { id, ...scope },
             include: { user: true, children: true }
           });
           name = record?.fatherName || name;
           break;
         case 'notice':
-          record = await tx.notice.findUnique({ where: { id } });
+          record = await tx.notice.findFirst({ where: { id, ...scope } });
           name = record?.title || name;
           break;
         case 'class':
-          record = await tx.class.findUnique({ 
-            where: { id },
+          record = await tx.class.findFirst({ 
+            where: { id, ...scope },
             include: { sections: true, subjects: true, students: true }
           });
           name = record?.name || name;
           break;
         case 'subject':
-          record = await tx.subject.findUnique({ where: { id } });
+          record = await tx.subject.findFirst({ where: { id, ...scope } });
           name = record?.name || name;
           break;
       }

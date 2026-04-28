@@ -102,10 +102,10 @@ export const getStudent = async (req: AuthRequest, res: Response, next: NextFunc
 export const createStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { rollNumber, firstName, lastName, dateOfBirth, gender, admissionNumber, classId, sectionId, parentId } = req.body;
-    const schoolId = req.user?.schoolId;
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
 
-    if (!schoolId && req.user?.role !== 'super_admin') {
-      return next(createError('School ID missing for user', 400));
+    if (!schoolId) {
+      return next(createError('School ID missing. Please select a school context.', 400));
     }
 
     // Create student record
@@ -176,7 +176,7 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
     }
 
 
-    await createLog(student.id, 'ENROLLMENT', `Student record and user account created. ${classFees.length} fees assigned.`);
+    await createLog(student.id, 'ENROLLMENT', `Student record and user account created. ${classFees.length} fees assigned.`, req.user?.name, schoolId);
 
     res.status(201).json({ success: true, data: student });
   } catch (error) { next(error); }
@@ -255,7 +255,8 @@ export const updateStudent = async (req: AuthRequest, res: Response, next: NextF
 
 export const deleteStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('student', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await ArchiveService.moveToArchive('student', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Student ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
@@ -264,6 +265,7 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
   try {
     const { newClassId, newSectionId } = req.body;
     const studentId = req.params.id as string;
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
 
     if (!newClassId || !newSectionId) {
       throw createError('Target Class and Section are required', 400);
@@ -311,7 +313,7 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
             feeStructureId: cf.id,
             academicYearId: academicYear.id,
             status: 'pending',
-            schoolId: cf.schoolId || req.user?.schoolId
+            schoolId: cf.schoolId || schoolId
           }))
         });
 
@@ -328,7 +330,7 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
               description: 'Balance carried forward from previous session',
               totalAmount: 0,
               isActive: true,
-              schoolId: scope.schoolId || req.user?.schoolId
+              schoolId: scope.schoolId || schoolId
             }
           });
         }
@@ -340,7 +342,7 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
             customAmount: totalOutstanding,
             academicYearId: academicYear.id,
             status: 'pending',
-            schoolId: prevDues.schoolId || req.user?.schoolId
+            schoolId: prevDues.schoolId || schoolId
           }
         });
 
@@ -353,7 +355,8 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
       result.id,
       'PROMOTION',
       `Promoted to ${result.class?.name} - ${result.section?.name}. New class fees assigned.${totalOutstanding > 0 ? ' Previous dues: Rs.' + totalOutstanding.toLocaleString() + '.' : ''}`,
-      req.user?.name
+      req.user?.name,
+      schoolId
     );
 
     res.json({ success: true, data: result });
@@ -619,7 +622,7 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
         }
 
 
-        await createLog(student.id, 'IMPORT', `Imported via Excel upload to ${className}. ${classFees.length} fee structures assigned.`);
+        await createLog(student.id, 'IMPORT', `Imported via Excel upload to ${className}. ${classFees.length} fee structures assigned.`, req.user?.name, schoolId);
         results.success++;
       } catch (err: any) {
         results.errors.push(`Row ${rowNum}: ${err.message || 'Unknown error'}`);

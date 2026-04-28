@@ -11,7 +11,8 @@ export const createLog = async (
   studentId: string, 
   action: string, 
   description?: string, 
-  performedBy?: string
+  performedBy?: string,
+  schoolId?: string
 ) => {
   try {
     await prisma.activityLog.create({
@@ -19,7 +20,8 @@ export const createLog = async (
         studentId,
         action: action.toUpperCase(),
         description,
-        performedBy
+        performedBy,
+        schoolId
       }
     });
   } catch (error) {

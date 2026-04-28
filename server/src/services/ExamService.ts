@@ -2,7 +2,7 @@ import prisma from '../config/prisma';
 import { createError } from '../middleware/errorHandler';
 
 export class ExamService {
-  static async submitResults(data: any) {
+  static async submitResults(data: any, schoolId?: string) {
     const exam = await prisma.exam.findUnique({
       where: { id: data.examId }
     });
@@ -35,7 +35,8 @@ export class ExamService {
             marksObtained: marksObtained,
             maxMarks: maxMarks,
             grade: res.grade,
-            remark: res.remark || ''
+            remark: res.remark || '',
+            schoolId: schoolId || exam.schoolId
           }
         });
       })

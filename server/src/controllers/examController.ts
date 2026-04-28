@@ -84,7 +84,8 @@ export const createExam = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const submitMarks = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const data = await ExamService.submitResults(req.body);
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const data = await ExamService.submitResults(req.body, schoolId);
     res.json({ success: true, data });
   } catch (error) {
     next(error);

@@ -89,7 +89,8 @@ export const createTeacher = async (req: AuthRequest, res: Response, next: NextF
       res.status(403).json({ success: false, message: licenseError });
       return;
     }
-    const result = await TeacherService.createTeacher(req.body, req.user?.schoolId || undefined);
+    const scopedSchoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await TeacherService.createTeacher(req.body, scopedSchoolId || undefined);
     res.status(201).json({ 
       success: true, 
       message: 'Teacher created successfully',
@@ -109,8 +110,8 @@ export const updateTeacher = async (req: Request, res: Response, next: NextFunct
     const teacherId = req.params.id;
 
     // Check if teacher exists to get userId
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { id: teacherId as string },
+    const existingTeacher = await prisma.teacher.findFirst({
+      where: { id: teacherId as string, ...getSchoolScope(req as any) },
       select: { userId: true }
     });
 
@@ -122,7 +123,7 @@ export const updateTeacher = async (req: Request, res: Response, next: NextFunct
     const updatedTeacher = await prisma.$transaction(async (tx) => {
       // 1. Update Teacher Record
       const t = await tx.teacher.update({
-        where: { id: teacherId as string },
+        where: { id: teacherId as string, ...getSchoolScope(req as any) },
         data: {
           employeeId,
           qualification,
@@ -164,15 +165,16 @@ export const updateTeacher = async (req: Request, res: Response, next: NextFunct
 
 export const deleteTeacher = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('teacher', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await ArchiveService.moveToArchive('teacher', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Teacher ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
 
 export const resetTeacherPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const teacher = await prisma.teacher.findUnique({
-      where: { id: req.params.id as string },
+    const teacher = await prisma.teacher.findFirst({
+      where: { id: req.params.id as string, ...getSchoolScope(req as any) },
       select: { userId: true }
     });
 
@@ -195,8 +197,8 @@ export const resetTeacherPassword = async (req: Request, res: Response, next: Ne
 
 export const resetStaffPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const staff = await prisma.staff.findUnique({
-      where: { id: req.params.id as string },
+    const staff = await prisma.staff.findFirst({
+      where: { id: req.params.id as string, ...getSchoolScope(req as any) },
       select: { userId: true }
     });
 
@@ -343,7 +345,8 @@ export const updateStaff = async (req: Request, res: Response, next: NextFunctio
 
 export const deleteStaff = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('staff', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req as any) as any).schoolId || (req as any).user?.schoolId;
+    const result = await ArchiveService.moveToArchive('staff', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Staff member ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
@@ -375,7 +378,8 @@ export const getParents = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const deleteParent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('parent', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await ArchiveService.moveToArchive('parent', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Guardian record for ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
@@ -385,7 +389,12 @@ export const getArchives = async (req: Request, res: Response, next: NextFunctio
   try {
     const { type } = req.query;
     const archives = await (prisma as any).archive.findMany({
-      where: type ? { entityType: type as string } : {},
+      where: {
+        AND: [
+          getSchoolScope(req),
+          type ? { entityType: type as string } : {}
+        ]
+      },
       orderBy: { deletedAt: 'desc' }
     });
     res.json({ success: true, data: archives });
@@ -457,7 +466,12 @@ export const getNotices = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     const notices = await prisma.notice.findMany({
-      where: filter,
+      where: {
+        AND: [
+          getSchoolScope(req),
+          filter
+        ]
+      },
       orderBy: { createdAt: 'desc' },
       take: 50
     });
@@ -510,7 +524,7 @@ export const updateNotice = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const notice = await prisma.notice.update({
-      where: { id: req.params.id as string },
+      where: { id: req.params.id as string, ...getSchoolScope(req) },
       data: updateData
     });
     res.json({ success: true, data: notice });
@@ -519,7 +533,8 @@ export const updateNotice = async (req: AuthRequest, res: Response, next: NextFu
 
 export const deleteNotice = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('notice', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await ArchiveService.moveToArchive('notice', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Notice "${result.name}" archived successfully` });
   } catch (error) { next(error); }
 };
@@ -529,7 +544,12 @@ export const getEnquiries = async (req: Request, res: Response, next: NextFuncti
   try {
     const { status } = req.query as Record<string, string>;
     const enquiries = await prisma.enquiry.findMany({
-      where: status ? { status } : {},
+      where: {
+        AND: [
+          getSchoolScope(req),
+          status ? { status } : {}
+        ]
+      },
       orderBy: { createdAt: 'desc' }
     });
     res.json({ success: true, data: enquiries });
@@ -538,7 +558,8 @@ export const getEnquiries = async (req: Request, res: Response, next: NextFuncti
 
 export const createEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const enquiry = await prisma.enquiry.create({ data: { ...req.body, schoolId: (req as any).user?.schoolId } });
+    const schoolId = (getSchoolScope(req) as any).schoolId || (req as any).user?.schoolId;
+    const enquiry = await prisma.enquiry.create({ data: { ...req.body, schoolId } });
     res.status(201).json({ success: true, data: enquiry });
   } catch (error) { next(error); }
 };
@@ -546,7 +567,7 @@ export const createEnquiry = async (req: Request, res: Response, next: NextFunct
 export const updateEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const enquiry = await prisma.enquiry.update({
-      where: { id: req.params.id as string },
+      where: { id: req.params.id as string, ...getSchoolScope(req) },
       data: req.body
     });
     res.json({ success: true, data: enquiry });
@@ -560,6 +581,7 @@ export const getAdmissions = async (req: Request, res: Response, next: NextFunct
     const admissions = await prisma.admission.findMany({
       where: {
         AND: [
+          getSchoolScope(req),
           status ? { status } : {},
           search ? {
             OR: [
@@ -586,7 +608,7 @@ export const getAdmissions = async (req: Request, res: Response, next: NextFunct
 export const getAdmission = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const admission = await prisma.admission.findUnique({
-      where: { id: req.params.id as string },
+      where: { id: req.params.id as string, ...getSchoolScope(req) },
       include: {
         class: { select: { id: true, name: true } },
         assignedFees: {
@@ -634,7 +656,7 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
     const { feeAssignments, dateOfBirth, ...admissionData } = req.body;
     
     const admission = await prisma.admission.update({
-      where: { id: req.params.id as string },
+      where: { id: req.params.id as string, ...getSchoolScope(req) },
       data: {
         ...admissionData,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -654,7 +676,8 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
 export const convertAdmissionToStudent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const result = await AdmissionService.convertToStudent(id as string, req.user!.id as string, req.body);
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await AdmissionService.convertToStudent(id as string, req.user!.id as string, req.body, schoolId);
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 };
@@ -724,15 +747,17 @@ export const updateClass = async (req: AuthRequest, res: Response, next: NextFun
 
 export const deleteClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('class', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    const result = await ArchiveService.moveToArchive('class', req.params.id as string, req.user?.id, scopedId);
     res.json({ success: true, message: `Class ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
 
 // ── Subjects ──────────────────────────────────────────
-export const getSubjects = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getSubjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const subjects = await prisma.subject.findMany({
+      where: getSchoolScope(req as any),
       include: {
         class: { select: { id: true, name: true } },
         teacher: { 
@@ -747,8 +772,9 @@ export const getSubjects = async (_req: Request, res: Response, next: NextFuncti
 
 export const createSubject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = (getSchoolScope(req as any) as any).schoolId || (req as any).user?.schoolId;
     const subject = await prisma.subject.create({
-      data: { ...req.body, schoolId: (req as any).user?.schoolId }
+      data: { ...req.body, schoolId }
     });
     res.status(201).json({ success: true, data: subject });
   } catch (error) { next(error); }
@@ -758,7 +784,7 @@ export const updateSubject = async (req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.params;
     const subject = await prisma.subject.update({
-      where: { id: id as string },
+      where: { id: id as string, ...getSchoolScope(req as any) },
       data: req.body
     });
     res.json({ success: true, data: subject });
@@ -767,7 +793,8 @@ export const updateSubject = async (req: Request, res: Response, next: NextFunct
 
 export const deleteSubject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await ArchiveService.moveToArchive('subject', req.params.id as string, req.user?.id);
+    const scopedId = (getSchoolScope(req as any) as any).schoolId || (req as any).user?.schoolId;
+    const result = await ArchiveService.moveToArchive('subject', req.params.id as string, (req as any).user?.id, scopedId);
     res.json({ success: true, message: `Subject ${result.name} archived successfully` });
   } catch (error) { next(error); }
 };
@@ -797,6 +824,7 @@ export const getAttendance = async (req: AuthRequest, res: Response, next: NextF
     const authUser = req.user!;
     const where: any = {
       AND: [
+        getSchoolScope(req),
         (date || (startDate && endDate)) ? { date: dateFilter } : {},
         classId ? { student: { classId } } : {},
         sectionId ? { student: { sectionId } } : {}
@@ -969,20 +997,18 @@ export const getSchoolSettings = async (req: AuthRequest, res: Response, next: N
 
 export const updateSchoolSettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = req.user;
-    // Scope: admin updates their own school; super admin can update the first/specified
-    const existing = user?.schoolId 
-      ? await prisma.school.findUnique({ where: { id: user.schoolId } })
-      : await prisma.school.findFirst();
-    let school;
-    if (existing) {
-      school = await prisma.school.update({
-        where: { id: existing.id },
-        data: req.body
-      });
-    } else {
-      school = await prisma.school.create({ data: req.body });
+    const scope = getSchoolScope(req) as any;
+    const schoolId = scope.schoolId || req.user?.schoolId;
+
+    if (!schoolId) {
+      next(createError('No school context found', 400));
+      return;
     }
+
+    const school = await prisma.school.update({
+      where: { id: schoolId },
+      data: req.body
+    });
     res.json({ success: true, data: school });
   } catch (error) { next(error); }
 };
