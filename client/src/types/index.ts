@@ -208,6 +208,7 @@ export interface Staff {
   role: string;
   joiningDate: string;
   status: 'active' | 'inactive' | 'resigned';
+  user?: { name: string; email: string };
 }
 
 export interface ClassDoc {
@@ -385,25 +386,4 @@ export interface FilterOption {
   value: string;
 }
 
-// Library
-export interface Book {
-  id: string;
-  title: string;
-  author: string;
-  isbn: string;
-  category: string;
-  totalCopies: number;
-  availableCopies: number;
-  status: 'available' | 'out_of_stock' | 'discontinued';
-}
 
-// Inventory
-export interface InventoryItem {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  currentStock: number;
-  reorderLevel: number;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock';
-}

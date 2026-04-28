@@ -185,7 +185,7 @@ export const updateStudent = async (req: AuthRequest, res: Response, next: NextF
     const scope = getSchoolScope(req);
 
     // Verify ownership
-    const existing = await prisma.student.findFirst({ where: { id, ...scope } });
+    const existing = await prisma.student.findFirst({ where: { id: id as string, ...(scope as any) } });
     if (!existing) return next(createError('Student not found or access denied', 404));
 
     const {

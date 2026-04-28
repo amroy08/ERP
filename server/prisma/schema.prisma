@@ -190,7 +190,6 @@ model Student {
   attendance      Attendance[]
   feePayments     FeePayment[]
   results         Result[]
-  bookIssues      BookIssue[]
   assignedFees    StudentFee[]
   leaveRequests   LeaveRequest[]
   activityLogs    ActivityLog[]
@@ -482,76 +481,7 @@ model AdmissionFee {
   @@map("admission_fees")
 }
 
-// ── Assets & Library ─────────────────────────────────────────────────────────
 
-model Book {
-  id          String   @id @default(uuid())
-  title       String
-  author      String
-  isbn        String   @unique
-  category    String?
-  shelf       String?
-  quantity    Int      @default(1)
-  available   Int      @default(1)
-  status      String   @default("available")
-  schoolId    String?   // Multi-tenancy
-  school      School?   @relation(fields: [schoolId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  issues      BookIssue[]
-
-  @@map("books")
-}
-
-model BookIssue {
-  id          String   @id @default(uuid())
-  bookId      String
-  book        Book     @relation(fields: [bookId], references: [id])
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id])
-  issueDate   DateTime @default(now())
-  dueDate     DateTime
-  returnDate  DateTime?
-  status      String   @default("issued")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("book_issues")
-}
-
-model InventoryItem {
-  id          String   @id @default(uuid())
-  name        String
-  category    String
-  quantity    Int      @default(0)
-  unit        String   @default("pcs")
-  minStock    Int      @default(5)
-  status      String   @default("in_stock")
-  schoolId    String?   // Multi-tenancy
-  school      School?   @relation(fields: [schoolId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  transactions InventoryTransaction[]
-
-  @@map("inventory_items")
-}
-
-model InventoryTransaction {
-  id          String   @id @default(uuid())
-  itemId      String
-  item        InventoryItem @relation(fields: [itemId], references: [id], map: "fk_inventory_transaction_item")
-  type        String   // in, out
-  quantity    Int
-  purpose     String?
-  date        DateTime @default(now())
-  performedBy String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("inventory_transactions")
-}
 
 model Timetable {
   id              String           @id @default(uuid())
@@ -650,8 +580,6 @@ model School {
   notices       Notice[]
   enquiries     Enquiry[]
   admissions    Admission[]
-  books         Book[]
-  inventoryItems InventoryItem[]
   timetables    Timetable[]
   homeworks     Homework[]
   leaveRequests LeaveRequest[]

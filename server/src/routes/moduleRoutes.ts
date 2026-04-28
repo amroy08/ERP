@@ -17,12 +17,6 @@ import {
 } from '../controllers/moduleController';
 import { upload } from '../middleware/uploadMiddleware';
 import {
-  getBooks, createBook, issueBook, returnBook, getIssueHistory
-} from '../controllers/libraryController';
-import {
-  getItems, createItem, recordTransaction, getTransactions
-} from '../controllers/inventoryController';
-import {
   getExams, createExam, submitMarks, getReportCard, getExamSubjects, getExamMarks
 } from '../controllers/examController';
 import { protect } from '../middleware/authMiddleware';
@@ -113,18 +107,7 @@ router.post('/homework', protect, checkModuleEnabled('homework'), authorize(PERM
 router.get('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_VIEW), getTimetables);
 router.post('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_MANAGE), createTimetable);
 
-// Library
-router.get('/library/books', protect, checkModuleEnabled('library'), authorize(PERMISSIONS.LIBRARY_VIEW), getBooks);
-router.post('/library/books', protect, checkModuleEnabled('library'), authorize(PERMISSIONS.LIBRARY_MANAGE), createBook);
-router.post('/library/issue', protect, checkModuleEnabled('library'), authorize(PERMISSIONS.LIBRARY_MANAGE), issueBook);
-router.post('/library/return/:id', protect, checkModuleEnabled('library'), authorize(PERMISSIONS.LIBRARY_MANAGE), returnBook);
-router.get('/library/history', protect, checkModuleEnabled('library'), authorize(PERMISSIONS.LIBRARY_VIEW), getIssueHistory);
 
-// Inventory
-router.get('/inventory/items', protect, checkModuleEnabled('inventory'), authorize(PERMISSIONS.INVENTORY_VIEW), getItems);
-router.post('/inventory/items', protect, checkModuleEnabled('inventory'), authorize(PERMISSIONS.INVENTORY_MANAGE), createItem);
-router.post('/inventory/transaction', protect, checkModuleEnabled('inventory'), authorize(PERMISSIONS.INVENTORY_MANAGE), recordTransaction);
-router.get('/inventory/history', protect, checkModuleEnabled('inventory'), authorize(PERMISSIONS.INVENTORY_VIEW), getTransactions);
 
 // Exams
 router.get('/exams', protect, authorize(PERMISSIONS.EXAM_VIEW), getExams);

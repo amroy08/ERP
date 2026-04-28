@@ -39,8 +39,6 @@ const RolesPage = lazy(() => import('./features/roles/RolesPage').then(m => ({ d
 const TimetablePage = lazy(() => import('./features/timetable/TimetablePage').then(m => ({ default: m.TimetablePage })));
 const HomeworkPage = lazy(() => import('./features/homework/HomeworkPage').then(m => ({ default: m.HomeworkPage })));
 const TransportPage = lazy(() => import('./features/transport/TransportPage').then(m => ({ default: m.TransportPage })));
-const LibraryPage = lazy(() => import('./features/library/LibraryPage').then(m => ({ default: m.LibraryPage })));
-const InventoryPage = lazy(() => import('./features/inventory/InventoryPage').then(m => ({ default: m.InventoryPage })));
 const ModuleManagementPage = lazy(() => import('./features/settings/ModuleManagementPage').then(m => ({ default: m.ModuleManagementPage })));
 const ArchivePage = lazy(() => import('./features/settings/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const SuperAdminSchoolsPage = lazy(() => import('./features/superadmin/SuperAdminSchoolsPage').then(m => ({ default: m.SuperAdminSchoolsPage })));
@@ -145,8 +143,7 @@ const App: React.FC = () => {
             <Route path="/notices" element={<Suspense fallback={<PageLoader />}><NoticesPage /></Suspense>} />
             <Route path="/enquiries" element={<Suspense fallback={<PageLoader />}><EnquiriesPage /></Suspense>} />
             <Route path="/transport" element={<Suspense fallback={<PageLoader />}><TransportPage /></Suspense>} />
-            <Route path="/library" element={<Suspense fallback={<PageLoader />}><LibraryPage /></Suspense>} />
-            <Route path="/inventory" element={<Suspense fallback={<PageLoader />}><InventoryPage /></Suspense>} />
+
             <Route path="/reports" element={<Suspense fallback={<PageLoader />}><ReportsPage /></Suspense>} />
             <Route path="/settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
             <Route path="/settings/modules" element={<Suspense fallback={<PageLoader />}><ModuleManagementPage /></Suspense>} />

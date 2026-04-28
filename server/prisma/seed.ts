@@ -12,10 +12,6 @@ async function main() {
   await prisma.homework.deleteMany();
   await prisma.timetableEntry.deleteMany();
   await prisma.timetable.deleteMany();
-  await prisma.inventoryTransaction.deleteMany();
-  await prisma.inventoryItem.deleteMany();
-  await prisma.bookIssue.deleteMany();
-  await prisma.book.deleteMany();
   await prisma.admissionFee.deleteMany();
   await prisma.admission.deleteMany();
   await prisma.enquiry.deleteMany();
@@ -51,7 +47,7 @@ async function main() {
       slug: 'vantage-international',
       enabledModules: [
         'attendance', 'homework', 'exams', 'timetable', 
-        'fees', 'notices', 'library', 'inventory', 'transport', 'admissions'
+        'fees', 'notices', 'transport', 'admissions'
       ]
     }
   });
@@ -135,29 +131,7 @@ async function main() {
     },
   });
 
-  // 6. Sample Items for Inventory
-  await prisma.inventoryItem.create({
-    data: {
-      name: 'Chalk Box',
-      category: 'Stationary',
-      quantity: 50,
-      minStock: 10,
-      schoolId: school.id
-    }
-  });
 
-  // 7. Sample Books for Library
-  await prisma.book.create({
-    data: {
-      title: 'Digital Fortress',
-      author: 'Dan Brown',
-      isbn: '978-0312944926',
-      category: 'Fiction',
-      available: 5,
-      quantity: 5,
-      schoolId: school.id
-    }
-  });
 
   console.log('✅ Seed completed successfully!');
   console.log('Super Admin: admin@school.com / Admin@123');

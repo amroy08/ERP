@@ -78,23 +78,6 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
         headers = ['Exam', 'Student', 'Subject', 'Obtained', 'Total', 'Grade', 'Percentage'];
         break;
 
-      case 'inventory':
-        title = 'Inventory Audit Report';
-        const inventory = await prisma.inventoryItem.findMany({
-          include: { transactions: { orderBy: { date: 'desc' }, take: 1 } },
-          take: 500
-        });
-        data = inventory.map(i => ({
-          Item: i.name,
-          Category: i.category,
-          'Current Qty': `${i.quantity} ${i.unit}`,
-          'Min Stock': i.minStock,
-          Status: i.status.replace('_', ' ').toUpperCase(),
-          'Last Activity': i.transactions[0] ? dateFnsFormat(i.transactions[0].date, 'dd-MM-yyyy') : '-'
-        }));
-        headers = ['Item', 'Category', 'Current Qty', 'Min Stock', 'Status', 'Last Activity'];
-        break;
-
       default:
         throw createError('Invalid report type', 400);
     }

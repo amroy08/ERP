@@ -6,6 +6,7 @@ interface SchoolSettings {
   enabledModules: string[] | null;
   licensedRoles: string[] | null;
   licensePlan: string | null;
+  address?: string;
 }
 
 interface SettingsState {

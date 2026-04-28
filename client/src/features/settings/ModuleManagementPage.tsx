@@ -31,8 +31,6 @@ const ALL_MODULES: ModuleDef[] = [
   { id: 'timetable', name: 'Class Timetable', description: 'Weekly schedule management for classes and teachers.', icon: <CalendarDays className="w-5 h-5" />, category: 'Academics' },
   { id: 'fees', name: 'Fee Management', description: 'Collect fees, track dues, and manage financial ledgers.', icon: <DollarSign className="w-5 h-5" />, category: 'Financials' },
   { id: 'notices', name: 'Notice Board', description: 'Broadcast announcements to students, parents, and staff.', icon: <Bell className="w-5 h-5" />, category: 'Administration' },
-  { id: 'library', name: 'Library Management', description: 'Manage book inventory, issuing, and returns.', icon: <Library className="w-5 h-5" />, category: 'Infrastructure' },
-  { id: 'inventory', name: 'Inventory & Assets', description: 'Track school supplies, assets, and transactions.', icon: <Package className="w-5 h-5" />, category: 'Infrastructure' },
   { id: 'transport', name: 'Transport System', description: 'Manage school buses, routes, and student tracking.', icon: <Bus className="w-5 h-5" />, category: 'Infrastructure' },
 ];
 
