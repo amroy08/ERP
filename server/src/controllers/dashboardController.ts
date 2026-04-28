@@ -123,8 +123,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       });
 
       if (!teacher) {
-        res.status(404).json({ success: false, message: 'Teacher record not found' });
-        return;
+        return next(createError('Teacher record not found', 404));
       }
 
       const classIds = new Set<string>(teacher.subjects.map(s => s.classId));
@@ -184,8 +183,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       });
 
       if (!student) {
-        res.status(404).json({ success: false, message: 'Student record not found' });
-        return;
+        return next(createError('Student record not found', 404));
       }
 
       const [ledger, notices] = await Promise.all([
@@ -207,7 +205,6 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     const commonNotices = await prisma.notice.findMany({ where: { isPublished: true, ...scope }, orderBy: { createdAt: 'desc' }, take: 5 });
     res.status(200).json({ success: true, data: { recentNotices: commonNotices, message: 'Personalized dashboard data' } });
   } catch (error: any) { 
-    console.error('Dashboard Error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    next(error);
   }
 };

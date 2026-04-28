@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { store } from '../store/store';
 import { logout, setTokens } from '../features/auth/authSlice';
+import toast from 'react-hot-toast';
 
 const axiosInstance = axios.create({
   baseURL: '/api',
@@ -27,7 +28,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401 with token refresh
+// Response interceptor: handle errors globally
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value: string) => void; reject: (reason: unknown) => void }> = [];
 
@@ -44,6 +45,7 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // 1. Handle Token Refresh (401)
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -83,6 +85,24 @@ axiosInstance.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // 2. Handle Global Error Notifications
+    const message = error.response?.data?.message || error.message || 'An unexpected error occurred';
+    
+    // Only show toast if it's not a 401 (which is handled by refresh logic) 
+    // and not a canceled request
+    if (error.response?.status !== 401 && !axios.isCancel(error)) {
+      toast.error(message, {
+        id: 'global-error', // Prevent duplicate toasts
+        duration: 4000,
+        style: {
+          background: '#fee2e2',
+          color: '#991b1b',
+          fontWeight: 'bold',
+          border: '1px solid #fecaca',
+        }
+      });
     }
 
     return Promise.reject(error);

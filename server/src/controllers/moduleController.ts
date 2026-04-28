@@ -86,8 +86,7 @@ export const createTeacher = async (req: AuthRequest, res: Response, next: NextF
     // License gate
     const licenseError = await checkRoleLicense('teacher');
     if (licenseError) {
-      res.status(403).json({ success: false, message: licenseError });
-      return;
+      return next(createError(licenseError, 403));
     }
     const scopedSchoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
     const result = await TeacherService.createTeacher(req.body, scopedSchoolId || undefined);
@@ -264,8 +263,7 @@ export const createStaff = async (req: AuthRequest, res: Response, next: NextFun
     // License gate
     const licenseError = await checkRoleLicense('staff');
     if (licenseError) {
-      res.status(403).json({ success: false, message: licenseError });
-      return;
+      return next(createError(licenseError, 403));
     }
     const { firstName, lastName, email, phone, department, role, joiningDate, status, employeeId: customEmployeeId } = req.body;
 

@@ -104,6 +104,7 @@ model Subject {
   type             String           @default("theory")
   classId          String
   teacherId        String?
+  isOptional       Boolean          @default(false)
   isActive         Boolean          @default(true)
   schoolId         String?
   createdAt        DateTime         @default(now())

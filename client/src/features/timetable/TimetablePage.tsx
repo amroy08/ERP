@@ -81,11 +81,11 @@ export const TimetablePage: React.FC = () => {
   }, [isAdmin, isStudent]);
 
   useEffect(() => {
-    if (selectedClassId) {
+    if (selectedClassId && !isStudent) {
       axiosInstance.get<ApiResponse<SectionDoc[]>>(`/sections?classId=${selectedClassId}`).then(res => setSections(res.data.data));
       axiosInstance.get<ApiResponse<SubjectDoc[]>>(`/subjects?classId=${selectedClassId}`).then(res => setSubjects(res.data.data));
     }
-  }, [selectedClassId]);
+  }, [selectedClassId, isStudent]);
 
   const fetchTimetable = async () => {
     if (!selectedSectionId && !isAdmin && !isStudent) return;

@@ -40,6 +40,7 @@ const TimetablePage = lazy(() => import('./features/timetable/TimetablePage').th
 const HomeworkPage = lazy(() => import('./features/homework/HomeworkPage').then(m => ({ default: m.HomeworkPage })));
 const TransportPage = lazy(() => import('./features/transport/TransportPage').then(m => ({ default: m.TransportPage })));
 const ModuleManagementPage = lazy(() => import('./features/settings/ModuleManagementPage').then(m => ({ default: m.ModuleManagementPage })));
+const FeeTransactionsPage = lazy(() => import('./features/fees/FeeTransactionsPage').then(m => ({ default: m.FeeTransactionsPage })));
 const ArchivePage = lazy(() => import('./features/settings/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const SuperAdminSchoolsPage = lazy(() => import('./features/superadmin/SuperAdminSchoolsPage').then(m => ({ default: m.SuperAdminSchoolsPage })));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -127,7 +128,7 @@ const App: React.FC = () => {
             <Route path="/fees/structure" element={<Suspense fallback={<PageLoader />}><FeeStructurePage /></Suspense>} />
             <Route path="/fees/structures" element={<Suspense fallback={<PageLoader />}><FeeStructurePage /></Suspense>} />
             <Route path="/fees/collect" element={<Suspense fallback={<PageLoader />}><FeeCollectPage /></Suspense>} />
-            <Route path="/fees/payments" element={<Suspense fallback={<PageLoader />}><FeesPage /></Suspense>} />
+            <Route path="/fees/payments" element={<Suspense fallback={<PageLoader />}><FeeTransactionsPage /></Suspense>} />
             <Route path="/fees/dues" element={<Suspense fallback={<PageLoader />}><FeesPage /></Suspense>} />
             <Route path="/student/attendance" element={<Suspense fallback={<PageLoader />}><StudentAttendancePage /></Suspense>} />
             <Route path="/student/fees" element={<Suspense fallback={<PageLoader />}><StudentFeesPage /></Suspense>} />

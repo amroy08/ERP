@@ -25,8 +25,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     const { email, password } = req.body;
 
     if (!email || !password) {
-      res.status(400).json({ success: false, message: 'Email and password are required.' });
-      return;
+      return next(createError('Email and password are required.', 400));
     }
 
     const user = await prisma.user.findUnique({
@@ -76,20 +75,17 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     console.log('Login attempt for:', email, 'User found:', !!user);
 
     if (!user) {
-      res.status(401).json({ success: false, message: 'Invalid credentials.' });
-      return;
+      return next(createError('Invalid credentials.', 401));
     }
 
     if (!user.isActive) {
-      res.status(403).json({ success: false, message: 'Account is deactivated. Contact administrator.' });
-      return;
+      return next(createError('Account is deactivated. Contact administrator.', 403));
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     console.log('Password match:', isMatch);
     if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid credentials.' });
-      return;
+      return next(createError('Invalid credentials.', 401));
     }
 
     // ── License Gate: check if the user's role is licensed ──
@@ -107,11 +103,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       };
       const licenseKey = roleLicenseMap[user.role] || user.role;
       if (licensedRoles.length > 0 && !licensedRoles.includes(licenseKey) && licenseKey !== 'admin') {
-        res.status(403).json({ 
-          success: false, 
-          message: `Your institution's subscription does not include access for the ${user.role.replace('_', ' ')} role. Please contact your administrator to upgrade the plan.` 
-        });
-        return;
+        return next(createError(`Your institution's subscription does not include access for the ${user.role.replace('_', ' ')} role. Please contact your administrator to upgrade the plan.`, 403));
       }
     }
 
@@ -175,8 +167,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
   try {
     const { refreshToken: token } = req.body;
     if (!token) {
-      res.status(400).json({ success: false, message: 'Refresh token required.' });
-      return;
+      return next(createError('Refresh token required.', 400));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || 'refresh_secret') as { id: string };
@@ -185,8 +176,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!user || user.refreshToken !== token) {
-      res.status(401).json({ success: false, message: 'Invalid refresh token.' });
-      return;
+      return next(createError('Invalid refresh token.', 401));
     }
 
     const tokens = generateTokens(user.id);
@@ -203,8 +193,8 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
         refreshToken: tokens.refreshToken,
       },
     });
-  } catch {
-    res.status(401).json({ success: false, message: 'Invalid or expired refresh token.' });
+  } catch (error) {
+    next(createError('Invalid or expired refresh token.', 401));
   }
 };
 
@@ -275,14 +265,12 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
     });
 
     if (!user) {
-      res.status(404).json({ success: false, message: 'User not found.' });
-      return;
+      return next(createError('User not found.', 404));
     }
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-      res.status(400).json({ success: false, message: 'Current password is incorrect.' });
-      return;
+      return next(createError('Current password is incorrect.', 400));
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 12);
