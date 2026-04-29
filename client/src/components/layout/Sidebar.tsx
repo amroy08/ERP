@@ -257,9 +257,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
       <div className={clsx(
         'flex items-center gap-4 px-6 py-10 flex-shrink-0'
       )}>
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center flex-shrink-0 shadow-xl shadow-blue-200 relative group overflow-hidden">
-           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
-           <School className="w-6 h-6 text-white" />
+        <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-200/20 relative group overflow-hidden border border-slate-100">
+           <div className="absolute inset-0 bg-blue-600 opacity-0 group-hover:opacity-5 transition-opacity" />
+           <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
         </div>
         {!isCollapsed && (
           <div className="overflow-hidden">

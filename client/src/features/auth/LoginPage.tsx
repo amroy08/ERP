@@ -57,15 +57,13 @@ export const LoginPage: React.FC = () => {
       {/* Left Panel — Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1f2e 0%, #1e3a8a 50%, #1d4ed8 100%)' }}>
         <div className="relative z-10 flex flex-col justify-center px-16 py-12 text-white">
-          <div className="flex items-center gap-4 mb-12">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-xl">
-              <School className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-xl overflow-hidden">
+              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Vidya Public School</h1>
-              <p className="text-blue-300 text-sm">School Management System</p>
+              <h1 className="text-2xl font-bold tracking-tight">Vantage ERP</h1>
+              <p className="text-blue-300 text-sm font-medium uppercase tracking-widest">Platform Console</p>
             </div>
-          </div>
 
           <h2 className="text-4xl font-bold mb-4 leading-tight">
             Manage your school<br />
@@ -101,12 +99,12 @@ export const LoginPage: React.FC = () => {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
-              <School className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
+              <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
             </div>
             <div>
-              <div className="font-bold text-slate-800">Vidya Public School</div>
-              <div className="text-xs text-slate-400">ERP System</div>
+              <div className="font-bold text-slate-800 tracking-tight leading-none">Vantage ERP</div>
+              <div className="text-[10px] text-blue-600 font-black uppercase tracking-widest mt-1">School Management</div>
             </div>
           </div>
 
