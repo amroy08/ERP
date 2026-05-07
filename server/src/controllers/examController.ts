@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ExamService } from '../services/ExamService';
 import prisma from '../config/prisma';
 import { getSchoolScope } from '../utils/schoolScope';
+import { createError } from '../middleware/errorHandler';
 
 export const getExams = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -124,4 +125,53 @@ export const getExamMarks = async (req: AuthRequest, res: Response, next: NextFu
     });
     res.json({ success: true, data: results });
   } catch (error) { next(error); }
+};
+
+export const updateExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { name, type, classId, startDate, endDate, description, status } = req.body;
+
+    const exam = await prisma.exam.findFirst({
+      where: { id: id as string, ...getSchoolScope(req) }
+    });
+    if (!exam) return next(createError('Exam not found', 404));
+
+    const updated = await prisma.exam.update({
+      where: { id: id as string },
+      data: {
+        ...(name && { name }),
+        ...(type && { type }),
+        ...(classId && { classId }),
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate && { endDate: new Date(endDate) }),
+        ...(description !== undefined && { description }),
+        ...(status && { status }),
+      }
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const exam = await prisma.exam.findFirst({
+      where: { id: id as string, ...getSchoolScope(req) }
+    });
+    if (!exam) return next(createError('Exam not found', 404));
+
+    // Delete associated results first, then the exam
+    await prisma.$transaction([
+      prisma.result.deleteMany({ where: { examId: id as string } }),
+      prisma.exam.delete({ where: { id: id as string } })
+    ]);
+
+    res.json({ success: true, message: `Exam "${exam.name}" deleted successfully` });
+  } catch (error) {
+    next(error);
+  }
 };

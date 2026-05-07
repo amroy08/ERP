@@ -156,6 +156,11 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
     }
   };
 
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -184,7 +189,7 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
                   <label className="text-[10px] font-black text-slate-400 uppercase">Login ID (Email)</label>
                   <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl mt-1">
                      <span className="text-sm font-bold text-slate-700">{enrollmentSuccess.student.email}</span>
-                     <Button variant="secondary" size="sm" className="h-7 text-[10px]">Copy</Button>
+                     <Button variant="secondary" size="sm" className="h-7 text-[10px]" onClick={() => handleCopy(enrollmentSuccess.student.email)}>Copy</Button>
                   </div>
                </div>
                <div>
@@ -193,7 +198,7 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
                      <span className="text-sm font-mono font-black text-blue-600 tracking-wider">
                         {enrollmentSuccess.student.password}
                      </span>
-                     <Button variant="secondary" size="sm" className="h-7 text-[10px]">Copy</Button>
+                     <Button variant="secondary" size="sm" className="h-7 text-[10px]" onClick={() => handleCopy(enrollmentSuccess.student.password)}>Copy</Button>
                   </div>
                </div>
             </div>

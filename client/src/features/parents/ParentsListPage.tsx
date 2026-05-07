@@ -7,10 +7,11 @@ import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import axiosInstance from '../../api/axiosInstance';
 import { Parent, ApiResponse } from '../../types';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export const ParentsListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [parents, setParents] = useState<Parent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -25,6 +26,18 @@ export const ParentsListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    const token = localStorage.getItem('erp_access_token');
+    const url = `${axiosInstance.defaults.baseURL}/reports/export?type=parents&format=csv&token=${token}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parents_export_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Parents export started!');
   };
 
   useEffect(() => {
@@ -120,7 +133,14 @@ export const ParentsListPage: React.FC = () => {
       label: 'Actions',
       render: (_: any, row: any) => (
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" className="h-8">Details</Button>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className="h-8"
+            onClick={() => navigate(`/parents/${row.id}`)}
+          >
+            Details
+          </Button>
           <Button 
             variant="danger" 
             size="sm" 
@@ -147,7 +167,7 @@ export const ParentsListPage: React.FC = () => {
           <p className="text-slate-500 text-sm">View parents and primary guardians linked to student accounts.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" icon={<Download className="w-4 h-4" />}>Export</Button>
+          <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport}>Export</Button>
         </div>
       </div>
 
@@ -162,7 +182,9 @@ export const ParentsListPage: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" 
             />
           </div>
-          <Button variant="secondary" icon={<Filter className="w-4 h-4" />}>Advanced Filter</Button>
+          {search && (
+            <Button variant="secondary" onClick={() => setSearch('')}>Clear</Button>
+          )}
         </div>
 
         <DataTable 

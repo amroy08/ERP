@@ -4,12 +4,13 @@ import { Plus, Search, Filter, Download, User, Eye, Edit2, ShieldAlert, Trash2, 
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
+import { SchoolFilter } from '../../components/common/SchoolFilter';
 import { Button } from '../../components/common/Button';
 import { Badge, StatusBadge } from '../../components/common/Badge';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../api/axiosInstance';
 import { usePermissions } from '../../hooks/usePermissions';
-import { Student, ClassDoc, SectionDoc, ApiResponse, PaginatedResponse } from '../../types';
+import { Student, ClassDoc, SectionDoc, ApiResponse, PaginatedResponse, TableColumn } from '../../types';
 import clsx from 'clsx';
 
 export const StudentsListPage: React.FC = () => {
@@ -25,6 +26,7 @@ export const StudentsListPage: React.FC = () => {
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
 
   // Import Modal
@@ -48,7 +50,7 @@ export const StudentsListPage: React.FC = () => {
       fetchStudents();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, classFilter, sectionFilter, statusFilter, pagination.page]);
+  }, [search, classFilter, sectionFilter, statusFilter, schoolFilter, pagination.page]);
 
   const fetchInitialData = async () => {
     try {
@@ -79,6 +81,7 @@ export const StudentsListPage: React.FC = () => {
       if (classFilter) params.set('classId', classFilter);
       if (sectionFilter) params.set('sectionId', sectionFilter);
       if (statusFilter) params.set('status', statusFilter);
+      if (schoolFilter) params.set('schoolId', schoolFilter);
 
       const res = await axiosInstance.get<PaginatedResponse<Student>>(`/students?${params}`);
       setStudents(res.data.data || []);
@@ -99,6 +102,23 @@ export const StudentsListPage: React.FC = () => {
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to delete student');
     }
+  };
+
+  const handleExport = () => {
+    const token = localStorage.getItem('erp_access_token');
+    const params = new URLSearchParams();
+    if (classFilter) params.set('classId', classFilter);
+    if (sectionFilter) params.set('sectionId', sectionFilter);
+    if (statusFilter) params.set('status', statusFilter);
+    
+    const url = `${axiosInstance.defaults.baseURL}/reports/export?type=students&format=csv&token=${token}&${params.toString()}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `students_export_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Students export started!');
   };
 
   // ── Import Handlers ─────────────────────────────────────
@@ -175,66 +195,68 @@ export const StudentsListPage: React.FC = () => {
     setIsDragging(false);
   };
 
-  const columns = [
-    { 
-      key: 'fullName', 
-      label: 'Student', 
-      render: (_: any, row: any) => {
-        const student = row as Student;
-        return (
-          <div className="flex items-center gap-3">
-             <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 overflow-hidden">
-                {student.profilePhoto ? <img src={student.profilePhoto} alt="" /> : <User className="w-5 h-5" />}
-             </div>
-             <div>
-                <p className="text-sm font-bold text-slate-800">{student.fullName}</p>
-                <p className="text-[10px] text-slate-400 font-mono tracking-wider">{student.admissionNumber}</p>
-             </div>
+  const columns: TableColumn<any>[] = [
+    {
+      key: 'student',
+      label: 'Student',
+      render: (_: any, s: Student) => (
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase">
+            {s.firstName?.[0]}{s.lastName?.[0]}
           </div>
-        );
-      }
+          <div>
+            <div className="font-bold text-slate-900">{s.fullName}</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{s.admissionNumber}</div>
+          </div>
+        </div>
+      )
     },
-    { 
-      key: 'class', 
-      label: 'Class & Section', 
-      render: (_: any, row: any) => {
-        const student = row as Student;
-        return (
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-slate-700">{student.class?.name || '—'}</span>
-            <span className="text-xs text-slate-400">Section {student.section?.name || '—'}</span>
-          </div>
-        );
-      }
+    ...(isRole(['super_admin']) ? [{
+      key: 'school',
+      label: 'School',
+      render: (_: any, s: any) => (
+        <div className="flex items-center gap-2">
+          <Badge variant="blue" className="bg-blue-50 text-blue-600 border-blue-100">
+            {s.school?.name || 'N/A'}
+          </Badge>
+        </div>
+      )
+    }] : []),
+    {
+      key: 'class',
+      label: 'Class & Section',
+      render: (_: any, s: Student) => (
+        <div>
+          <div className="font-bold text-slate-700">{s.class?.name}</div>
+          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Section {s.section?.name}</div>
+        </div>
+      )
     },
     {
-      key: 'parent',
+      key: 'guardian',
       label: 'Guardian',
-      render: (_: any, row: any) => {
-        const student = row as Student;
-        return (
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-slate-700">{student.parent?.fatherName || '—'}</span>
-            <span className="text-xs text-slate-400">{student.parent?.fatherPhone || '—'}</span>
-          </div>
-        );
-      }
+      render: (_: any, s: Student) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-slate-700">{s.parent?.fatherName || '—'}</span>
+          <span className="text-xs text-slate-400">{s.parent?.fatherPhone || '—'}</span>
+        </div>
+      )
     },
     { 
-      key: 'status', 
+      key: 'status',
       label: 'Status', 
-      render: (val: any) => <StatusBadge status={String(val)} /> 
+      render: (_: any, s: Student) => <StatusBadge status={s.status} /> 
     },
     {
-      key: 'id',
+      key: 'actions',
       label: 'Actions',
-      render: (_: any, row: any) => (
+      render: (_: any, s: Student) => (
         <div className="flex items-center gap-1">
           <Button 
             variant="secondary" 
             size="sm" 
             className="h-8 px-2"
-            onClick={() => navigate(`/students/${row.id}`)}
+            onClick={() => navigate(`/students/${s.id}`)}
             title="View Profile"
           >
             <Eye className="w-4 h-4" />
@@ -243,7 +265,7 @@ export const StudentsListPage: React.FC = () => {
             variant="secondary" 
             size="sm" 
             className="h-8 px-2"
-            onClick={() => navigate(`/students/${row.id}/attendance`)}
+            onClick={() => navigate(`/students/${s.id}/attendance`)}
             title="Attendance Report"
           >
             <Calendar className="w-4 h-4 text-blue-600" />
@@ -253,7 +275,7 @@ export const StudentsListPage: React.FC = () => {
               variant="secondary" 
               size="sm" 
               className="h-8 px-2"
-              onClick={() => navigate(`/students/${row.id}/edit`)}
+              onClick={() => navigate(`/students/${s.id}/edit`)}
             >
               <Edit2 className="w-3.5 h-3.5" />
             </Button>
@@ -263,7 +285,7 @@ export const StudentsListPage: React.FC = () => {
               variant="danger" 
               size="sm" 
               className="h-8 px-2 ml-1"
-              onClick={() => handleDeleteStudent(row.id, row.fullName)}
+              onClick={() => handleDeleteStudent(s.id, s.fullName)}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -294,54 +316,59 @@ export const StudentsListPage: React.FC = () => {
               Import Excel
             </Button>
           )}
-          <Button variant="secondary" icon={<Download className="w-4 h-4" />}>Export CSV</Button>
+          <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport}>Export CSV</Button>
           {canAddStudent && (
-            <Button icon={<Plus className="w-4 h-4" />} onClick={() => navigate('/admissions/new')}>Enroll Student</Button>
+            <Button icon={<Plus className="w-4 h-4" />} onClick={() => navigate('/admissions/new')} className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Enroll Student</Button>
           )}
         </div>
       </div>
 
       <Card className="p-0 overflow-hidden border-slate-200 shadow-sm">
         <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[280px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          {isRole(['super_admin']) && (
+            <SchoolFilter value={schoolFilter} onChange={setSchoolFilter} />
+          )}
+          <div className="relative min-w-[300px] flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              type="text" 
               placeholder="Search by name, ID or phone..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" 
             />
           </div>
-          <div className="flex flex-wrap gap-3">
-             <select 
-               value={classFilter} 
-               onChange={e => setClassFilter(e.target.value)}
-               className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
-             >
-                <option value="">All Classes</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-             </select>
-             <select 
-               value={sectionFilter} 
-               onChange={e => setSectionFilter(e.target.value)}
-               className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
-               disabled={!classFilter}
-             >
-                <option value="">All Sections</option>
-                {sections.map(s => <option key={s.id} value={s.id}>Section {s.name}</option>)}
-             </select>
-             <select 
-               value={statusFilter} 
-               onChange={e => setStatusFilter(e.target.value)}
-               className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
-             >
-                <option value="">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="transferred">Transferred</option>
-                <option value="alumni">Alumni</option>
-             </select>
-          </div>
+          
+          <select 
+            value={classFilter} 
+            onChange={(e) => setClassFilter(e.target.value)}
+            className="px-4 py-2 text-sm border border-slate-200 rounded-lg outline-none bg-white font-medium text-slate-600"
+          >
+            <option value="">All Classes</option>
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          <select 
+            value={sectionFilter} 
+            onChange={(e) => setSectionFilter(e.target.value)}
+            disabled={!classFilter}
+            className="px-4 py-2 text-sm border border-slate-200 rounded-lg outline-none bg-white font-medium text-slate-600 disabled:opacity-50"
+          >
+            <option value="">All Sections</option>
+            {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 text-sm border border-slate-200 rounded-lg outline-none bg-white font-medium text-slate-600"
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="transferred">Transferred</option>
+            <option value="alumni">Alumni</option>
+          </select>
         </div>
 
         <DataTable 
@@ -349,7 +376,7 @@ export const StudentsListPage: React.FC = () => {
           data={students as any} 
           isLoading={isLoading} 
           emptyMessage="No students found matching your criteria." 
-          keyExtractor={(row) => (row as Student).id}
+          keyExtractor={(row: any) => row.id}
         />
         
         {/* Pagination */}

@@ -19,6 +19,8 @@ import archiveRoutes from './routes/archiveRoutes';
 import moduleRoutes from './routes/moduleRoutes';
 import reportRoutes from './routes/reportRoutes';
 import schoolAdminRoutes from './routes/schoolAdminRoutes';
+import transportRoutes from './routes/transportRoutes';
+import supportRoutes from './routes/supportRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +55,8 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/archive', archiveRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/schools', schoolAdminRoutes);
+app.use('/api/transport', transportRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api', moduleRoutes);
 
 // 404 & error handlers

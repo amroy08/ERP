@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import prisma from '../config/prisma';
 import { FeeService } from '../services/FeeService';
 import { getSchoolScope } from '../utils/schoolScope';
+import { createError } from '../middleware/errorHandler';
 
 export const getDashboardStats = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -41,7 +42,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
           _count: { _all: true }
         }),
         prisma.feePayment.aggregate({
-          where: { paymentDate: { gte: startOfMonth }, ...scope },
+          where: { ...scope }, // Remove month filter to show total revenue
           _sum: { amountPaid: true }
         }),
         prisma.notice.findMany({
@@ -92,7 +93,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
             totalSchools,
             pendingAdmissions,
             totalEnquiries,
-            monthlyFeeCollection: feeCollection._sum.amountPaid || 0,
+            totalRevenue: feeCollection._sum.amountPaid || 0,
           },
           todayAttendance: {
             present: attendanceMap['present'] || 0,

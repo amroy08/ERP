@@ -25,6 +25,7 @@ model User {
   staff        Staff?
   student      Student?
   teacher      Teacher?
+  supportTickets SupportTicket[]
   school       School?   @relation("UserSchool", fields: [schoolId], references: [id])
 
   @@index([schoolId], map: "users_schoolId_fkey")
@@ -179,10 +180,10 @@ model Parent {
   id           String    @id @default(uuid())
   userId       String?   @unique
   fatherName   String
-  fatherOcc    String?
+  fatherOccupation String?
   fatherPhone  String
   motherName   String?
-  motherOcc    String?
+  motherOccupation String?
   motherPhone  String?
   annualIncome Float?
   address      String?   @db.Text
@@ -579,8 +580,11 @@ model School {
   studentFees    StudentFee[]
   students       Student[]
   subjects       Subject[]
+  supportTickets SupportTicket[]
   teachers       Teacher[]
   timetables     Timetable[]
+  transportRoutes TransportRoute[]
+  vehicles       Vehicle[]
   users          User[]         @relation("UserSchool")
 
   @@map("school_settings")
@@ -621,6 +625,53 @@ model ActivityLog {
   @@index([schoolId], map: "activity_logs_schoolId_fkey")
   @@index([studentId], map: "activity_logs_studentId_fkey")
   @@map("activity_logs")
+}
+
+model Vehicle {
+  id            String           @id @default(uuid())
+  vehicleNumber String           @unique
+  vehicleModel  String
+  driverName    String
+  driverPhone   String
+  capacity      Int
+  status        String           @default("active")
+  schoolId      String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  routes        TransportRoute[]
+  school        School?          @relation(fields: [schoolId], references: [id])
+
+  @@map("vehicles")
+}
+
+model TransportRoute {
+  id          String   @id @default(uuid())
+  routeName   String
+  vehicleId   String?
+  stops       Json?
+  description String?  @db.Text
+  schoolId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  school      School?  @relation(fields: [schoolId], references: [id])
+  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  @@map("transport_routes")
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid())
+  subject   String
+  message   String   @db.Text
+  status    String   @default("open")
+  userId    String
+  schoolId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  school    School?  @relation(fields: [schoolId], references: [id])
+
+  @@map("support_tickets")
 }
 
 enum Role {

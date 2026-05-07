@@ -241,7 +241,9 @@ export const HomeworkPage: React.FC = () => {
                     onChange={e => setForm({...form, subjectId: e.target.value})}
                   >
                      <option value="">Select Subject...</option>
-                     {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                     {subjects
+                       .filter(s => !form.classId || s.classId === form.classId)
+                       .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                </div>
 

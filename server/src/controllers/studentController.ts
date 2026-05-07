@@ -16,12 +16,13 @@ const generatePassword = (prefix: string): string => {
 
 export const getStudents = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { classId, sectionId, status, search, page, limit } = req.query as Record<string, string>;
+    const { classId, sectionId, status, search, page, limit, schoolId } = req.query as Record<string, string>;
     
     const scope = getSchoolScope(req);
     const where: any = {
       ...scope,
       AND: [
+        schoolId && req.user?.role === 'super_admin' ? { schoolId } : {},
         classId ? { classId } : {},
         sectionId ? { sectionId } : {},
         status ? { status: status as any } : {},
@@ -46,6 +47,7 @@ export const getStudents = async (req: AuthRequest, res: Response, next: NextFun
         include: {
           class: { select: { name: true } },
           section: { select: { name: true } },
+          school: { select: { name: true } },
           parent: { select: { fatherName: true, fatherPhone: true } }
         },
         orderBy: { firstName: 'asc' },
@@ -229,13 +231,15 @@ export const updateStudent = async (req: AuthRequest, res: Response, next: NextF
 
     // Update parent record if parent data is provided
     if (parent && student.parentId) {
-      await prisma.parent.update({
+      await (prisma as any).parent.update({
         where: { id: student.parentId },
         data: {
           fatherName: parent.fatherName || undefined,
           fatherPhone: parent.fatherPhone || undefined,
+          fatherOccupation: parent.fatherOccupation || undefined,
           motherName: parent.motherName || '',
           motherPhone: parent.motherPhone || '',
+          motherOccupation: parent.motherOccupation || '',
           address: address ? [address.street, address.city, address.state].filter(Boolean).join(', ') : undefined,
         }
       });
@@ -548,12 +552,14 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
         const admissionNumber = `ADM-${year}-${seq}`;
 
         // Create parent
-        const parent = await prisma.parent.create({
+        const parent = await (prisma as any).parent.create({
           data: {
             fatherName: fatherName || col(row, 'Guardian', 'guardian_name') || 'Guardian',
             fatherPhone,
+            fatherOccupation: col(row, 'Father Occupation', 'FatherOccupation', 'occupation'),
             motherName: motherName || '',
             motherPhone: motherPhone || '',
+            motherOccupation: col(row, 'Mother Occupation', 'MotherOccupation'),
             address: address || '',
             schoolId
           }

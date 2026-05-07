@@ -8,8 +8,10 @@ import { Button } from '../../components/common/Button';
 import { AdmissionDetailsModal } from './AdmissionDetailsModal';
 import axiosInstance from '../../api/axiosInstance';
 import { usePermissions } from '../../hooks/usePermissions';
+import { SchoolFilter } from '../../components/common/SchoolFilter';
 import { Admission, TableColumn, ApiResponse } from '../../types';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 // Helper: safely extract any nested field
 const get = (row: Record<string, unknown>, path: string): unknown => {
@@ -23,6 +25,7 @@ export const AdmissionsListPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
   
   // Modal state
   const [selectedAdmission, setSelectedAdmission] = useState<any | null>(null);
@@ -34,6 +37,7 @@ export const AdmissionsListPage: React.FC = () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
+      if (schoolFilter) params.set('schoolId', schoolFilter);
       const res = await axiosInstance.get<ApiResponse<any[]>>(`/admissions?${params}`);
       setAdmissions(res.data.data || []);
     } catch (err) {
@@ -45,7 +49,19 @@ export const AdmissionsListPage: React.FC = () => {
 
   useEffect(() => {
     fetchAdmissions();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, schoolFilter]);
+
+  const handleExport = () => {
+    const token = localStorage.getItem('erp_access_token');
+    const url = `${axiosInstance.defaults.baseURL}/reports/export?type=admissions&format=csv&token=${token}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `admissions_export_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Admissions export started!');
+  };
 
   const handleRowClick = async (rawRow: Record<string, unknown>) => {
     // Fetch the full admission with relations for the modal
@@ -72,6 +88,15 @@ export const AdmissionsListPage: React.FC = () => {
         </div>
       ) 
     },
+    ...(isRole(['super_admin']) ? [{
+      key: 'school',
+      label: 'School',
+      render: (_: any, row: any) => (
+        <Badge variant="blue" className="bg-blue-50 text-blue-600 border-blue-100">
+          {row.school?.name || 'N/A'}
+        </Badge>
+      )
+    }] : []),
     { 
       key: 'class', 
       label: 'Class Applied', 
@@ -131,7 +156,7 @@ export const AdmissionsListPage: React.FC = () => {
           <p className="text-slate-500 text-sm">Review, manage, and enroll new students into the system.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" icon={<Download className="w-4 h-4" />}>Export List</Button>
+          <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport}>Export List</Button>
           {isRole(['super_admin', 'admin', 'clerk']) && (
             <Button icon={<Plus className="w-4 h-4" />} onClick={() => navigate('/admissions/new')}>New Application</Button>
           )}
@@ -153,29 +178,32 @@ export const AdmissionsListPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-4 items-center shadow-sm">
-        <div className="flex-1 min-w-[300px] relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5 flex flex-wrap items-center gap-4">
+        {isRole(['super_admin']) && (
+          <SchoolFilter value={schoolFilter} onChange={setSchoolFilter} />
+        )}
+        <div className="relative flex-1 min-w-[280px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input 
             value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
+            onChange={e => setSearch(e.target.value)} 
             placeholder="Search by student or guardian name, phone..." 
-            className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" 
+            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
           />
         </div>
-        <div className="flex items-center gap-3">
+        
+        <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400" />
           <select 
             value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)} 
-            className="px-4 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Statuses</option>
-            <option value="new">🆕 New</option>
-            <option value="under_review">⏳ Under Review</option>
-            <option value="accepted">✅ Accepted</option>
-            <option value="rejected">❌ Rejected</option>
-            <option value="enrolled">🎓 Enrolled</option>
+            <option value="NEW">NEW</option>
+            <option value="UNDER_REVIEW">UNDER_REVIEW</option>
+            <option value="ENROLLED">ENROLLED</option>
+            <option value="REJECTED">REJECTED</option>
           </select>
         </div>
       </div>

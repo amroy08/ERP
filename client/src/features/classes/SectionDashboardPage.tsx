@@ -156,7 +156,7 @@ export const SectionDashboardPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Section Hub: {section?.name}</h1>
-            <p className="text-slate-500 text-sm font-medium">Class ID: {section?.class} · {students.length} Enrolled Students</p>
+             <p className="text-slate-500 text-sm font-medium">Class: {(section?.class as any)?.name || section?.class || 'N/A'} · {students.length} Enrolled Students</p>
           </div>
         </div>
         <div className="flex gap-2 w-full md:w-auto">

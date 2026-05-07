@@ -9,15 +9,16 @@ import {
   getClasses, createClass, updateClass, deleteClass,
   getSubjects, createSubject, updateSubject, deleteSubject,
   getAttendance, markAttendance, getStudentAttendanceReport,
-  getSchoolSettings, updateSchoolSettings,
+  getSchoolSettings, updateSchoolSettings, uploadSchoolLogo,
   getAcademicYears, createAcademicYear, updateAcademicYear,
   getSections, getSection, createSection, updateSection, deleteSection,
-  getHomework, createHomework,
+  getHomework, createHomework, deleteHomework,
   getTimetables, createTimetable
 } from '../controllers/moduleController';
 import { upload } from '../middleware/uploadMiddleware';
 import {
-  getExams, createExam, submitMarks, getReportCard, getExamSubjects, getExamMarks
+  getExams, createExam, submitMarks, getReportCard, getExamSubjects, getExamMarks,
+  updateExam, deleteExam
 } from '../controllers/examController';
 import { protect } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/rbacMiddleware';
@@ -86,6 +87,7 @@ router.get('/attendance/report/:studentId', protect, checkModuleEnabled('attenda
 // School Settings
 router.get('/school', protect, getSchoolSettings);
 router.put('/school', protect, authorize(PERMISSIONS.SETTINGS_UPDATE), updateSchoolSettings);
+router.post('/school/logo', protect, authorize(PERMISSIONS.SETTINGS_UPDATE), upload.single('logo'), uploadSchoolLogo);
 
 // Academic Years
 router.get('/academic-years', protect, authorize(PERMISSIONS.SETTINGS_VIEW), getAcademicYears);
@@ -102,6 +104,7 @@ router.delete('/sections/:id', protect, authorize(PERMISSIONS.CLASS_DELETE), del
 // Homework
 router.get('/homework', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), getHomework);
 router.post('/homework', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_CREATE), createHomework);
+router.delete('/homework/:id', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_CREATE), deleteHomework);
 
 // Timetable
 router.get('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_VIEW), getTimetables);
@@ -112,6 +115,8 @@ router.post('/timetables', protect, checkModuleEnabled('timetable'), authorize(P
 // Exams
 router.get('/exams', protect, authorize(PERMISSIONS.EXAM_VIEW), getExams);
 router.post('/exams', protect, authorize(PERMISSIONS.EXAM_CREATE), createExam);
+router.put('/exams/:id', protect, authorize(PERMISSIONS.EXAM_CREATE), updateExam);
+router.delete('/exams/:id', protect, authorize(PERMISSIONS.EXAM_CREATE), deleteExam);
 router.post('/exams/marks', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY), submitMarks);
 router.get('/exams/marks/:examId/:subjectId', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY, PERMISSIONS.EXAM_VIEW), getExamMarks);
 router.get('/exams/subjects/:examId', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY, PERMISSIONS.EXAM_VIEW), getExamSubjects);

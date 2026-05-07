@@ -428,7 +428,7 @@ export const TimetablePage: React.FC = () => {
                                           className="w-full h-10 px-3 py-1 text-xs font-black border border-slate-50 rounded-lg bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                         >
                                            <option value="">Select</option>
-                                           {teachers.map(t => <option key={t.id} value={t.id}>{t.user?.fullName}</option>)}
+                                           {teachers.map(t => <option key={t.id} value={t.id}>{t.user?.name || t.user?.fullName || 'Unknown'}</option>)}
                                         </select>
                                      </div>
                                      <div className="w-24 space-y-1.5">

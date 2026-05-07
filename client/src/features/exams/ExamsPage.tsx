@@ -4,7 +4,7 @@ import {
   Calendar, BookOpen, GraduationCap, 
   ClipboardCheck, TrendingUp, ChevronRight,
   UserCheck, History, AlertCircle, Save,
-  ArrowLeft, CheckCircle2, XCircle, Info
+  ArrowLeft, CheckCircle2, XCircle, Info, Edit2, Trash2
 } from 'lucide-react';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Card, StatCard } from '../../components/common/Card';
@@ -52,6 +52,7 @@ export const ExamsPage: React.FC = () => {
 
   // Schedule Modal state
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [examForm, setExamForm] = useState({
     name: '', type: 'internal', classId: '', startDate: '', endDate: '',
     mode: 'text' as 'text' | 'pdf',
@@ -153,17 +154,53 @@ export const ExamsPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axiosInstance.post('/exams', {
-        ...examForm,
-        academicYearId: 'current' 
-      });
-      toast.success('Exam scheduled successfully');
+      if (editingExamId) {
+        await axiosInstance.put(`/exams/${editingExamId}`, {
+          ...examForm,
+          academicYearId: 'current'
+        });
+        toast.success('Exam updated successfully');
+      } else {
+        await axiosInstance.post('/exams', {
+          ...examForm,
+          academicYearId: 'current' 
+        });
+        toast.success('Exam scheduled successfully');
+      }
       setIsScheduleModalOpen(false);
+      setEditingExamId(null);
+      setExamForm({ name: '', type: 'internal', classId: '', startDate: '', endDate: '', mode: 'text' as 'text' | 'pdf', description: '', fileUrl: '' });
       fetchExams();
     } catch {
-      toast.error('Failed to schedule exam');
+      toast.error('Failed to save exam');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditExam = (exam: Exam) => {
+    setEditingExamId(exam.id);
+    setExamForm({
+      name: exam.name,
+      type: exam.type,
+      classId: exam.classId,
+      startDate: format(new Date(exam.startDate), 'yyyy-MM-dd'),
+      endDate: format(new Date(exam.endDate), 'yyyy-MM-dd'),
+      mode: 'text' as 'text' | 'pdf',
+      description: exam.description || '',
+      fileUrl: ''
+    });
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleDeleteExam = async (exam: Exam) => {
+    if (!window.confirm(`Are you sure you want to delete "${exam.name}"? All associated marks will also be deleted.`)) return;
+    try {
+      await axiosInstance.delete(`/exams/${exam.id}`);
+      toast.success(`Exam "${exam.name}" deleted successfully`);
+      fetchExams();
+    } catch {
+      toast.error('Failed to delete exam');
     }
   };
 
@@ -569,9 +606,12 @@ export const ExamsPage: React.FC = () => {
                       >
                          Record Marks
                       </Button>
-                      <Button variant="secondary" size="sm" className="px-3 h-10 border-slate-200">
-                         <Info className="w-4 h-4" />
-                      </Button>
+                       <Button variant="secondary" size="sm" className="px-3 h-10 border-slate-200" onClick={() => handleEditExam(exam)}>
+                          <Edit2 className="w-4 h-4" />
+                       </Button>
+                       <Button variant="danger" size="sm" className="px-3 h-10" onClick={() => handleDeleteExam(exam)}>
+                          <Trash2 className="w-4 h-4" />
+                       </Button>
                    </div>
                   )}
                </div>

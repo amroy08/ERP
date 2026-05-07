@@ -204,7 +204,7 @@ export const SubjectsPage: React.FC = () => {
                     )}
                   </td>
                   <td className="px-8 py-5 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-all duration-300">
                       <button 
                         onClick={() => handleEditSubject(subject)}
                         className="p-2.5 hover:bg-blue-50 rounded-xl text-slate-400 hover:text-blue-600 transition-all shadow-sm border border-transparent hover:border-blue-100"

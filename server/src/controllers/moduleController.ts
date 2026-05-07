@@ -26,11 +26,12 @@ const checkRoleLicense = async (roleName: string): Promise<string | null> => {
 // ── Teachers ──────────────────────────────────────────
 export const getTeachers = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { search, status } = req.query as Record<string, string>;
+    const { search, status, schoolId } = req.query as Record<string, string>;
     const scope = getSchoolScope(req);
     const teachers = await prisma.teacher.findMany({
       where: {
         AND: [
+          schoolId && req.user?.role === 'super_admin' ? { schoolId } : {},
           status ? { status } : {},
           scope,
           search ? {
@@ -46,7 +47,8 @@ export const getTeachers = async (req: AuthRequest, res: Response, next: NextFun
         user: { select: { name: true, email: true, profilePhoto: true, phone: true } },
         subjects: { select: { name: true, code: true } },
         assignedClasses: { select: { id: true, name: true } },
-        classTeacherOf: { select: { id: true, name: true, class: { select: { name: true } } } }
+        classTeacherOf: { select: { id: true, name: true, class: { select: { name: true } } } },
+        school: { select: { name: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -221,11 +223,12 @@ export const resetStaffPassword = async (req: Request, res: Response, next: Next
 // ── Staff ─────────────────────────────────────────────
 export const getStaff = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { search, status } = req.query as Record<string, string>;
+    const { search, status, schoolId } = req.query as Record<string, string>;
     const scope = getSchoolScope(req);
     const staff = await prisma.staff.findMany({
       where: {
         AND: [
+          schoolId && req.user?.role === 'super_admin' ? { schoolId } : {},
           status ? { status } : {},
           scope,
           search ? {
@@ -236,8 +239,9 @@ export const getStaff = async (req: AuthRequest, res: Response, next: NextFuncti
           } : {}
         ]
       },
-      include: {
-        user: { select: { name: true, email: true, profilePhoto: true, phone: true } }
+      include: { 
+        user: { select: { name: true, email: true, profilePhoto: true, phone: true } },
+        school: { select: { name: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -575,11 +579,12 @@ export const updateEnquiry = async (req: Request, res: Response, next: NextFunct
 // ── Admissions ────────────────────────────────────────
 export const getAdmissions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { status, search } = req.query as Record<string, string>;
+    const { status, search, schoolId } = req.query as Record<string, string>;
     const admissions = await prisma.admission.findMany({
       where: {
         AND: [
           getSchoolScope(req),
+          schoolId && (req as any).user?.role === 'super_admin' ? { schoolId } : {},
           status ? { status } : {},
           search ? {
             OR: [
@@ -1011,6 +1016,38 @@ export const updateSchoolSettings = async (req: AuthRequest, res: Response, next
   } catch (error) { next(error); }
 };
 
+export const uploadSchoolLogo = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.file) {
+      next(createError('No logo file uploaded', 400));
+      return;
+    }
+
+    const scope = getSchoolScope(req) as any;
+    const schoolId = scope.schoolId || req.user?.schoolId;
+    if (!schoolId) {
+      next(createError('No school context found', 400));
+      return;
+    }
+
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+
+    // Delete old logo file if it exists
+    const oldSchool = await prisma.school.findUnique({ where: { id: schoolId } });
+    if (oldSchool?.logo) {
+      const oldPath = path.join(process.cwd(), oldSchool.logo);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const school = await prisma.school.update({
+      where: { id: schoolId },
+      data: { logo: logoUrl }
+    });
+
+    res.json({ success: true, data: school, message: 'Logo updated successfully' });
+  } catch (error) { next(error); }
+};
+
 // ── Academic Years ────────────────────────────────────
 
 
@@ -1175,8 +1212,28 @@ export const updateSection = async (req: AuthRequest, res: Response, next: NextF
 export const deleteSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    await prisma.section.delete({ where: { id: id as string } });
-    res.json({ success: true, message: 'Section deleted successfully' });
+    const section = await prisma.section.findUnique({ where: { id: id as string } });
+    if (!section) {
+      next(createError('Section not found', 404));
+      return;
+    }
+
+    // Check for students in this section
+    const studentCount = await prisma.student.count({ where: { sectionId: id as string } });
+    if (studentCount > 0) {
+      next(createError(`Cannot delete section: ${studentCount} students are still assigned to it. Please reassign or remove them first.`, 400));
+      return;
+    }
+
+    // Clean up related records in a transaction
+    await prisma.$transaction([
+      prisma.timetableEntry.deleteMany({ where: { timetable: { sectionId: id as string } } }),
+      prisma.timetable.deleteMany({ where: { sectionId: id as string } }),
+      prisma.homework.deleteMany({ where: { sectionId: id as string } }),
+      prisma.section.delete({ where: { id: id as string } })
+    ]);
+
+    res.json({ success: true, message: `Section "${section.name}" deleted successfully` });
   } catch (error) { next(error); }
 };
 
@@ -1265,14 +1322,32 @@ export const createHomework = async (req: AuthRequest, res: Response, next: Next
   } catch (error) { next(error); }
 };
 
+export const deleteHomework = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const homework = await prisma.homework.findFirst({
+      where: { id: id as string, ...getSchoolScope(req) }
+    });
+    if (!homework) {
+      next(createError('Homework not found', 404));
+      return;
+    }
+    await prisma.homework.delete({ where: { id: id as string } });
+    res.json({ success: true, message: 'Homework deleted successfully' });
+  } catch (error) { next(error); }
+};
+
 // ── Timetable ─────────────────────────────────────────
 export const getTimetables = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { classId, sectionId } = req.query as Record<string, string>;
+    const { status, search, page, limit, schoolId, classId, sectionId } = req.query as Record<string, string>;
     const authUser = req.user!;
-
+    const scope = getSchoolScope(req);
+    
     const where: any = {
+      ...scope,
       AND: [
+        schoolId && (req as any).user?.role === 'super_admin' ? { schoolId } : {},
         classId ? { classId } : {},
         sectionId ? { sectionId } : {}
       ]

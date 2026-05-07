@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Edit2, Trash2 } from 'lucide-react';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { DataTable } from '../../components/common/DataTable';
-import { StatusBadge } from '../../components/common/Badge';
+import { StatusBadge, Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
+import { SchoolFilter } from '../../components/common/SchoolFilter';
 import axiosInstance from '../../api/axiosInstance';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Teacher, TableColumn, ApiResponse } from '../../types';
@@ -17,11 +18,12 @@ export const TeachersListPage: React.FC = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
 
   const fetchTeachers = async () => {
     setIsLoading(true);
     try {
-      const res = await axiosInstance.get('/teachers?limit=50');
+      const res = await axiosInstance.get(`/teachers?limit=50${schoolFilter ? `&schoolId=${schoolFilter}` : ''}`);
       setTeachers(res.data.data || []);
     } catch {
       setTeachers([]);
@@ -36,7 +38,7 @@ export const TeachersListPage: React.FC = () => {
     } else {
       fetchTeachers();
     }
-  }, []); // Run once on mount
+  }, [schoolFilter]); // Re-run when school filter changes
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Delete teacher account for ${name}?`)) return;
@@ -83,6 +85,15 @@ export const TeachersListPage: React.FC = () => {
         );
       },
     },
+    ...(isRole(['super_admin']) ? [{
+      key: 'school',
+      label: 'School',
+      render: (_: any, row: any) => (
+        <Badge variant="blue" className="bg-blue-50 text-blue-600 border-blue-100">
+          {row.school?.name || 'N/A'}
+        </Badge>
+      )
+    }] : []),
     { 
       key: 'phone', 
       label: 'Phone', 
@@ -134,8 +145,11 @@ export const TeachersListPage: React.FC = () => {
           <Button size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => navigate('/teachers/new')}>Add Teacher</Button>
         )}
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="relative max-w-sm">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-4">
+        {isRole(['super_admin']) && (
+          <SchoolFilter value={schoolFilter} onChange={setSchoolFilter} />
+        )}
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}

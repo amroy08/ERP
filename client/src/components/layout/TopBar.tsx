@@ -20,8 +20,49 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const { scopedSchoolId, scopedSchoolName } = useSelector((state: RootState) => state.auth);
+
+  const fetchSearchResults = async (query: string) => {
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await axiosInstance.get(`/dashboard/search?q=${query}`);
+      setSearchResults(res.data.data || []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const fetchNotices = async () => {
+    try {
+      const res = await axiosInstance.get('/notices?limit=5');
+      setNotices(res.data.data || []);
+    } catch {
+      // ignore
+    }
+  };
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery) fetchSearchResults(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  React.useEffect(() => {
+    fetchNotices();
+  }, []);
 
 
 
@@ -59,17 +100,53 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
       </button>
 
       {/* Search */}
-      <div className="flex-1 max-w-xl">
+      <div className="flex-1 max-w-xl relative">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className={clsx("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", isSearchFocused ? "text-blue-500" : "text-slate-400")} />
           <input
             type="text"
-            placeholder="Search students, teachers, fees..."
+            placeholder="Search students, teachers, staff..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
           />
+          {isSearching && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
         </div>
+
+        {isSearchFocused && (searchQuery || searchResults.length > 0) && (
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden max-h-[400px] overflow-y-auto">
+            {searchResults.length > 0 ? (
+              <div className="p-2">
+                {searchResults.map((item: any) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.type === 'student') navigate(`/students/${item.id}`);
+                      if (item.type === 'teacher') navigate(`/teachers/${item.id}`);
+                      if (item.type === 'staff') navigate(`/staff/${item.id}`);
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center gap-3 w-full p-3 hover:bg-slate-50 rounded-xl transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      {item.name?.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{item.name}</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.type} &bull; {item.subText}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : !isSearching && searchQuery && (
+              <div className="p-8 text-center">
+                <p className="text-sm font-medium text-slate-500">No results found for "{searchQuery}"</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
@@ -83,10 +160,50 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className={clsx("relative p-2.5 rounded-xl transition-colors", isNotificationsOpen ? "bg-blue-50 text-blue-600" : "hover:bg-slate-100 text-slate-500")}
+          >
+            <Bell className="w-5 h-5" />
+            {notices.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />}
+          </button>
+
+          {isNotificationsOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Recent Notices</p>
+                  <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{notices.length} New</span>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notices.length > 0 ? (
+                    <div className="divide-y divide-slate-50">
+                      {notices.map((notice) => (
+                        <div key={notice.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer">
+                          <p className="text-sm font-bold text-slate-800">{notice.title}</p>
+                          <p className="text-xs text-slate-500 line-clamp-2 mt-1">{notice.content}</p>
+                          <p className="text-[10px] text-slate-400 font-medium mt-2">{new Date(notice.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center">
+                      <p className="text-sm font-medium text-slate-400">No new notifications</p>
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={() => { navigate('/notices'); setIsNotificationsOpen(false); }}
+                  className="w-full py-3 text-[10px] font-black text-blue-600 uppercase tracking-widest border-t border-slate-50 hover:bg-blue-50 transition-colors"
+                >
+                  View All Notices
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Impersonation Mode Badge */}
         {user?.role === 'super_admin' && scopedSchoolId && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, DollarSign, BookOpen, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, IndianRupee, BookOpen, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -166,7 +166,7 @@ export const FeeStructurePage: React.FC = () => {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <DollarSign className="w-5 h-5" />
+                    <IndianRupee className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-bold text-slate-800">{s.name}</p>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FileBarChart, Download, Calendar, 
   Users, DollarSign, GraduationCap, 
@@ -10,17 +11,21 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import axiosInstance from '../../api/axiosInstance';
+import { SchoolFilter } from '../../components/common/SchoolFilter';
+import { usePermissions } from '../../hooks/usePermissions';
 import toast from 'react-hot-toast';
 
 const reportTypes = [
   { id: 'attendance', name: 'Attendance Summary', icon: Users, color: 'blue', desc: 'Aggregated attendance per class and section.' },
   { id: 'fees', name: 'Financial Ledger', icon: DollarSign, color: 'emerald', desc: 'Income, pending dues, and collection reports.' },
   { id: 'academic', name: 'Academic Results', icon: GraduationCap, color: 'indigo', desc: 'Exam performance and grading distribution.' },
-  { id: 'inventory', name: 'Inventory Audit', icon: FileBarChart, color: 'orange', desc: 'Stock levels, consumption, and purchase history.' },
 ];
 
 export const ReportsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { isRole } = usePermissions();
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [schoolFilter, setSchoolFilter] = useState('');
 
   const handleDownloadReport = async (type: string, format: 'pdf' | 'csv') => {
     const loadingKey = `${type}-${format}`;
@@ -30,7 +35,7 @@ export const ReportsPage: React.FC = () => {
       // For file downloads, we can use window.open or a hidden anchor tag with the token in query if needed,
       // but since we want to protect the route, we'll use a direct link if the browser supports it
       // or a blob approach. Simple way for this ERP:
-      const downloadUrl = `${axiosInstance.defaults.baseURL}/reports/export?type=${type}&format=${format}&token=${token}`;
+      const downloadUrl = `${axiosInstance.defaults.baseURL}/reports/export?type=${type}&format=${format}&token=${token}${schoolFilter ? `&schoolId=${schoolFilter}` : ''}`;
       
       // Creating a temporary link to trigger download
       const link = document.createElement('a');
@@ -57,8 +62,11 @@ export const ReportsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Analytics & Intelligence</h1>
           <p className="text-slate-500 text-sm">Download official PDF/CSV records and view comparative school statistics.</p>
         </div>
-        <div className="flex gap-2">
-           <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />}>Refresh Stats</Button>
+        <div className="flex gap-2 items-center">
+           {isRole(['super_admin']) && (
+             <SchoolFilter value={schoolFilter} onChange={setSchoolFilter} />
+           )}
+           <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={() => window.location.reload()}>Refresh Stats</Button>
         </div>
       </div>
 
@@ -170,9 +178,12 @@ export const ReportsPage: React.FC = () => {
                   ))}
                </div>
 
-               <Button className="w-full bg-white text-slate-900 border-none hover:bg-blue-50 font-black text-[11px] uppercase tracking-wide">
-                  Configure Subscriptions
-               </Button>
+                <Button 
+                   className="w-full bg-white text-slate-900 border-none hover:bg-blue-50 font-black text-[11px] uppercase tracking-wide"
+                   onClick={() => navigate('/settings')}
+                >
+                   Institutional Settings
+                </Button>
             </div>
             
             {/* Background elements */}

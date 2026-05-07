@@ -69,13 +69,12 @@ export const DashboardPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // In a real app, this would send an email or create a ticket in DB
-      await new Promise(r => setTimeout(r, 1500));
+      await axiosInstance.post('/support/tickets', supportData);
       toast.success('Support ticket created! Our team will contact you within 4 hours.');
       setIsSupportModalOpen(false);
       setSupportData({ subject: '', message: '' });
-    } catch {
-      toast.error('Failed to submit ticket');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to submit ticket');
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +214,7 @@ export const DashboardPage: React.FC = () => {
             )}
             {enabledModules.includes('fees') && (
               <StatCard 
-                title="Revenue Stream" value={`₹${(stats.stats.monthlyFeeCollection / 1000).toFixed(1)}k`} 
+                title="Revenue Stream" value={`₹${(stats.stats.totalRevenue / 1000).toFixed(1)}k`} 
                 icon={<DollarSign className="w-6 h-6 text-teal-600" />} iconBg="bg-teal-50" 
                 onClick={() => navigate('/fees/payments')}
                 className="rounded-[2rem] border-slate-100 hover:border-teal-200 transition-all duration-500 hover:shadow-2xl hover:shadow-teal-500/5"

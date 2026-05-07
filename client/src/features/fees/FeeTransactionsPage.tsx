@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Receipt, Search, Filter, Download, 
   Calendar, ArrowRight, Printer, 
@@ -9,6 +10,8 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import axiosInstance from '../../api/axiosInstance';
+import { SchoolFilter } from '../../components/common/SchoolFilter';
+import { usePermissions } from '../../hooks/usePermissions';
 import { format } from 'date-fns';
 import { FeeReceiptModal } from './components/FeeReceiptModal';
 import toast from 'react-hot-toast';
@@ -28,18 +31,19 @@ interface Payment {
 }
 
 export const FeeTransactionsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { isRole } = usePermissions();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   const fetchPayments = async () => {
     setIsLoading(true);
     try {
-      // Re-using the /fees/recent endpoint which returns last 50, 
-      // but we'll eventually want a paginated /fees/payments endpoint
-      const res = await axiosInstance.get('/fees/recent');
+      const res = await axiosInstance.get(`/fees/recent${schoolFilter ? `?schoolId=${schoolFilter}` : ''}`);
       setPayments(res.data.data || []);
     } catch (err) {
       toast.error('Failed to load transaction history');
@@ -48,9 +52,21 @@ export const FeeTransactionsPage: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    const token = localStorage.getItem('erp_access_token');
+    const url = `${axiosInstance.defaults.baseURL}/reports/export?type=fees&format=csv&token=${token}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `fee_transactions_export_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Fee transactions export started!');
+  };
+
   useEffect(() => {
     fetchPayments();
-  }, []);
+  }, [schoolFilter]);
 
   const filteredPayments = payments.filter(p => 
     p.student?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,13 +86,15 @@ export const FeeTransactionsPage: React.FC = () => {
           <p className="text-slate-500 text-sm font-medium italic">Audit-ready record of all fee collections and digital receipts.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" icon={<Download className="w-4 h-4" />}>Export CSV</Button>
+          <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport}>Export CSV</Button>
         </div>
       </div>
 
-      {/* Filters */}
       <Card className="p-4 border-slate-200 shadow-sm bg-white rounded-[24px]">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          {isRole(['super_admin']) && (
+            <SchoolFilter value={schoolFilter} onChange={setSchoolFilter} />
+          )}
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -101,15 +119,17 @@ export const FeeTransactionsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Transactions Table */}
       <Card className="p-0 overflow-hidden border-slate-200 shadow-xl shadow-slate-100 rounded-[32px]">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Info</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mode</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Transaction Info</th>
+                {isRole(['super_admin']) && (
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">School</th>
+                )}
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Student</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Mode</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -119,12 +139,12 @@ export const FeeTransactionsPage: React.FC = () => {
               {isLoading ? (
                 [1, 2, 3, 4, 5].map((i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={6} className="px-6 py-4"><div className="h-12 bg-slate-50 rounded-xl" /></td>
+                    <td colSpan={isRole(['super_admin']) ? 7 : 6} className="px-6 py-4"><div className="h-12 bg-slate-50 rounded-xl" /></td>
                   </tr>
                 ))
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center text-slate-300">
+                  <td colSpan={isRole(['super_admin']) ? 7 : 6} className="px-6 py-20 text-center text-slate-300">
                     <History className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p className="font-black uppercase tracking-widest text-sm">No transactions found</p>
                   </td>
@@ -143,6 +163,13 @@ export const FeeTransactionsPage: React.FC = () => {
                         </div>
                       </div>
                     </td>
+                    {isRole(['super_admin']) && (
+                      <td className="px-6 py-4">
+                        <Badge variant="blue" className="bg-blue-50 text-blue-600 border-blue-100">
+                          {(p as any).school?.name || 'N/A'}
+                        </Badge>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div>
                         <p className="text-sm font-black text-slate-800">{p.student?.fullName}</p>
@@ -165,26 +192,29 @@ export const FeeTransactionsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-[11px] font-bold text-slate-600">
-                        {format(new Date(p.paymentDate), 'dd MMM yyyy')}
+                        {p.paymentDate ? format(new Date(p.paymentDate), 'dd MMM yyyy') : '—'}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
-                       <div className="flex justify-end gap-2">
+                       <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                           <Button 
                             variant="secondary" 
                             size="sm" 
-                            className="h-9 w-9 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-9 w-9 p-0 rounded-xl"
                             onClick={() => {
                               setSelectedReceipt(p);
                               setIsReceiptModalOpen(true);
                             }}
+                            title="Print Receipt"
                           >
                              <Printer className="w-4 h-4" />
                           </Button>
                           <Button 
                             variant="secondary" 
                             size="sm" 
-                            className="h-9 w-9 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-9 w-9 p-0 rounded-xl"
+                            onClick={() => navigate(`/students/${p.student?.admissionNumber}`)} 
+                            title="View Student"
                           >
                              <ArrowRight className="w-4 h-4" />
                           </Button>

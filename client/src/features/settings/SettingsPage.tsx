@@ -22,6 +22,7 @@ export const SettingsPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showYearModal, setShowYearModal] = useState(false);
   const [selectedYear, setSelectedYear] = useState<Partial<AcademicYear> | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
 
   useEffect(() => {
@@ -276,7 +277,21 @@ export const SettingsPage: React.FC = () => {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Button size="sm" variant="secondary">Change Logo</Button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleLogoUpload} 
+                      className="hidden" 
+                      accept="image/*" 
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="secondary" 
+                      onClick={() => fileInputRef.current?.click()}
+                      isLoading={isSaving}
+                    >
+                      Change Logo
+                    </Button>
                     <p className="text-xs text-slate-400">Recommended: 512x512 PNG, Max 2MB</p>
                   </div>
                 </div>

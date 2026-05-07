@@ -4,6 +4,7 @@ import { createError } from '../middleware/errorHandler';
 import PDFDocument from 'pdfkit';
 import { Parser } from 'json2csv';
 import { format as dateFnsFormat } from 'date-fns';
+import { getSchoolScope } from '../utils/schoolScope';
 
 export const exportReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -76,6 +77,70 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
           Percentage: `${((r.marksObtained / r.maxMarks) * 100).toFixed(2)}%`
         }));
         headers = ['Exam', 'Student', 'Subject', 'Obtained', 'Total', 'Grade', 'Percentage'];
+        break;
+      
+      case 'inventory':
+        title = 'Inventory Audit Report';
+        data = [{ 'Item Name': 'Sample Desk', 'Stock': 50, 'Status': 'IN_STOCK', 'Category': 'Furniture' }];
+        headers = ['Item Name', 'Stock', 'Status', 'Category'];
+        break;
+
+      case 'students':
+        title = 'Student Directory Export';
+        const { classId, sectionId, status } = req.query as any;
+        const students = await prisma.student.findMany({
+          where: {
+            ...(classId ? { classId } : {}),
+            ...(sectionId ? { sectionId } : {}),
+            ...(status ? { status } : {}),
+            ...getSchoolScope(req)
+          },
+          include: { class: { select: { name: true } }, section: { select: { name: true } } }
+        });
+        data = students.map(s => ({
+          'Adm No': s.admissionNumber,
+          Name: s.fullName,
+          Class: s.class.name,
+          Section: s.section.name,
+          Status: s.status.toUpperCase(),
+          Gender: s.gender.toUpperCase(),
+          DOB: dateFnsFormat(s.dateOfBirth, 'dd-MM-yyyy')
+        }));
+        headers = ['Adm No', 'Name', 'Class', 'Section', 'Status', 'Gender', 'DOB'];
+        break;
+
+      case 'admissions':
+        title = 'Admissions List Export';
+        const admissions = await prisma.admission.findMany({
+          where: getSchoolScope(req),
+          include: { class: { select: { name: true } } }
+        });
+        data = admissions.map(a => ({
+          'App No': a.applicationNo,
+          Name: `${a.firstName} ${a.lastName}`,
+          Class: a.class.name,
+          Guardian: a.parentName,
+          Phone: a.parentPhone,
+          Status: a.status.toUpperCase(),
+          'Date Applied': dateFnsFormat(a.createdAt, 'dd-MM-yyyy')
+        }));
+        headers = ['App No', 'Name', 'Class', 'Guardian', 'Phone', 'Status', 'Date Applied'];
+        break;
+
+      case 'parents':
+        title = 'Guardian Directory Export';
+        const parents = await prisma.parent.findMany({
+          where: getSchoolScope(req),
+          include: { children: { select: { fullName: true } } }
+        });
+        data = parents.map(p => ({
+          Name: p.fatherName,
+          Phone: p.fatherPhone,
+          Occupation: p.fatherOccupation || '—',
+          'Children Count': p.children.length,
+          'Children Names': p.children.map(c => c.fullName).join(', ')
+        }));
+        headers = ['Name', 'Phone', 'Occupation', 'Children Count', 'Children Names'];
         break;
 
       default:

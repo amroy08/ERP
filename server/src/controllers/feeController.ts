@@ -158,10 +158,15 @@ export const updateFeePayment = async (req: AuthRequest, res: Response, next: Ne
 // ── Recent Payments ────────────────────────────────────────────────
 export const getRecentPayments = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { schoolId } = _req.query as Record<string, string>;
     const payments = await prisma.feePayment.findMany({
-      where: getSchoolScope(_req),
+      where: {
+        ...getSchoolScope(_req),
+        ...(schoolId && _req.user?.role === 'super_admin' ? { schoolId } : {})
+      },
       include: {
-        student: { select: { fullName: true, admissionNumber: true, class: { select: { name: true } } } }
+        student: { select: { fullName: true, admissionNumber: true, class: { select: { name: true } } } },
+        school: { select: { name: true } }
       },
       orderBy: { createdAt: 'desc' },
       take: 50
