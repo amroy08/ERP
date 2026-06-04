@@ -156,11 +156,14 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
       data: { userId: user.id }
     });
 
-    // Assign Class Fees automatically
+    // Assign Class Fees automatically (filtered by student's active academic year)
     const classFees = await prisma.feeStructure.findMany({
       where: { 
-        OR: [{ classId: classId }, { classId: null }],
         isActive: true,
+        AND: [
+          { OR: [{ classId: classId }, { classId: null }] },
+          { OR: [{ academicYearId: student.academicYearId }, { academicYearId: null }] }
+        ],
         ...getSchoolScope(req)
       }
     });
@@ -292,19 +295,26 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
       // 2. Clean slate: delete all old fee assignments
       await tx.studentFee.deleteMany({ where: { studentId } });
 
-      // 3. Move student to the new class
+      // 3. Move student to the new class and update academic year context
       const updated = await tx.student.update({
         where: { id: studentId },
-        data: { classId: newClassId, sectionId: newSectionId },
+        data: { 
+          classId: newClassId, 
+          sectionId: newSectionId,
+          academicYearId: academicYear.id
+        },
         include: { class: { select: { name: true } }, section: { select: { name: true } } }
       });
 
-      // 4. Assign new class fees (excluding Previous Dues structure)
+      // 4. Assign new class fees (excluding Previous Dues structure, filtered by active academic year)
       const newClassFees = await tx.feeStructure.findMany({
         where: {
-          OR: [{ classId: newClassId }, { classId: null }],
           isActive: true,
           name: { not: 'Previous Dues' },
+          AND: [
+            { OR: [{ classId: newClassId }, { classId: null }] },
+            { OR: [{ academicYearId: academicYear.id }, { academicYearId: null }] }
+          ],
           ...getSchoolScope(req)
         }
       });

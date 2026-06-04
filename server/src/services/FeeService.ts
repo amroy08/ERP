@@ -9,9 +9,12 @@ export class FeeService {
     });
     if (!student) throw createError('Student not found', 404);
 
-    // Get ALL fee assignments for this student (promotion wipes old ones, so these are always current)
+    // Get fee assignments for this student in their current academic year
     const assignedFees = await prisma.studentFee.findMany({
-      where: { studentId },
+      where: { 
+        studentId,
+        academicYearId: student.academicYearId 
+      },
       include: { feeStructure: true }
     });
 
@@ -29,11 +32,11 @@ export class FeeService {
       // Fallback to class-wide structures (for students who haven't been promoted yet)
       activeStructures = await (prisma.feeStructure as any).findMany({
         where: { 
-          OR: [
-            { classId: student.classId },
-            { classId: null }
-          ],
-          isActive: true 
+          isActive: true,
+          AND: [
+            { OR: [{ classId: student.classId }, { classId: null }] },
+            { OR: [{ academicYearId: student.academicYearId }, { academicYearId: null }] }
+          ]
         },
       });
       totalFee = activeStructures.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
@@ -43,9 +46,12 @@ export class FeeService {
       return { totalFee: 0, paidAmount: 0, balanceDue: 0, payments: [], structures: [] };
     }
 
-    // Get ALL payments for this student
+    // Get payments for this student in their current academic year
     const payments = await prisma.feePayment.findMany({ 
-      where: { studentId },
+      where: { 
+        studentId,
+        academicYearId: student.academicYearId 
+      },
       orderBy: { paymentDate: 'desc' }
     });
 
@@ -62,12 +68,13 @@ export class FeeService {
   }
 
   static async recordPayment(data: any & { collectedBy: string }) {
-    // Inherit schoolId from student first
-    const student = await prisma.student.findUnique({ where: { id: data.studentId }, select: { schoolId: true } });
+    // Inherit schoolId and academicYearId from student first
+    const student = await prisma.student.findUnique({ where: { id: data.studentId }, select: { schoolId: true, academicYearId: true } });
     if (!student) throw createError('Student record not found', 404);
 
     const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, schoolId: student.schoolId } });
-    if (!academicYear) throw createError('No active academic year', 400);
+    const paymentAcademicYearId = student.academicYearId || academicYear?.id;
+    if (!paymentAcademicYearId) throw createError('No active academic year', 400);
 
     // Make feeStructure optional
     if (data.feeStructureId) {
@@ -97,9 +104,6 @@ export class FeeService {
     }
     const receiptNumber = `RCP-${new Date().getFullYear()}-${String(nextNum).padStart(5, '0')}`;
 
-
-
-
     return await prisma.feePayment.create({
       data: {
         amountPaid,
@@ -108,7 +112,7 @@ export class FeeService {
         receiptNumber,
         remarks: data.remarks || '',
         status: 'completed',
-        academicYearId: academicYear.id,
+        academicYearId: paymentAcademicYearId,
         schoolId: student.schoolId
       }
     });
