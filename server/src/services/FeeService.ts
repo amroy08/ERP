@@ -91,7 +91,11 @@ export class FeeService {
       throw createError(`Overpayment detected. Remaining balance is Rs.${ledger.balanceDue.toLocaleString()}.`, 400);
     }
 
-    // Get the latest receipt number and increment from it
+    // TODO [HIGH-07 — Phase 2.2]: This receipt number generation is a TOCTOU race condition.
+    // Two concurrent payment requests will both read the same lastPayment and generate the same
+    // receipt number (e.g. RCP-2025-00001), causing a unique constraint collision or silent duplicate.
+    // Fix: Replace with a ReceiptSequence table using a transactional row-lock (SELECT ... FOR UPDATE via
+    // prisma.$queryRaw) before Phase 2.2 goes live. See phase_21_backend_audit_report.md HIGH-07.
     const lastPayment = await prisma.feePayment.findFirst({
       orderBy: { createdAt: 'desc' },
       select: { receiptNumber: true }

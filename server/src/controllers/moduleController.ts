@@ -335,12 +335,46 @@ export const createStaff = async (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
-export const updateStaff = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateStaff = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const staff = await prisma.staff.update({
-      where: { id: req.params.id as string, ...getSchoolScope(req) },
-      data: req.body
+    const staffId = req.params.id as string;
+
+    // Verify the staff record exists and belongs to this school
+    const existingStaff = await prisma.staff.findFirst({
+      where: { id: staffId, ...getSchoolScope(req) },
+      select: { id: true, userId: true }
     });
+    if (!existingStaff) {
+      next(createError('Staff member not found', 404));
+      return;
+    }
+
+    // Whitelist only safe, editable staff profile fields
+    const { department, designation, status, joiningDate, employeeId, firstName, lastName, email, phone } = req.body;
+
+    const staff = await prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        ...(department !== undefined ? { department } : {}),
+        ...(designation !== undefined ? { designation } : {}),
+        ...(status !== undefined ? { status } : {}),
+        ...(joiningDate !== undefined ? { joiningDate: new Date(joiningDate) } : {}),
+        ...(employeeId !== undefined ? { employeeId } : {}),
+      }
+    });
+
+    // Update linked user's safe fields if provided
+    if (existingStaff.userId && (firstName || lastName || email || phone)) {
+      await prisma.user.update({
+        where: { id: existingStaff.userId },
+        data: {
+          ...(firstName && lastName ? { name: `${firstName} ${lastName}` } : {}),
+          ...(email ? { email } : {}),
+          ...(phone ? { phone } : {}),
+        }
+      }).catch(() => {}); // Silently fail on email conflict
+    }
+
     res.json({ success: true, data: staff });
   } catch (error) { next(error); }
 };
@@ -387,14 +421,28 @@ export const deleteParent = async (req: AuthRequest, res: Response, next: NextFu
 };
 
 // ── System Archive ────────────────────────────────────
-export const getArchives = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getArchives = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { type } = req.query;
+    const authUser = (req as AuthRequest).user;
+
+    // Archive model has no schoolId column — build a safe filter instead.
+    // For non-super_admin users, filter archives to only those deleted by users
+    // in their school (using the stored deletedBy user ID).
+    let schoolUserIds: string[] | undefined;
+    if (authUser?.role !== 'super_admin' && authUser?.schoolId) {
+      const schoolUsers = await prisma.user.findMany({
+        where: { schoolId: authUser.schoolId },
+        select: { id: true }
+      });
+      schoolUserIds = schoolUsers.map(u => u.id);
+    }
+
     const archives = await (prisma as any).archive.findMany({
       where: {
         AND: [
-          getSchoolScope(req),
-          type ? { entityType: type as string } : {}
+          type ? { entityType: type as string } : {},
+          schoolUserIds ? { deletedBy: { in: schoolUserIds } } : {}
         ]
       },
       orderBy: { deletedAt: 'desc' }
@@ -410,8 +458,26 @@ export const restoreArchive = async (req: Request, res: Response, next: NextFunc
   } catch (error) { next(error); }
 };
 
-export const purgeArchive = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const purgeArchive = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const archive = await (prisma as any).archive.findUnique({ where: { id: req.params.id as string } });
+    if (!archive) {
+      next(createError('Archive record not found', 404));
+      return;
+    }
+
+    // Super admin can purge any record
+    if (req.user?.role !== 'super_admin') {
+      // For school-level users, verify the archived record belongs to their school
+      const archivedData = archive.data as any;
+      const archivedSchoolId = archivedData?.schoolId;
+
+      if (!archivedSchoolId || archivedSchoolId !== req.user?.schoolId) {
+        next(createError('Access denied. You can only purge records belonging to your school.', 403));
+        return;
+      }
+    }
+
     await (prisma as any).archive.delete({ where: { id: req.params.id as string } });
     res.json({ success: true, message: 'Record permanently deleted' });
   } catch (error) { next(error); }
@@ -1176,11 +1242,11 @@ export const getSections = async (req: AuthRequest, res: Response, next: NextFun
 };
 
 
-export const getSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const section = await prisma.section.findUnique({
-      where: { id: id as string },
+    const section = await prisma.section.findFirst({
+      where: { id: id as string, ...getSchoolScope(req) },
       include: { 
         class: { select: { id: true, name: true } },
         classTeacher: { 

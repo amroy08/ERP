@@ -23,7 +23,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       return;
     }
 
-    const secret = process.env.JWT_SECRET || 'fallback_secret';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET environment variable is not configured.');
     const decoded = jwt.verify(token, secret) as { id: string };
 
     const user = await prisma.user.findUnique({
@@ -47,7 +48,8 @@ export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextF
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const secret = process.env.JWT_SECRET || 'fallback_secret';
+      const secret = process.env.JWT_SECRET;
+      if (!secret) throw new Error('JWT_SECRET environment variable is not configured.');
       const decoded = jwt.verify(token, secret) as { id: string };
       
       const user = await prisma.user.findUnique({

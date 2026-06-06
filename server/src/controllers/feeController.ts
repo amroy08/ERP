@@ -178,8 +178,33 @@ export const getRecentPayments = async (_req: AuthRequest, res: Response, next: 
 // ── All Payments for a Student ─────────────────────────────────────
 export const getStudentPayments = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { studentId } = req.params;
+    const user = req.user!;
+
+    // RBAC: parents can only view payments of linked children
+    if (user.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: user.id as string },
+        include: { children: { select: { id: true } } }
+      });
+      if (!parent || !parent.children.some(child => child.id === studentId)) {
+        next(createError('Access denied. This student is not linked to your account.', 403));
+        return;
+      }
+    }
+    // RBAC: students can only view their own payments
+    else if (user.role === 'student') {
+      const student = await prisma.student.findUnique({
+        where: { userId: user.id as string }
+      });
+      if (!student || student.id !== studentId) {
+        next(createError('Access denied. You can only view your own payment history.', 403));
+        return;
+      }
+    }
+
     const payments = await prisma.feePayment.findMany({
-      where: { studentId: req.params.studentId as string, ...getSchoolScope(req) },
+      where: { studentId: studentId as string, ...getSchoolScope(req) },
       orderBy: { paymentDate: 'desc' }
     });
     res.json({ success: true, data: payments });

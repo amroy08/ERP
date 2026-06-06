@@ -7,14 +7,19 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import { createError } from '../middleware/errorHandler';
 
 const generateTokens = (userId: string, schoolId?: string | null) => {
+  const jwtSecret = process.env.JWT_SECRET;
+  const refreshSecret = process.env.JWT_REFRESH_SECRET;
+  if (!jwtSecret) throw new Error('JWT_SECRET environment variable is not configured.');
+  if (!refreshSecret) throw new Error('JWT_REFRESH_SECRET environment variable is not configured.');
+
   const accessToken = jwt.sign(
     { id: userId, schoolId: schoolId || null },
-    process.env.JWT_SECRET || 'secret',
+    jwtSecret,
     { expiresIn: '7d' }
   );
   const refreshToken = jwt.sign(
     { id: userId, schoolId: schoolId || null },
-    process.env.JWT_REFRESH_SECRET || 'refresh_secret',
+    refreshSecret,
     { expiresIn: '30d' }
   );
   return { accessToken, refreshToken };
@@ -170,7 +175,9 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
       return next(createError('Refresh token required.', 400));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || 'refresh_secret') as { id: string };
+    const refreshSecret = process.env.JWT_REFRESH_SECRET;
+    if (!refreshSecret) throw new Error('JWT_REFRESH_SECRET environment variable is not configured.');
+    const decoded = jwt.verify(token, refreshSecret) as { id: string };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id }
     });
