@@ -727,6 +727,17 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
           data: { userId: user.id }
         });
 
+        // Create initial enrollment history record for the imported student
+        await EnrollmentService.createInitialEnrollment({
+          studentId: student.id,
+          schoolId,
+          academicYearId: academicYear.id,
+          classId: classLookup.id,
+          sectionId,
+          rollNumber: rollNumber || null,
+          createdById: req.user?.id || null,
+        });
+
         // Assign Class Fees automatically (New requested feature)
         const classFees = await prisma.feeStructure.findMany({
           where: { 
