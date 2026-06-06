@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import bcrypt from 'bcryptjs';
 import { createError } from '../middleware/errorHandler';
+import { EnrollmentService } from './EnrollmentService';
 
 export class AdmissionService {
   static async convertToStudent(
@@ -106,7 +107,18 @@ export class AdmissionService {
         }
       });
 
-      // 4. Link Assigned Fees to Student
+      // 4. Phase 2.3: Create initial enrollment history for newly converted student
+      await EnrollmentService.createInitialEnrollment({
+        studentId: student.id,
+        schoolId: schoolId || admission.schoolId || '',
+        academicYearId: admission.academicYearId,
+        classId: resolvedClassId,
+        sectionId: resolvedSectionId,
+        rollNumber: null,
+        createdById: createdBy,
+      });
+
+      // 5. Link Assigned Fees to Student
       const admissionFees = await tx.admissionFee.findMany({
         where: { admissionId }
       });

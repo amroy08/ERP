@@ -46,6 +46,7 @@ model AcademicYear {
   exams         Exam[]
   feeStructures FeeStructure[]
   students      Student[]
+  enrollmentHistory StudentEnrollmentHistory[]
 
   @@unique([name, schoolId])
   @@index([schoolId], map: "academic_years_schoolId_fkey")
@@ -69,6 +70,7 @@ model Class {
   subjects      Subject[]
   timetables    Timetable[]
   teachers      Teacher[]      @relation("ClassToTeacher")
+  enrollmentHistory StudentEnrollmentHistory[]
 
   @@unique([name, schoolId])
   @@index([schoolId], map: "classes_schoolId_fkey")
@@ -91,6 +93,7 @@ model Section {
   school         School?     @relation(fields: [schoolId], references: [id])
   students       Student[]
   timetables     Timetable[]
+  enrollmentHistory StudentEnrollmentHistory[]
 
   @@index([classId], map: "sections_classId_fkey")
   @@index([classTeacherId], map: "sections_classTeacherId_fkey")
@@ -155,18 +158,19 @@ model Student {
   medicalNote     String?        @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  activityLogs    ActivityLog[]
-  attendance      Attendance[]
-  feePayments     FeePayment[]
-  leaveRequests   LeaveRequest[]
-  results         Result[]
-  assignedFees    StudentFee[]
-  academicYear    AcademicYear   @relation(fields: [academicYearId], references: [id])
-  class           Class          @relation(fields: [classId], references: [id])
-  parent          Parent         @relation(fields: [parentId], references: [id])
-  school          School?        @relation(fields: [schoolId], references: [id])
-  section         Section        @relation(fields: [sectionId], references: [id])
-  user            User?          @relation(fields: [userId], references: [id])
+  activityLogs      ActivityLog[]
+  attendance        Attendance[]
+  feePayments       FeePayment[]
+  leaveRequests     LeaveRequest[]
+  results           Result[]
+  assignedFees      StudentFee[]
+  enrollmentHistory StudentEnrollmentHistory[]
+  academicYear      AcademicYear   @relation(fields: [academicYearId], references: [id])
+  class             Class          @relation(fields: [classId], references: [id])
+  parent            Parent         @relation(fields: [parentId], references: [id])
+  school            School?        @relation("StudentSchool", fields: [schoolId], references: [id])
+  section           Section        @relation(fields: [sectionId], references: [id])
+  user              User?          @relation(fields: [userId], references: [id])
 
   @@index([academicYearId], map: "students_academicYearId_fkey")
   @@index([classId], map: "students_classId_fkey")
@@ -174,6 +178,38 @@ model Student {
   @@index([schoolId], map: "students_schoolId_fkey")
   @@index([sectionId], map: "students_sectionId_fkey")
   @@map("students")
+}
+
+// ── Enrollment History ─────────────────────────────────────────────
+// Tracks each class/section/year assignment a student has been in.
+// The Student record still holds the CURRENT values for fast queries.
+// This table is append-only from the application layer.
+model StudentEnrollmentHistory {
+  id             String    @id @default(uuid())
+  studentId      String
+  schoolId       String
+  academicYearId String
+  classId        String
+  sectionId      String
+  rollNumber     String?
+  status         String    @default("active")   // active | completed | transferred
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  createdById    String?                         // userId of who created/promoted
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  school       School       @relation("EnrollmentHistorySchool", fields: [schoolId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  class        Class        @relation(fields: [classId], references: [id])
+  section      Section      @relation(fields: [sectionId], references: [id])
+
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([classId, sectionId])
+  @@map("student_enrollment_history")
 }
 
 model Parent {
@@ -578,7 +614,8 @@ model School {
   sections       Section[]
   staff          Staff[]
   studentFees    StudentFee[]
-  students       Student[]
+  students       Student[]       @relation("StudentSchool")
+  enrollmentHistory StudentEnrollmentHistory[] @relation("EnrollmentHistorySchool")
   subjects       Subject[]
   supportTickets SupportTicket[]
   teachers       Teacher[]

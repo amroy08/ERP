@@ -2,7 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import { 
   getStudents, getStudent, createStudent, updateStudent, deleteStudent,
-  promoteStudent, resetStudentPassword, getStudentActivityLogs, importStudents
+  promoteStudent, resetStudentPassword, getStudentActivityLogs, importStudents,
+  getStudentEnrollmentHistory
 } from '../controllers/studentController';
 import { protect } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/rbacMiddleware';
@@ -20,5 +21,6 @@ router.delete('/:id', protect, authorize(PERMISSIONS.STUDENT_DELETE), deleteStud
 router.post('/:id/promote', protect, authorize(PERMISSIONS.STUDENT_UPDATE), promoteStudent);
 router.post('/:id/reset-password', protect, authorize(PERMISSIONS.STUDENT_UPDATE), resetStudentPassword);
 router.get('/:id/logs', protect, authorize(PERMISSIONS.STUDENT_VIEW), getStudentActivityLogs);
+router.get('/:id/enrollment-history', protect, authorize(PERMISSIONS.STUDENT_VIEW), getStudentEnrollmentHistory);
 
 export default router;

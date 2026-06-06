@@ -7,6 +7,7 @@ import { createError } from '../middleware/errorHandler';
 import { createLog } from '../services/LogService';
 import { FeeService } from '../services/FeeService';
 import { ArchiveService } from '../services/ArchiveService';
+import { EnrollmentService } from '../services/EnrollmentService';
 import { getSchoolScope } from '../utils/schoolScope';
 import { requireFields, requireValidDate } from '../utils/validate';
 
@@ -83,7 +84,15 @@ export const getStudent = async (req: AuthRequest, res: Response, next: NextFunc
         section: true,
         parent: true,
         leaveRequests: true,
-        activityLogs: { orderBy: { createdAt: 'desc' } }
+        activityLogs: { orderBy: { createdAt: 'desc' } },
+        enrollmentHistory: {
+          include: {
+            academicYear: { select: { id: true, name: true } },
+            class: { select: { id: true, name: true } },
+            section: { select: { id: true, name: true } }
+          },
+          orderBy: { startDate: 'desc' }
+        }
       }
     });
 
@@ -192,6 +201,17 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
     await prisma.student.update({
       where: { id: student.id },
       data: { userId: user.id }
+    });
+
+    // ── Phase 2.3: Create initial enrollment history record ────────────────
+    await EnrollmentService.createInitialEnrollment({
+      studentId: student.id,
+      schoolId,
+      academicYearId,
+      classId,
+      sectionId,
+      rollNumber: rollNumber ?? null,
+      createdById: req.user?.id ?? null,
     });
 
     // Assign Class Fees automatically (filtered by student's active academic year)
@@ -365,6 +385,17 @@ export const promoteStudent = async (req: AuthRequest, res: Response, next: Next
         include: { class: { select: { name: true } }, section: { select: { name: true } } }
       });
 
+      // Phase 2.3: Close old enrollment history + create new active one
+      await EnrollmentService.promoteEnrollment({
+        studentId,
+        schoolId: schoolId!,
+        newAcademicYearId: academicYear.id,
+        newClassId,
+        newSectionId,
+        newRollNumber: null,  // Roll number is re-assigned manually after promotion
+        promotedById: req.user?.id ?? null,
+      }, tx);
+
       // 4. Assign new class fees (excluding Previous Dues structure, filtered by active academic year)
       const newClassFees = await tx.feeStructure.findMany({
         where: {
@@ -471,6 +502,27 @@ export const getStudentActivityLogs = async (req: AuthRequest, res: Response, ne
     res.json({ success: true, data: logs });
   } catch (error) { next(error); }
 };
+
+// ── Phase 2.3: Enrollment History ────────────────────────────────────────────
+export const getStudentEnrollmentHistory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const scope = getSchoolScope(req);
+
+    // Verify student belongs to this school
+    const student = await prisma.student.findFirst({ where: { id: id as string, ...scope } });
+    if (!student) return next(createError('Student not found or access denied', 404));
+
+    // RBAC: Students can only see their own history
+    if (req.user?.role === 'student' && student.userId !== req.user.id) {
+      return next(createError('Access denied. You can only view your own enrollment history.', 403));
+    }
+
+    const history = await EnrollmentService.getHistory(id as string);
+    res.json({ success: true, data: history });
+  } catch (error) { next(error); }
+};
+
 
 export const importStudents = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {

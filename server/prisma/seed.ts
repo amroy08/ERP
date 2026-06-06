@@ -53,6 +53,7 @@ async function main() {
   await prisma.studentFee.deleteMany();
   await prisma.result.deleteMany();
   await prisma.exam.deleteMany();
+  await (prisma as any).studentEnrollmentHistory.deleteMany();  // Phase 2.3
   await prisma.student.deleteMany();
   await prisma.parent.deleteMany();
   await prisma.teacher.deleteMany();
@@ -294,6 +295,21 @@ async function main() {
       }))
     });
   }
+
+  // Phase 2.3: Create initial enrollment history for seeded student
+  await (prisma as any).studentEnrollmentHistory.create({
+    data: {
+      studentId: student.id,
+      schoolId: school.id,
+      academicYearId: academicYear.id,
+      classId: class1.id,
+      sectionId: section1A.id,
+      rollNumber: '01',
+      status: 'active',
+      startDate: new Date(),
+    }
+  });
+  console.log('📚 Initial enrollment history created for seeded student.');
 
   // 6. notices sample data for portal visibility
   await prisma.notice.create({
