@@ -106,16 +106,20 @@ export const ParentsListPage: React.FC = () => {
         const p = row as Parent;
         return (
           <div className="flex flex-wrap gap-2">
-            {p.children?.map((child: any) => (
-              <Link 
-                key={child.id} 
-                to={`/students/${child.id}`}
-                className="group flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
-              >
-                {child.fullName || studentNameFallback(child)}
-                <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-              </Link>
-            ))}
+            {p.children && p.children.length > 0 ? (
+              p.children.map((child: any) => (
+                <Link 
+                  key={child.id} 
+                  to={`/students/${child.id}`}
+                  className="group flex items-center gap-2 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
+                >
+                  {child.fullName || studentNameFallback(child)}
+                  <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+                </Link>
+              ))
+            ) : (
+              <span className="text-xs text-slate-400 italic">No linked student data available</span>
+            )}
           </div>
         );
       }

@@ -22,6 +22,7 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
       case 'attendance':
         title = 'Attendance Summary Report';
         const attendance = await prisma.attendance.findMany({
+          where: getSchoolScope(req),
           include: { student: { select: { fullName: true, admissionNumber: true, class: { select: { name: true } }, section: { select: { name: true } } } } },
           orderBy: { date: 'desc' },
           take: 500
@@ -40,6 +41,7 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
       case 'fees':
         title = 'Financial Ledger Report';
         const payments = await prisma.feePayment.findMany({
+          where: getSchoolScope(req),
           include: { student: { select: { fullName: true, admissionNumber: true } } },
           orderBy: { paymentDate: 'desc' },
           take: 500
@@ -59,6 +61,7 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
       case 'academic':
         title = 'Academic Results Report';
         const results = await prisma.result.findMany({
+          where: getSchoolScope(req),
           include: { 
             student: { select: { fullName: true, admissionNumber: true } },
             exam: { select: { name: true } },

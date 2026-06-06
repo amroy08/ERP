@@ -237,6 +237,21 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
             </div>
           </div>
 
+          {admission.status === 'accepted' && !isConverting && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in duration-300">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-emerald-950 uppercase">Application Approved</p>
+                  <p className="text-[11px] text-emerald-700 font-bold uppercase tracking-tight mt-0.5">Ready to be converted into a student directory profile.</p>
+                </div>
+              </div>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[10px] h-9 shrink-0 shadow-lg shadow-emerald-200" icon={<ArrowRight className="w-3.5 h-3.5" />} onClick={() => setIsConverting(true)}>
+                Enroll Candidate
+              </Button>
+            </div>
+          )}
+
           {/* Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Academic */}

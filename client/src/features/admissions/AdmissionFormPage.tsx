@@ -117,8 +117,8 @@ export const AdmissionFormPage: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       <Breadcrumb items={[{ label: 'Admissions', href: '/admissions' }, { label: 'New Application' }]} />
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">New Admission Application</h1>
-        <p className="text-slate-500 text-sm">Create a new student admission record with personalized fee assignments.</p>
+        <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">New Admission Application</h1>
+        <p className="text-slate-500 text-sm italic font-medium">Create a new student admission record with custom-allocated fee structures.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-20">

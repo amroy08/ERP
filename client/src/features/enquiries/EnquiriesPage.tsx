@@ -53,9 +53,23 @@ export const EnquiriesPage: React.FC = () => {
   const handleCreateEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axiosInstance.post('/enquiries', formData);
+      const payload = {
+        studentName: formData.visitorName, // Map visitorName to studentName
+        parentName: formData.visitorName,  // Map visitorName to parentName
+        phone: formData.phone,
+        class: formData.classEnquiry || undefined,
+        message: formData.remarks || undefined,
+      };
+      await axiosInstance.post('/enquiries', payload);
       toast.success('Enquiry recorded successfully');
       setIsModalOpen(false);
+      setFormData({
+        visitorName: '',
+        phone: '',
+        purpose: 'admission',
+        classEnquiry: '',
+        remarks: '',
+      });
       fetchEnquiries();
     } catch {
       toast.error('Failed to save enquiry');
@@ -68,8 +82,10 @@ export const EnquiriesPage: React.FC = () => {
       label: 'Visitor',
       render: (_: any, row: any) => (
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-slate-800">{row.visitorName}</span>
-          <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{row.purpose}</span>
+          <span className="text-sm font-bold text-slate-800">{row.parentName || row.visitorName || 'Unknown'}</span>
+          <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+            {row.studentName ? `For: ${row.studentName}` : (row.purpose || 'Enquiry')}
+          </span>
         </div>
       )
     },
@@ -85,12 +101,12 @@ export const EnquiriesPage: React.FC = () => {
     {
       key: 'classEnquiry',
       label: 'Interest',
-      render: (val: any) => <span className="text-sm font-medium">{val ? `Class ${val}` : 'General'}</span>
+      render: (_: any, row: any) => <span className="text-sm font-medium">{row.class ? `Class ${row.class}` : 'General'}</span>
     },
     {
       key: 'enquiryDate',
       label: 'Date',
-      render: (val: any) => <span className="text-sm text-slate-500">{format(new Date(String(val)), 'dd MMM yyyy')}</span>
+      render: (_: any, row: any) => <span className="text-sm text-slate-500">{format(new Date(String(row.createdAt || row.enquiryDate)), 'dd MMM yyyy')}</span>
     },
     {
       key: 'status',
@@ -114,8 +130,8 @@ export const EnquiriesPage: React.FC = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Visitor Management</h1>
-          <p className="text-slate-500 text-sm">Track admission enquiries and general visitor logs.</p>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Admission & CRM Enquiries</h1>
+          <p className="text-slate-500 text-sm italic font-medium">Track incoming visitor inquiries, contact requests, and follow-ups.</p>
         </div>
         <div className="flex gap-2">
           {hasPermission('enquiry:create') && (

@@ -685,6 +685,15 @@ export const convertAdmissionToStudent = async (req: AuthRequest, res: Response,
   } catch (error) { next(error); }
 };
 
+// Helper to map DB section model capacity to UI maxStrength
+const mapSection = (sec: any) => {
+  if (!sec) return sec;
+  return {
+    ...sec,
+    maxStrength: sec.capacity
+  };
+};
+
 // ── Classes ───────────────────────────────────────────
 export const getClasses = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -717,7 +726,13 @@ export const getClasses = async (req: AuthRequest, res: Response, next: NextFunc
       },
       orderBy: { numericValue: 'asc' }
     });
-    res.json({ success: true, data: classes });
+
+    const mappedClasses = classes.map(c => ({
+      ...c,
+      sections: c.sections?.map(mapSection)
+    }));
+
+    res.json({ success: true, data: mappedClasses });
   } catch (error) { next(error); }
 };
 
@@ -1156,7 +1171,7 @@ export const getSections = async (req: AuthRequest, res: Response, next: NextFun
       where,
       orderBy: { name: 'asc' }
     });
-    res.json({ success: true, data: sections });
+    res.json({ success: true, data: sections.map(mapSection) });
   } catch (error) { next(error); }
 };
 
@@ -1179,20 +1194,22 @@ export const getSection = async (req: Request, res: Response, next: NextFunction
       next(createError('Section not found', 404));
       return;
     }
-    res.json({ success: true, data: section });
+    res.json({ success: true, data: mapSection(section) });
   } catch (error) { next(error); }
 };
 
 export const createSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const scope = getSchoolScope(req) as any;
+    const { maxStrength, ...rest } = req.body;
     const section = await prisma.section.create({
       data: { 
-        ...req.body, 
+        ...rest,
+        capacity: maxStrength !== undefined ? Number(maxStrength) : undefined,
         schoolId: scope.schoolId || req.user?.schoolId 
       }
     });
-    res.status(201).json({ success: true, data: section });
+    res.status(201).json({ success: true, data: mapSection(section) });
   } catch (error) { next(error); }
 };
 
@@ -1200,11 +1217,15 @@ export const createSection = async (req: AuthRequest, res: Response, next: NextF
 export const updateSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+    const { maxStrength, ...rest } = req.body;
     const section = await prisma.section.update({
       where: { id: id as string, ...getSchoolScope(req) },
-      data: req.body
+      data: {
+        ...rest,
+        capacity: maxStrength !== undefined ? Number(maxStrength) : undefined,
+      }
     });
-    res.json({ success: true, data: section });
+    res.json({ success: true, data: mapSection(section) });
   } catch (error) { next(error); }
 };
 

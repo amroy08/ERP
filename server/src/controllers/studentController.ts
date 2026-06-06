@@ -240,9 +240,9 @@ export const updateStudent = async (req: AuthRequest, res: Response, next: NextF
           fatherName: parent.fatherName || undefined,
           fatherPhone: parent.fatherPhone || undefined,
           fatherOccupation: parent.fatherOccupation || undefined,
-          motherName: parent.motherName || '',
-          motherPhone: parent.motherPhone || '',
-          motherOccupation: parent.motherOccupation || '',
+          motherName: parent.motherName || undefined,
+          motherPhone: parent.motherPhone || undefined,
+          motherOccupation: parent.motherOccupation || undefined,
           address: address ? [address.street, address.city, address.state].filter(Boolean).join(', ') : undefined,
         }
       });

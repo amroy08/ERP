@@ -114,9 +114,23 @@ export const FeeCollectPage: React.FC = () => {
 
   const handleCollect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStudent || !ledger) return;
+    if (!selectedStudent) {
+      toast.error('A student must be selected to record payment.');
+      return;
+    }
+    if (!ledger) {
+      toast.error('Student fee status has not been loaded.');
+      return;
+    }
     const amount = parseFloat(paymentForm.amount);
-    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Amount paid must be greater than 0');
+      return;
+    }
+    if (!paymentForm.mode) {
+      toast.error('Payment mode is required');
+      return;
+    }
     
     setIsSaving(true);
     try {
@@ -370,42 +384,57 @@ export const FeeCollectPage: React.FC = () => {
       {/* Payment Entry Modal */}
       <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Record Fee Payment" size="sm">
          <form onSubmit={handleCollect} className="space-y-6">
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
-               <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-lg">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
+               <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-200">
                   {selectedStudent?.fullName.charAt(0)}
                </div>
                <div>
-                  <p className="text-sm font-bold text-slate-800">{selectedStudent?.fullName}</p>
-                  <p className="text-[10px] font-black text-red-500 uppercase tracking-tight">Due Amount: ₹{ledger?.balanceDue?.toLocaleString('en-IN')}</p>
+                  <p className="text-sm font-black text-slate-800">{selectedStudent?.fullName}</p>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                    {selectedStudent?.admissionNumber}
+                  </p>
                </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
+               {/* Amount Payable (Outstanding) */}
+               <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                  <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-1">Outstanding Balance (Amount Payable)</span>
+                  <p className="text-2xl font-black text-rose-700">₹{ledger?.balanceDue?.toLocaleString('en-IN')}</p>
+               </div>
+
+               {/* Amount Paid */}
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Amount to Collect (₹)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                     Amount to Collect (Amount Paid) <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
-                     <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                     <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                      <input 
                         type="number" 
+                        step="0.01"
                         value={paymentForm.amount} 
                         onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                        className="w-full pl-11 pr-4 py-3 font-black text-xl border border-slate-100 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 outline-none text-slate-700" 
+                        className="w-full pl-11 pr-4 py-3 font-black text-xl border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
                         placeholder="0.00"
                         required 
                      />
                   </div>
                </div>
 
+               {/* Payment Mode */}
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Transaction Mode</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                     Transaction Mode <span className="text-red-500">*</span>
+                  </label>
                   <div className="grid grid-cols-5 gap-2">
                     {PAYMENT_MODES.map(m => (
                       <button key={m} type="button" onClick={() => setPaymentForm(f => ({ ...f, mode: m }))}
                         className={clsx(
-                          "flex flex-col items-center gap-1 p-2 rounded-xl border text-[9px] font-black uppercase transition-all",
+                          "flex flex-col items-center gap-1.5 py-3 rounded-xl border text-[9px] font-black uppercase transition-all",
                           paymentForm.mode === m 
                             ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                            : "border-slate-100 bg-white text-slate-400 hover:border-slate-200"
+                            : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50"
                         )}>
                         <span className="text-lg">{MODE_ICONS[m]}</span>
                         <span>{m}</span>
@@ -414,20 +443,21 @@ export const FeeCollectPage: React.FC = () => {
                   </div>
                </div>
 
+               {/* Remarks */}
                <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Reference Notes / Admin Remarks</label>
                   <input 
                     value={paymentForm.remarks} 
                     onChange={e => setPaymentForm(f => ({ ...f, remarks: e.target.value }))}
-                    className="w-full px-4 py-3 text-sm font-bold border border-slate-100 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 outline-none text-slate-700" 
-                    placeholder="e.g. Paid by Parent Cash" 
+                    className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
+                    placeholder="e.g. Cash paid by mother" 
                   />
                </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-               <Button variant="secondary" className="flex-1 rounded-2xl h-12" onClick={() => setIsPayModalOpen(false)}>Discard</Button>
-               <Button type="submit" isLoading={isSaving} className="flex-1 rounded-2xl h-12 bg-blue-600 shadow-xl shadow-blue-200" icon={<CreditCard className="w-4 h-4" />}>Collect & Receipt</Button>
+            <div className="flex gap-3 pt-2 border-t border-slate-100">
+               <Button type="button" variant="secondary" className="flex-1 rounded-2xl h-12 text-xs font-black uppercase tracking-widest" onClick={() => setIsPayModalOpen(false)}>Discard</Button>
+               <Button type="submit" isLoading={isSaving} className="flex-1 rounded-2xl h-12 bg-blue-600 shadow-xl shadow-blue-200 text-xs font-black uppercase tracking-widest" icon={<CreditCard className="w-4 h-4" />}>Collect & Receipt</Button>
             </div>
          </form>
       </Modal>

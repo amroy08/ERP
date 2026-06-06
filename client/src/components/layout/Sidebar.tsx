@@ -26,7 +26,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   {
-    label: 'Admissions & CRM', icon: Compass,
+    label: 'Admissions', icon: Compass,
     children: [
       { label: 'Applications', href: '/admissions' },
       { label: 'Enquiries', href: '/enquiries' },
@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
       { label: 'Students', href: '/students' },
       { label: 'Parents', href: '/parents' },
       { label: 'Teachers', href: '/teachers', roles: ['super_admin', 'admin', 'clerk', 'principal'] },
-      { label: 'Staff Directory', href: '/staff', roles: ['super_admin', 'admin', 'clerk'] },
+      { label: 'Staff', href: '/staff', roles: ['super_admin', 'admin', 'clerk'] },
     ],
     permission: 'student:view',
     roles: ['super_admin', 'admin', 'teacher', 'clerk'],
@@ -49,44 +49,54 @@ const navItems: NavItem[] = [
     label: 'Academics', icon: BookOpen,
     children: [
       { label: 'Classes & Sections', href: '/classes' },
-      { label: 'Attendance', href: '/attendance/students', moduleId: 'attendance' },
-      { label: 'Examinations', href: '/exams', moduleId: 'exams' },
-      { label: 'Time Table', href: '/timetable', moduleId: 'timetable' },
-      { label: 'Homework', href: '/homework', moduleId: 'homework' },
       { label: 'Subjects', href: '/subjects' },
+      { label: 'Attendance', href: '/attendance/students', moduleId: 'attendance' },
+      { label: 'Timetable', href: '/timetable', moduleId: 'timetable' },
+      { label: 'Homework', href: '/homework', moduleId: 'homework' },
     ],
     roles: ['super_admin', 'admin', 'teacher', 'clerk'],
   },
   {
-    label: 'My Academics', icon: GraduationCap,
+    label: 'Exams', icon: Award,
     children: [
-      { label: 'My Attendance', href: '/student/attendance', moduleId: 'attendance' },
-      { label: 'Timetable', href: '/timetable', moduleId: 'timetable' },
-      { label: 'Homework', href: '/homework', moduleId: 'homework' },
-      { label: 'Examinations', href: '/exams', moduleId: 'exams' },
+      { label: 'Exams', href: '/exams', moduleId: 'exams' },
+      { label: 'Marks', href: '/exams/marks', moduleId: 'exams' },
+      { label: 'Results', href: '/exams/results', moduleId: 'exams' },
     ],
-    roles: ['student', 'parent'],
+    roles: ['super_admin', 'admin', 'teacher', 'clerk'],
+    moduleId: 'exams',
   },
   {
-    label: 'Financials', icon: DollarSign,
+    label: 'Fees & Billing', icon: DollarSign,
     children: [
       { label: 'Fee Collection', href: '/fees/collect' },
       { label: 'Fee Structures', href: '/fees/structures', roles: ['super_admin', 'admin'] },
       { label: 'Payment Reports', href: '/fees/payments' },
+      { label: 'Dues', href: '/fees/dues' },
     ],
     permission: 'fee:view',
     roles: ['super_admin', 'admin', 'clerk', 'principal'],
     moduleId: 'fees',
   },
   {
-    label: 'My Financials', icon: Wallet,
+    label: 'My Portal', icon: GraduationCap,
     children: [
-      { label: 'My Fees', href: '/student/fees' },
+      { label: 'My Attendance', href: '/student/attendance', moduleId: 'attendance' },
+      { label: 'My Fees', href: '/student/fees', moduleId: 'fees' },
+      { label: 'Timetable', href: '/timetable', moduleId: 'timetable' },
+      { label: 'Homework', href: '/homework', moduleId: 'homework' },
+      { label: 'Exams', href: '/exams', moduleId: 'exams' },
     ],
     roles: ['student', 'parent'],
-    moduleId: 'fees',
   },
-  { label: 'Notice Board', icon: Megaphone, href: '/notices', moduleId: 'notices' },
+  {
+    label: 'Communication', icon: Megaphone,
+    children: [
+      { label: 'Notice Board', href: '/notices', moduleId: 'notices' }
+    ],
+  },
+  { label: 'Transport', icon: Bus, href: '/transport', moduleId: 'transport' },
+  { label: 'Reports', icon: FileText, href: '/reports', roles: ['super_admin', 'admin', 'principal', 'clerk'] },
   {
     label: 'Settings', icon: Settings,
     children: [
@@ -211,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
   // Map sidebar child labels to the license role they require
   const childLicenseMap: Record<string, string> = {
     'Teachers': 'teacher',
-    'Staff Directory': 'staff',
+    'Staff': 'staff',
   };
 
   const filteredItems = navItems

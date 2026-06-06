@@ -17,7 +17,26 @@ export const getStudentLeaves = async (req: AuthRequest, res: Response, next: Ne
 export const createLeaveRequest = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { studentId, type, startDate, endDate, reason } = req.body;
-    
+    const authUser = req.user!;
+
+    // Access control: Students can only request leave for themselves, Parents for their children
+    if (authUser.role === 'student') {
+      const student = await prisma.student.findUnique({ where: { userId: authUser.id } });
+      if (!student || student.id !== studentId) {
+        next(createError('Access denied. You can only request leave for yourself.', 403));
+        return;
+      }
+    } else if (authUser.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: authUser.id },
+        include: { children: { select: { id: true } } }
+      });
+      if (!parent || !parent.children.some(c => c.id === studentId)) {
+        next(createError('Access denied. You can only request leave for your own children.', 403));
+        return;
+      }
+    }
+
     const leave = await prisma.leaveRequest.create({
       data: {
         studentId,

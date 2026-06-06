@@ -108,6 +108,62 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  const getRoleHeading = () => {
+    switch (user?.role) {
+      case 'super_admin':
+        return 'Global Platform Governance Terminal';
+      case 'admin':
+        return 'Institutional Administration Terminal';
+      case 'principal':
+        return 'Principal Executive Console';
+      case 'clerk':
+        return 'Administrative Clerical Workdesk';
+      case 'teacher':
+        return 'Educator Workspace & Classroom Portal';
+      case 'student':
+        return 'Student Academic Portal';
+      case 'parent':
+        return 'Guardian Family Access Hub';
+      default:
+        return 'Vantage ERP School Console';
+    }
+  };
+
+  const isSchoolStaff = ['super_admin', 'admin', 'principal', 'clerk'].includes(user?.role || '');
+  const isTeacherRole = user?.role === 'teacher';
+  const isStudentParent = ['student', 'parent'].includes(user?.role || '');
+
+  const quickActions = (() => {
+    if (isSchoolStaff) {
+      return [
+        { label: 'Add Student', icon: UserPlus, href: '/students/new', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' },
+        { label: 'Collect Fee', icon: DollarSign, href: '/fees/collect', color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700' },
+        { label: 'Add Enquiry', icon: HelpCircle, href: '/enquiries', color: 'text-purple-600 bg-purple-50 hover:bg-purple-100 hover:text-purple-700' },
+        { label: 'Mark Attendance', icon: UserCheck, href: '/attendance/students', color: 'text-amber-600 bg-amber-50 hover:bg-amber-100 hover:text-amber-700' },
+        { label: 'Create Notice', icon: Megaphone, href: '/notices', color: 'text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700' },
+        { label: 'View Reports', icon: FileText, href: '/reports', color: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700' },
+      ];
+    }
+    if (isTeacherRole) {
+      return [
+        { label: 'Mark Attendance', icon: UserCheck, href: '/attendance/students', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' },
+        { label: 'Add Homework', icon: BookOpen, href: '/homework', color: 'text-amber-600 bg-amber-50 hover:bg-amber-100 hover:text-amber-700' },
+        { label: 'View Timetable', icon: Clock, href: '/timetable', color: 'text-purple-600 bg-purple-50 hover:bg-purple-100 hover:text-purple-700' },
+        { label: 'Enter Marks', icon: Award, href: '/exams/marks', color: 'text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700' },
+      ];
+    }
+    if (isStudentParent) {
+      return [
+        { label: 'My Attendance', icon: UserCheck, href: '/student/attendance', color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700' },
+        { label: 'My Fees', icon: Wallet, href: '/student/fees', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700' },
+        { label: 'Homework', icon: BookOpen, href: '/homework', color: 'text-amber-600 bg-amber-50 hover:bg-amber-100 hover:text-amber-700' },
+        { label: 'Exams', icon: Award, href: '/exams', color: 'text-purple-600 bg-purple-50 hover:bg-purple-100 hover:text-purple-700' },
+        { label: 'Notices', icon: Megaphone, href: '/notices', color: 'text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700' },
+      ];
+    }
+    return [];
+  })();
+
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-12">
       {/* ── PREMIUM HEADER ────────────────────────────────────────── */}
@@ -123,6 +179,9 @@ export const DashboardPage: React.FC = () => {
                <h1 className="text-4xl md:text-5xl font-black tracking-tight mt-4">
                   Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-200">{user?.name?.split(' ')[0]}</span> 👋
                </h1>
+               <p className="text-blue-200 font-bold text-sm md:text-base tracking-wide uppercase mt-1">
+                 {getRoleHeading()}
+               </p>
                 {scopedSchoolId && school ? (
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-blue-100/80">
                     <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
@@ -158,6 +217,36 @@ export const DashboardPage: React.FC = () => {
             </div>
          </div>
       </div>
+
+      {/* ── QUICK ACTIONS ────────────────────────────────────────── */}
+      {quickActions.length > 0 && (
+        <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
+          <div className="flex items-center gap-4">
+             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] pl-1">
+               Quick Actions
+             </h2>
+             <div className="h-px bg-slate-100 flex-1" />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {quickActions.map((action, idx) => {
+              const ActionIcon = action.icon;
+              return (
+                <Link
+                  key={idx}
+                  to={action.href}
+                  className="p-6 rounded-[2rem] bg-white border border-slate-200 hover:border-blue-400/30 hover:shadow-2xl hover:shadow-blue-500/5 transition-all text-left flex flex-col items-center justify-center text-center group active:scale-95 shadow-sm"
+                >
+                  <div className={clsx("w-14 h-14 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-md", action.color)}>
+                    <ActionIcon className="w-7 h-7" />
+                  </div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-800 leading-tight">{action.label}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── ADMIN INTELLIGENCE ────────────────────────────────────── */}
       {isAdmin && stats?.stats && (

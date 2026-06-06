@@ -8,6 +8,7 @@ import { Copy, Check, DollarSign, User, Users, ShieldCheck, Printer, Loader2 } f
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { Tabs } from '../../components/common/Tabs';
 import axiosInstance from '../../api/axiosInstance';
 
 const studentSchema = z.object({
@@ -91,10 +92,43 @@ export const StudentFormPage: React.FC = () => {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [isCredModalOpen, setIsCredModalOpen] = useState(false);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<StudentFormData>({
+  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: { gender: 'male', category: 'General' },
   });
+
+  const [activeTab, setActiveTab] = useState('details');
+
+  const hasTabErrors = (tabId: string) => {
+    if (tabId === 'details') {
+      return ['firstName', 'lastName', 'dateOfBirth', 'gender', 'bloodGroup', 'category', 'religion', 'house', 'previousSchool', 'aadhaarNumber', 'rollNumber'].some(k => !!errors[k as keyof typeof errors]);
+    }
+    if (tabId === 'parent') {
+      return ['fatherName', 'fatherPhone', 'motherName', 'motherPhone', 'parentEmail', 'emergencyName', 'emergencyPhone', 'emergencyRelation'].some(k => !!errors[k as keyof typeof errors]);
+    }
+    if (tabId === 'academic') {
+      return ['class', 'section', 'street', 'city', 'state', 'pincode', 'medicalNote'].some(k => !!errors[k as keyof typeof errors]);
+    }
+    return false;
+  };
+
+  const handleNextToParent = async () => {
+    const isValid = await trigger(['firstName', 'lastName', 'dateOfBirth', 'gender']);
+    if (isValid) {
+      setActiveTab('parent');
+    } else {
+      toast.error('Please fill all required student details correctly');
+    }
+  };
+
+  const handleNextToAcademic = async () => {
+    const isValid = await trigger(['fatherName', 'fatherPhone', 'parentEmail']);
+    if (isValid) {
+      setActiveTab('academic');
+    } else {
+      toast.error('Please fill all required parent/guardian details correctly');
+    }
+  };
 
   const selectedClass = watch('class');
 
@@ -230,179 +264,224 @@ export const StudentFormPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Personal Info */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Personal Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Field label="First Name" error={errors.firstName?.message} required>
-              <input {...register('firstName')} className={inputClass} placeholder="Arjun" />
-            </Field>
-            <Field label="Last Name" error={errors.lastName?.message} required>
-              <input {...register('lastName')} className={inputClass} placeholder="Sharma" />
-            </Field>
-            <Field label="Date of Birth" error={errors.dateOfBirth?.message} required>
-              <input type="date" {...register('dateOfBirth')} className={inputClass} />
-            </Field>
-            <Field label="Gender" error={errors.gender?.message} required>
-              <select {...register('gender')} className={inputClass}>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </Field>
-            <Field label="Blood Group">
-              <select {...register('bloodGroup')} className={inputClass}>
-                <option value="">Select</option>
-                {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Category">
-              <select {...register('category')} className={inputClass}>
-                <option value="General">General</option>
-                <option value="OBC">OBC</option>
-                <option value="SC">SC</option>
-                <option value="ST">ST</option>
-                <option value="Other">Other</option>
-              </select>
-            </Field>
-            <Field label="Religion">
-              <input {...register('religion')} className={inputClass} placeholder="Hindu" />
-            </Field>
-            <Field label="House">
-              <input {...register('house')} className={inputClass} placeholder="e.g. Red House" />
-            </Field>
-            <Field label="Previous School">
-              <input {...register('previousSchool')} className={inputClass} placeholder="School name" />
-            </Field>
-            <Field label="Aadhaar Number">
-              <input {...register('aadhaarNumber')} className={inputClass} placeholder="XXXX XXXX XXXX" maxLength={14} />
-            </Field>
-          </div>
-        </div>
+        <Tabs
+          tabs={[
+            { id: 'details', label: 'Student Details', icon: hasTabErrors('details') ? <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" /> : undefined },
+            { id: 'parent', label: 'Parent / Guardian', icon: hasTabErrors('parent') ? <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" /> : undefined },
+            { id: 'academic', label: 'Academic & Address', icon: hasTabErrors('academic') ? <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" /> : undefined },
+          ]}
+          activeTab={activeTab}
+          onChange={(id) => setActiveTab(id)}
+          variant="pills"
+          className="mb-6 bg-slate-50 p-2.5 rounded-xl border border-slate-100"
+        />
 
-        {/* Class Info */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Academic Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label="Class" error={errors.class?.message} required>
-              <select {...register('class')} className={inputClass}>
-                <option value="">Select Class</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Section" error={errors.section?.message} required>
-              <select {...register('section')} className={inputClass} disabled={!selectedClass}>
-                <option value="">Select Section</option>
-                {selectedClassSections.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Roll Number">
-              <input {...register('rollNumber')} className={inputClass} placeholder="01" />
-            </Field>
+        {activeTab === 'details' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 animate-in fade-in duration-300">
+            <h3 className="text-sm font-semibold text-slate-700 pb-2 border-b border-slate-100">Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Field label="First Name" error={errors.firstName?.message} required>
+                <input {...register('firstName')} className={inputClass} placeholder="Arjun" />
+              </Field>
+              <Field label="Last Name" error={errors.lastName?.message} required>
+                <input {...register('lastName')} className={inputClass} placeholder="Sharma" />
+              </Field>
+              <Field label="Date of Birth" error={errors.dateOfBirth?.message} required>
+                <input type="date" {...register('dateOfBirth')} className={inputClass} />
+              </Field>
+              <Field label="Gender" error={errors.gender?.message} required>
+                <select {...register('gender')} className={inputClass}>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </Field>
+              <Field label="Blood Group">
+                <select {...register('bloodGroup')} className={inputClass}>
+                  <option value="">Select</option>
+                  {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((bg) => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Category">
+                <select {...register('category')} className={inputClass}>
+                  <option value="General">General</option>
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                  <option value="Other">Other</option>
+                </select>
+              </Field>
+              <Field label="Religion">
+                <input {...register('religion')} className={inputClass} placeholder="Hindu" />
+              </Field>
+              <Field label="House">
+                <input {...register('house')} className={inputClass} placeholder="e.g. Red House" />
+              </Field>
+              <Field label="Previous School">
+                <input {...register('previousSchool')} className={inputClass} placeholder="School name" />
+              </Field>
+              <Field label="Aadhaar Number">
+                <input {...register('aadhaarNumber')} className={inputClass} placeholder="XXXX XXXX XXXX" maxLength={14} />
+              </Field>
+              <Field label="Roll Number">
+                <input {...register('rollNumber')} className={inputClass} placeholder="01" />
+              </Field>
+            </div>
           </div>
+        )}
 
-          {/* Fee Preview */}
-          {feeStructure && (
-            <div className="mt-5 p-4 bg-emerald-50 border border-emerald-200 rounded-xl animate-in fade-in zoom-in duration-200">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-emerald-100 rounded-lg">
-                    <DollarSign className="w-4 h-4 text-emerald-600" />
+        {activeTab === 'parent' && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            {/* Parent Info */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">
+                Parent / Guardian Information
+                {!isEdit && <span className="ml-2 text-xs text-blue-500 font-normal">· Login account will be auto-created</span>}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Father's Name" error={errors.fatherName?.message} required>
+                  <input {...register('fatherName')} className={inputClass} placeholder="Rohit Sharma" />
+                </Field>
+                <Field label="Father's Phone" error={errors.fatherPhone?.message} required>
+                  <input {...register('fatherPhone')} className={inputClass} placeholder="+91 9876543210" />
+                </Field>
+                <Field label="Parent Email" error={errors.parentEmail?.message}>
+                  <input type="email" {...register('parentEmail')} className={inputClass} placeholder="rohit@gmail.com" />
+                </Field>
+                <Field label="Mother's Name">
+                  <input {...register('motherName')} className={inputClass} placeholder="Mother's full name" />
+                </Field>
+                <Field label="Mother's Phone">
+                  <input {...register('motherPhone')} className={inputClass} placeholder="+91 9876543210" />
+                </Field>
+              </div>
+            </div>
+
+            {/* Medical & Emergency */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Medical & Emergency Contacts</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Emergency Contact Name">
+                  <input {...register('emergencyName')} className={inputClass} placeholder="Guardian name" />
+                </Field>
+                <Field label="Emergency Phone">
+                  <input {...register('emergencyPhone')} className={inputClass} placeholder="+91 9000000000" />
+                </Field>
+                <Field label="Relation">
+                  <input {...register('emergencyRelation')} className={inputClass} placeholder="Father/Mother/Guardian" />
+                </Field>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'academic' && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            {/* Class Info */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Academic Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Class" error={errors.class?.message} required>
+                  <select {...register('class')} className={inputClass}>
+                    <option value="">Select Class</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Section" error={errors.section?.message} required>
+                  <select {...register('section')} className={inputClass} disabled={!selectedClass}>
+                    <option value="">Select Section</option>
+                    {selectedClassSections.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              {/* Fee Preview */}
+              {feeStructure && (
+                <div className="mt-5 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-100 rounded-lg">
+                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <p className="text-sm font-bold text-emerald-800">Fee Structure: {feeStructure.name}</p>
+                    </div>
+                    <p className="text-lg font-black text-emerald-700">₹{(feeStructure.totalAmount || 0).toLocaleString('en-IN')}</p>
                   </div>
-                  <p className="text-sm font-bold text-emerald-800">Fee Structure: {feeStructure.name}</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {feeStructure.components?.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-emerald-100 shadow-sm">
+                        <span className="text-[11px] text-slate-600 font-medium truncate mr-2">{c.name}</span>
+                        <span className="text-xs font-bold text-slate-800 shrink-0">₹{(Number(c.amount) || 0).toLocaleString('en-IN')}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-lg font-black text-emerald-700">₹{(feeStructure.totalAmount || 0).toLocaleString('en-IN')}</p>
+              )}
+              {selectedClass && !feeStructure && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-700 text-xs font-medium">
+                  <DollarSign className="w-4 h-4 shrink-0" />
+                  No fee structure defined for this class yet. Go to <a href="/fees/structures" className="underline font-bold">Fee Structures</a> to create one.
+                </div>
+              )}
+            </div>
+
+            {/* Address */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Address</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="md:col-span-2">
+                  <Field label="Street Address">
+                    <input {...register('street')} className={inputClass} placeholder="123, Model Colony" />
+                  </Field>
+                </div>
+                <Field label="City"><input {...register('city')} className={inputClass} placeholder="Mumbai" /></Field>
+                <Field label="State"><input {...register('state')} className={inputClass} placeholder="Maharashtra" /></Field>
+                <Field label="Pincode"><input {...register('pincode')} className={inputClass} placeholder="400001" /></Field>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {feeStructure.components?.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-emerald-100 shadow-sm">
-                    <span className="text-[11px] text-slate-600 font-medium truncate mr-2">{c.name}</span>
-                    <span className="text-xs font-bold text-slate-800 shrink-0">₹{(Number(c.amount) || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
+            </div>
+
+            {/* Medical Note */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Medical Notes</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="Medical Note">
+                  <textarea {...register('medicalNote')} className={inputClass} rows={2} placeholder="Any medical conditions, allergies, etc." />
+                </Field>
               </div>
             </div>
-          )}
-          {selectedClass && !feeStructure && (
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-700 text-xs font-medium">
-              <DollarSign className="w-4 h-4 shrink-0" />
-              No fee structure defined for this class yet. Go to <a href="/fees/structures" className="underline font-bold">Fee Structures</a> to create one.
-            </div>
-          )}
-        </div>
-
-        {/* Parent Info */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">
-            Parent / Guardian Information
-            {!isEdit && <span className="ml-2 text-xs text-blue-500 font-normal">· Login account will be auto-created</span>}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label="Father's Name" error={errors.fatherName?.message} required>
-              <input {...register('fatherName')} className={inputClass} placeholder="Rohit Sharma" />
-            </Field>
-            <Field label="Father's Phone" error={errors.fatherPhone?.message} required>
-              <input {...register('fatherPhone')} className={inputClass} placeholder="+91 9876543210" />
-            </Field>
-            <Field label="Parent Email" error={errors.parentEmail?.message}>
-              <input type="email" {...register('parentEmail')} className={inputClass} placeholder="rohit@gmail.com" />
-            </Field>
-            <Field label="Mother's Name">
-              <input {...register('motherName')} className={inputClass} placeholder="Mother's full name" />
-            </Field>
-            <Field label="Mother's Phone">
-              <input {...register('motherPhone')} className={inputClass} placeholder="+91 9876543210" />
-            </Field>
           </div>
-        </div>
+        )}
 
-        {/* Address */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Address</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <Field label="Street Address">
-                <input {...register('street')} className={inputClass} placeholder="123, Model Colony" />
-              </Field>
-            </div>
-            <Field label="City"><input {...register('city')} className={inputClass} placeholder="Mumbai" /></Field>
-            <Field label="State"><input {...register('state')} className={inputClass} placeholder="Maharashtra" /></Field>
-            <Field label="Pincode"><input {...register('pincode')} className={inputClass} placeholder="400001" /></Field>
+        {/* Wizard Footer Controls */}
+        <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
+          <div>
+            {activeTab !== 'details' && (
+              <Button type="button" variant="secondary" onClick={() => {
+                if (activeTab === 'academic') setActiveTab('parent');
+                else if (activeTab === 'parent') setActiveTab('details');
+              }}>
+                &larr; Back
+              </Button>
+            )}
           </div>
-        </div>
-
-        {/* Medical & Emergency */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-100">Medical & Emergency</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label="Emergency Contact Name">
-              <input {...register('emergencyName')} className={inputClass} placeholder="Guardian name" />
-            </Field>
-            <Field label="Emergency Phone">
-              <input {...register('emergencyPhone')} className={inputClass} placeholder="+91 9000000000" />
-            </Field>
-            <Field label="Relation">
-              <input {...register('emergencyRelation')} className={inputClass} placeholder="Father/Mother/Guardian" />
-            </Field>
-            <div className="md:col-span-3">
-              <Field label="Medical Note">
-                <textarea {...register('medicalNote')} className={inputClass} rows={2} placeholder="Any medical conditions, allergies, etc." />
-              </Field>
-            </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="secondary" onClick={() => navigate('/students')}>Cancel</Button>
+            {activeTab !== 'academic' ? (
+              <Button type="button" onClick={activeTab === 'details' ? handleNextToParent : handleNextToAcademic}>
+                Next &rarr;
+              </Button>
+            ) : (
+              <Button type="submit" isLoading={isSubmitting}>
+                {isEdit ? 'Update Student' : 'Enroll Student & Generate Credentials'}
+              </Button>
+            )}
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 justify-end pt-5">
-          <Button type="button" variant="secondary" onClick={() => navigate('/students')}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>
-            {isEdit ? 'Update Student' : 'Enroll Student & Generate Credentials'}
-          </Button>
         </div>
       </form>
 

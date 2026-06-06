@@ -152,8 +152,8 @@ export const AdmissionsListPage: React.FC = () => {
       
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Admission Applications</h1>
-          <p className="text-slate-500 text-sm">Review, manage, and enroll new students into the system.</p>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Admission Applications</h1>
+          <p className="text-slate-500 text-sm italic font-medium">Review, manage, and enroll new candidates into the institutional directory.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" icon={<Download className="w-4 h-4" />} onClick={handleExport}>Export List</Button>
