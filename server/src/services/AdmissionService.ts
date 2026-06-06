@@ -17,6 +17,24 @@ export class AdmissionService {
 
       if (!admission) throw createError('Admission application not found', 404);
       
+      // Guard: only 'approved' admissions can be converted
+      if (admission.status === 'enrolled') {
+        throw createError('This admission has already been converted to a student record. Duplicate conversion is not allowed.', 409);
+      }
+      if (admission.status !== 'approved') {
+        throw createError(`Cannot convert admission with status "${admission.status}". The admission must be approved first.`, 400);
+      }
+
+      // Guard: class and section must be specified (either via options or already on admission)
+      const resolvedClassId = options.classId || admission.classId;
+      const resolvedSectionId = options.sectionId || admission.sectionId;
+      if (!resolvedClassId) {
+        throw createError('Class must be specified before converting admission to student.', 400);
+      }
+      if (!resolvedSectionId) {
+        throw createError('Section must be specified before converting admission to student.', 400);
+      }
+      
       // 2. Create/Find Parent User and Record
       const admissionNum = `ADM-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const parentEmail = admission.parentEmail || `${admissionNum.toLowerCase()}.parent@school.local`;
@@ -78,8 +96,8 @@ export class AdmissionService {
           dateOfBirth: admission.dateOfBirth,
           gender: admission.gender,
           parentId: parent.id,
-          classId: options.classId || admission.classId,
-          sectionId: options.sectionId || admission.sectionId || '',
+          classId: resolvedClassId,
+          sectionId: resolvedSectionId,
           academicYearId: admission.academicYearId,
           aadhaarNumber: admission.aadhaarNumber || null,
           previousSchool: admission.previousSchool || null,

@@ -8,6 +8,7 @@ import { createLog } from '../services/LogService';
 import { FeeService } from '../services/FeeService';
 import { ArchiveService } from '../services/ArchiveService';
 import { getSchoolScope } from '../utils/schoolScope';
+import { requireFields, requireValidDate } from '../utils/validate';
 
 const generatePassword = (prefix: string): string => {
   const digits = Math.floor(1000 + Math.random() * 9000);
@@ -110,6 +111,43 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
       return next(createError('School ID missing. Please select a school context.', 400));
     }
 
+    // ── Field validation ────────────────────────────────────────────────────
+    const fieldErr = requireFields(req.body, ['firstName', 'admissionNumber', 'classId', 'sectionId']);
+    if (fieldErr) return next(fieldErr);
+
+    const dobErr = requireValidDate(dateOfBirth, 'Date of birth');
+    if (dobErr) return next(dobErr);
+
+    // ── Duplicate admissionNumber check (scoped per school) ──────────────────
+    const dupAdm = await prisma.student.findFirst({
+      where: { admissionNumber: admissionNumber.trim(), schoolId }
+    });
+    if (dupAdm) {
+      return next(createError(`Admission number "${admissionNumber}" is already in use at this school.`, 409));
+    }
+
+    // ── Validate class belongs to this school ───────────────────────────────
+    const classRecord = await prisma.class.findFirst({ where: { id: classId, schoolId } });
+    if (!classRecord) return next(createError('Selected class not found in this school.', 400));
+
+    // ── Validate section belongs to the selected class ──────────────────────
+    const sectionRecord = await prisma.section.findFirst({ where: { id: sectionId, classId } });
+    if (!sectionRecord) return next(createError('Selected section does not belong to the chosen class.', 400));
+
+    // ── Resolve academicYearId ──────────────────────────────────────────────
+    const academicYearId = req.body.academicYearId ||
+      (await prisma.academicYear.findFirst({ where: { isCurrent: true, ...getSchoolScope(req) } }))?.id || '';
+
+    // ── Duplicate rollNumber check in same class+section+year ────────────────
+    if (rollNumber && academicYearId) {
+      const dupRoll = await prisma.student.findFirst({
+        where: { rollNumber, classId, sectionId, academicYearId, schoolId }
+      });
+      if (dupRoll) {
+        return next(createError(`Roll number ${rollNumber} is already assigned to another student in this class-section for the current academic year.`, 409));
+      }
+    }
+
     // Create student record
     const student = await prisma.student.create({
       data: {
@@ -132,7 +170,7 @@ export const createStudent = async (req: AuthRequest, res: Response, next: NextF
         emergencyName: req.body.emergencyContact?.name,
         emergencyPhone: req.body.emergencyContact?.phone,
         emergencyRel: req.body.emergencyContact?.relation,
-        academicYearId: req.body.academicYearId || (await prisma.academicYear.findFirst({ where: { isCurrent: true, ...getSchoolScope(req) } }))?.id || ''
+        academicYearId: academicYearId
       }
     });
 
@@ -201,6 +239,27 @@ export const updateStudent = async (req: AuthRequest, res: Response, next: NextF
       class: classId, section: sectionId, rollNumber, house, previousSchool,
       aadhaarNumber, medicalNote, parent, address, emergencyContact
     } = req.body;
+
+    // ── Required field check ────────────────────────────────────────────────
+    const fieldErr = requireFields(req.body, ['firstName']);
+    if (fieldErr) return next(fieldErr);
+
+    const dobErr = requireValidDate(dateOfBirth, 'Date of birth');
+    if (dobErr) return next(dobErr);
+
+    // ── Duplicate rollNumber check (skip own record) ─────────────────────────
+    if (rollNumber && classId && sectionId) {
+      const schoolId = (scope as any).schoolId || req.user?.schoolId;
+      const dupRoll = await prisma.student.findFirst({
+        where: {
+          rollNumber, classId, sectionId, schoolId,
+          NOT: { id: id as string } // allow updating own roll without self-conflict
+        }
+      });
+      if (dupRoll) {
+        return next(createError(`Roll number ${rollNumber} is already assigned to another student in this class-section.`, 409));
+      }
+    }
 
     // Update student record
     const student = await prisma.student.update({

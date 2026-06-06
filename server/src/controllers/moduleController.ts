@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import { getSchoolScope } from '../utils/schoolScope';
+import { requireFields, VALID_ATTENDANCE_STATUSES } from '../utils/validate';
 
 // ── License Check Helper ──────────────────────────────
 const checkRoleLicense = async (roleName: string): Promise<string | null> => {
@@ -552,13 +553,17 @@ export const createNotice = async (req: AuthRequest, res: Response, next: NextFu
     const { title, content, targetRoles, priority, type, audience } = req.body;
     let fileUrl = req.body.fileUrl;
 
+    // Required: title
+    const fieldErr = requireFields(req.body, ['title']);
+    if (fieldErr) return next(fieldErr);
+
     if (req.file) {
       fileUrl = `/uploads/notices/${req.file.filename}`;
     }
 
     const notice = await prisma.notice.create({
       data: { 
-        title, 
+        title: title.trim(), 
         content: content || '', 
         targetRoles: Array.isArray(audience) ? audience.join(',') : (audience || targetRoles || 'all'),
         priority: priority || 'normal',
@@ -624,19 +629,39 @@ export const getEnquiries = async (req: Request, res: Response, next: NextFuncti
   } catch (error) { next(error); }
 };
 
-export const createEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createEnquiry = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const schoolId = (getSchoolScope(req) as any).schoolId || (req as any).user?.schoolId;
-    const enquiry = await prisma.enquiry.create({ data: { ...req.body, schoolId } });
+
+    // Required fields (matches Enquiry schema: studentName, parentName, phone)
+    const fieldErr = requireFields(req.body, ['studentName', 'parentName', 'phone']);
+    if (fieldErr) return next(fieldErr);
+
+    // Whitelist safe fields (no mass assignment) — must match Enquiry model
+    const { studentName, parentName, phone, email, class: enquiryClass, message, source, status } = req.body;
+    const enquiry = await prisma.enquiry.create({
+      data: { studentName, parentName, phone, email, class: enquiryClass, message, source,
+               status: status || 'new', schoolId }
+    });
     res.status(201).json({ success: true, data: enquiry });
   } catch (error) { next(error); }
 };
 
-export const updateEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateEnquiry = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const VALID_STATUSES = ['new', 'contacted', 'interested', 'converted', 'not_interested', 'follow_up'];
+
+    // Whitelist updatable fields (must match Enquiry schema)
+    const { status, message, source, class: enquiryClass, phone, email } = req.body;
+
+    // Validate status if provided
+    if (status && !VALID_STATUSES.includes(status)) {
+      return next(createError(`Invalid status "${status}". Must be one of: ${VALID_STATUSES.join(', ')}.`, 400));
+    }
+
     const enquiry = await prisma.enquiry.update({
       where: { id: req.params.id as string, ...getSchoolScope(req) },
-      data: req.body
+      data: { status, message, source, class: enquiryClass, phone, email }
     });
     res.json({ success: true, data: enquiry });
   } catch (error) { next(error); }
@@ -806,11 +831,25 @@ export const getClasses = async (req: AuthRequest, res: Response, next: NextFunc
 export const createClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const scope = getSchoolScope(req) as any;
+    const schoolId = scope.schoolId || req.user?.schoolId;
+
     const academicYear = await prisma.academicYear.findFirst({ where: { isCurrent: true, ...scope } });
     if (!academicYear) { next(createError('No active academic year', 400)); return; }
-    
+
+    // Required: class name
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    // Duplicate class name in same school
+    const dupClass = await prisma.class.findFirst({
+      where: { name: req.body.name.trim(), schoolId }
+    });
+    if (dupClass) {
+      return next(createError(`A class named "${req.body.name}" already exists in this school.`, 409));
+    }
+
     const cls = await prisma.class.create({ 
-      data: { ...req.body, schoolId: scope.schoolId || req.user?.schoolId }
+      data: { ...req.body, schoolId }
     });
     res.status(201).json({ success: true, data: cls });
   } catch (error) { next(error); }
@@ -820,6 +859,20 @@ export const createClass = async (req: AuthRequest, res: Response, next: NextFun
 export const updateClass = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+
+    // Required: class name
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    // Duplicate class name in same school (skip self)
+    const dupClass = await prisma.class.findFirst({
+      where: { name: req.body.name.trim(), schoolId, NOT: { id: id as string } }
+    });
+    if (dupClass) {
+      return next(createError(`A class named "${req.body.name}" already exists in this school.`, 409));
+    }
+
     const cls = await prisma.class.update({
       where: { id: id as string, ...getSchoolScope(req) },
       data: req.body
@@ -854,9 +907,34 @@ export const getSubjects = async (req: Request, res: Response, next: NextFunctio
   } catch (error) { next(error); }
 };
 
-export const createSubject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createSubject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const schoolId = (getSchoolScope(req as any) as any).schoolId || (req as any).user?.schoolId;
+
+    // Required: subject name
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    // Validate class belongs to this school (if classId provided)
+    if (req.body.classId) {
+      const cls = await prisma.class.findFirst({ where: { id: req.body.classId, schoolId } });
+      if (!cls) return next(createError('Selected class not found in this school.', 400));
+    }
+
+    // Validate teacherId belongs to this school (if provided)
+    if (req.body.teacherId) {
+      const tch = await prisma.teacher.findFirst({ where: { id: req.body.teacherId, schoolId } });
+      if (!tch) return next(createError('Selected teacher not found in this school.', 400));
+    }
+
+    // Duplicate subject name in same class
+    const dupSubject = await prisma.subject.findFirst({
+      where: { name: req.body.name.trim(), classId: req.body.classId || null, schoolId }
+    });
+    if (dupSubject) {
+      return next(createError(`A subject named "${req.body.name}" already exists for this class.`, 409));
+    }
+
     const subject = await prisma.subject.create({
       data: { ...req.body, schoolId }
     });
@@ -964,6 +1042,27 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
   try {
     const { records } = req.body;
     const authUser = req.user!;
+
+    // Validate records array
+    if (!records || !Array.isArray(records) || records.length === 0) {
+      return next(createError('Attendance records array is required and must not be empty.', 400));
+    }
+
+    // Validate each record's status
+    for (const record of records) {
+      if (!record.studentId) {
+        return next(createError('Each attendance record must have a studentId.', 400));
+      }
+      if (!record.date) {
+        return next(createError('Each attendance record must have a date.', 400));
+      }
+      if (!record.status || !(VALID_ATTENDANCE_STATUSES as readonly string[]).includes(record.status)) {
+        return next(createError(
+          `Invalid attendance status "${record.status}". Allowed values: ${VALID_ATTENDANCE_STATUSES.join(', ')}.`,
+          400
+        ));
+      }
+    }
 
     // Protection logic for teachers
     if (authUser.role === 'teacher') {
@@ -1267,12 +1366,42 @@ export const getSection = async (req: AuthRequest, res: Response, next: NextFunc
 export const createSection = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const scope = getSchoolScope(req) as any;
+    const schoolId = scope.schoolId || req.user?.schoolId;
     const { maxStrength, ...rest } = req.body;
+
+    // Required: name
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    // Validate classId belongs to this school
+    if (rest.classId) {
+      const cls = await prisma.class.findFirst({ where: { id: rest.classId, schoolId } });
+      if (!cls) return next(createError('Selected class not found in this school.', 400));
+    }
+
+    // Capacity must be positive if provided
+    if (maxStrength !== undefined) {
+      const cap = Number(maxStrength);
+      if (isNaN(cap) || cap <= 0) {
+        return next(createError('Section capacity must be a positive number.', 400));
+      }
+    }
+
+    // Duplicate section name in same class
+    if (rest.classId) {
+      const dupSec = await prisma.section.findFirst({
+        where: { name: rest.name.trim(), classId: rest.classId, schoolId }
+      });
+      if (dupSec) {
+        return next(createError(`A section named "${rest.name}" already exists for this class.`, 409));
+      }
+    }
+
     const section = await prisma.section.create({
       data: { 
         ...rest,
         capacity: maxStrength !== undefined ? Number(maxStrength) : undefined,
-        schoolId: scope.schoolId || req.user?.schoolId 
+        schoolId
       }
     });
     res.status(201).json({ success: true, data: mapSection(section) });
@@ -1284,6 +1413,30 @@ export const updateSection = async (req: AuthRequest, res: Response, next: NextF
   try {
     const { id } = req.params;
     const { maxStrength, ...rest } = req.body;
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+
+    // Required: name
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    // Capacity must be positive if provided
+    if (maxStrength !== undefined) {
+      const cap = Number(maxStrength);
+      if (isNaN(cap) || cap <= 0) {
+        return next(createError('Section capacity must be a positive number.', 400));
+      }
+    }
+
+    // Duplicate section name in same class (skip self)
+    if (rest.classId) {
+      const dupSec = await prisma.section.findFirst({
+        where: { name: rest.name.trim(), classId: rest.classId, schoolId, NOT: { id: id as string } }
+      });
+      if (dupSec) {
+        return next(createError(`A section named "${rest.name}" already exists for this class.`, 409));
+      }
+    }
+
     const section = await prisma.section.update({
       where: { id: id as string, ...getSchoolScope(req) },
       data: {

@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import prisma from '../config/prisma';
 import { createError } from '../middleware/errorHandler';
 import { getSchoolScope } from '../utils/schoolScope';
+import { requireFields, requirePositiveNumber, VALID_PAYMENT_MODES } from '../utils/validate';
 
 // ── Fee Structures ─────────────────────────────────────────────────
 export const getFeeStructures = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -37,6 +38,20 @@ export const createFeeStructure = async (req: AuthRequest, res: Response, next: 
   try {
     const { name, class: classId, components } = req.body;
     
+    // Required: name and components
+    const fieldErr = requireFields(req.body, ['name']);
+    if (fieldErr) return next(fieldErr);
+
+    if (!components || !Array.isArray(components) || components.length === 0) {
+      return next(createError('At least one fee component is required.', 400));
+    }
+
+    // Each component amount must be > 0
+    for (const comp of components) {
+      const amtErr = requirePositiveNumber(comp.amount, `Component "${comp.name || 'unnamed'}" amount`);
+      if (amtErr) return next(amtErr);
+    }
+
     const academicYear = await prisma.academicYear.findFirst({ 
       where: { isCurrent: true, ...getSchoolScope(req) } 
     });
@@ -123,10 +138,30 @@ export const getStudentFeeStatus = async (req: AuthRequest, res: Response, next:
 // ── Collect Fee ────────────────────────────────────────────────────
 export const collectFee = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // Validate paymentMode before delegating to FeeService
+    const { paymentMode, amountPaid } = req.body;
+    if (paymentMode && !(VALID_PAYMENT_MODES as readonly string[]).includes(paymentMode)) {
+      return next(createError(
+        `Invalid payment mode "${paymentMode}". Allowed: ${VALID_PAYMENT_MODES.join(', ')}.`,
+        400
+      ));
+    }
+
+    // Student school-scope check (FeeService also validates, but catch early)
+    const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
+    if (req.body.studentId && req.user?.role !== 'super_admin' && schoolId) {
+      const student = await prisma.student.findFirst({
+        where: { id: req.body.studentId, schoolId }
+      });
+      if (!student) {
+        return next(createError('Student not found in your school.', 404));
+      }
+    }
+
     const payment = await FeeService.recordPayment({
       ...req.body,
       collectedBy: req.user!.id as string,
-      schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
+      schoolId
     });
     
     const populated = await prisma.feePayment.findFirst({
