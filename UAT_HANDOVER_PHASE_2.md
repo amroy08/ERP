@@ -310,3 +310,89 @@ The fee module supports two collection methods:
 | `scripts/concurrency-test.ts` | ✅ PASS — unique receipts verified |
 | Backend IDOR/security checks | ✅ PASS — 18/18 |
 | Commit | `b92c517` → pushed to `origin/Nupun` |
+
+---
+
+## Q. Final Browser UI Screenshot Pass
+
+> Final browser UI screenshot pass completed successfully.
+
+**Automated with**: Playwright (Chromium headless, v1.60.0)  
+**Run date**: 2026-06-07  
+**Result**: ✅ **44/44 PASS — 0 FAIL — 0 Console Errors**
+
+### Q.1 Roles Tested
+
+| Role | Login | Pages Verified |
+|---|---|---|
+| Admin | ✅ | Dashboard, Sidebar, Students, Fees, Reports |
+| Parent | ✅ | Dashboard, Child Switcher, Fees, Attendance, Timetable, Homework, Exams, Notices |
+| Student | ✅ | Dashboard (no child switcher), Fees, Attendance, Timetable, Homework, Exams, Notices |
+| Teacher | ✅ | Dashboard, Attendance, Homework, Timetable, Exams |
+| Clerk | ✅ | Dashboard, Enquiries, Admissions, Fees, Settings blocked |
+| Mobile (375px) | ✅ | Parent Dashboard, Student Fees |
+| Tablet (768px) | ✅ | Parent Dashboard |
+
+### Q.2 Screenshots Captured
+
+33 screenshots saved to `test-results/final-uat-screenshots/`:
+
+| File | Description |
+|---|---|
+| `01-admin-dashboard.png` | Admin dashboard with KPI widgets |
+| `02-admin-sidebar.png` | Admin sidebar expanded |
+| `03-admin-students.png` | Student list table |
+| `04-admin-fees.png` | Fee collection page |
+| `05-admin-reports.png` | Reports export page |
+| `06-parent-dashboard.png` | Parent dashboard with child stats |
+| `07-parent-child-switcher.png` | Parent TopBar with child switcher |
+| `07b-parent-child-switcher-open.png` | Child selector dropdown open |
+| `08-parent-fees.png` | Parent: linked child fee ledger |
+| `08b-parent-attendance.png` | Parent: linked child attendance |
+| `08c-parent-timetable.png` | Parent: linked child timetable |
+| `08d-parent-homework.png` | Parent: homework (no admin controls) |
+| `08e-parent-exams.png` | Parent: exams (no admin controls) |
+| `08f-parent-notices.png` | Parent: notices (no admin controls) |
+| `09-student-dashboard.png` | Student dashboard — no child switcher |
+| `10-student-fees.png` | Student own fee ledger |
+| `10b-student-attendance.png` | Student own attendance |
+| `10c-student-timetable.png` | Student timetable |
+| `10d-student-homework.png` | Student homework |
+| `10e-student-exams.png` | Student exams |
+| `10f-student-notices.png` | Student notices |
+| `11-teacher-dashboard.png` | Teacher dashboard |
+| `11b-teacher-attendance.png` | Teacher attendance |
+| `11c-teacher-homework.png` | Teacher homework |
+| `11d-teacher-timetable.png` | Teacher timetable |
+| `11e-teacher-exams.png` | Teacher exams |
+| `12-clerk-dashboard.png` | Clerk dashboard |
+| `12b-clerk-enquiries.png` | Clerk enquiries page |
+| `12c-clerk-admissions.png` | Clerk admissions page |
+| `12d-clerk-fees.png` | Clerk fee collection page |
+| `13-mobile-parent-dashboard.png` | Mobile (375px) parent dashboard |
+| `13b-mobile-student-fees.png` | Mobile (375px) student fees |
+| `13c-tablet-parent-dashboard.png` | Tablet (768px) parent dashboard |
+
+### Q.3 Issues Found and Fixed
+
+| # | Issue | Severity | Fix Applied |
+|---|---|---|---|
+| 1 | Clerk could access `/settings` page — frontend permissions not aligned with Phase 2.1A HIGH-02 backend restriction | **Medium** | Removed `SETTINGS_VIEW`, `SETTINGS_UPDATE`, `ROLE_VIEW`, `ROLE_MANAGE` from clerk's `ROLE_PERMISSIONS` in `constants.ts` |
+| 2 | `SettingsPage` had no frontend role guard — any authenticated user could navigate directly to `/settings` | **Medium** | Added `useEffect` role guard to `SettingsPage.tsx`: redirects non-admin/super_admin to `/dashboard` |
+| 3 | `school.board`, `school.principalName`, `school.website` inputs showed React `null value prop` console warning | **Low** | Added `\|\| ''` null-safe fallbacks on those controlled input fields |
+
+### Q.4 Verification Checks
+
+| Check | Result |
+|---|---|
+| No blank pages | ✅ PASS |
+| No console errors | ✅ PASS — 0 errors after fixes |
+| No broken sidebar links | ✅ PASS |
+| No layout overflow on desktop | ✅ PASS |
+| Parent child switcher works | ✅ PASS |
+| Student portal — no child switcher | ✅ PASS |
+| Admin/teacher/clerk unaffected by student context | ✅ PASS |
+| Clerk `/settings` blocked/redirected | ✅ PASS |
+| Mobile 375px layout | ✅ PASS |
+| Tablet 768px layout | ✅ PASS |
+| Client `npx tsc --noEmit` after fixes | ✅ PASS — 0 errors |

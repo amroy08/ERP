@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Calendar, Globe, Mail, Phone, MapPin, Building, Save, Plus, Globe2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -10,11 +11,14 @@ import { Modal } from '../../components/common/Modal';
 import { Select } from '../../components/common/Select';
 
 import axiosInstance from '../../api/axiosInstance';
+import { useAuth } from '../../hooks/useAuth';
 import { School, AcademicYear, ApiResponse } from '../../types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [school, setSchool] = useState<School | null>(null);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
@@ -23,6 +27,13 @@ export const SettingsPage: React.FC = () => {
   const [showYearModal, setShowYearModal] = useState(false);
   const [selectedYear, setSelectedYear] = useState<Partial<AcademicYear> | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Role guard — only super_admin and admin may access settings
+  useEffect(() => {
+    if (user && user.role !== 'super_admin' && user.role !== 'admin') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
 
   useEffect(() => {
@@ -170,13 +181,13 @@ export const SettingsPage: React.FC = () => {
                     />
                     <Input 
                       label="Affiliation Board" 
-                      value={school.board} 
+                      value={school.board || ''} 
                       onChange={e => setSchool({...school, board: e.target.value})}
                     />
                   </div>
                   <Input 
                     label="Principal Name" 
-                    value={school.principalName} 
+                    value={school.principalName || ''} 
                     onChange={e => setSchool({...school, principalName: e.target.value})}
                   />
                 </div>
@@ -204,7 +215,7 @@ export const SettingsPage: React.FC = () => {
                   <Input 
                     label="Website" 
                     icon={<Globe className="w-4 h-4" />}
-                    value={school.website} 
+                    value={school.website || ''} 
                     onChange={e => setSchool({...school, website: e.target.value})}
                   />
                   <Input 
