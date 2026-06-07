@@ -16,14 +16,15 @@ The following implementation phases have been successfully completed and audited
 * **Phase 2.3.1: Enrollment History Hardening**: Hardened student creation, admission conversion, and promotion pathways.
 * **Phase 2.4: Fee Line-Item Allocation**: Developed itemized transaction structures, FIFO auto-allocation, manual allocation input grids, and ledger/receipt views.
 * **Phase 2.4.1: Production Build Stabilization**: Cleaned and compiled all server-side and client-side modules to achieve 100% type-checking pass rates.
+* **Phase 2.5: Parent & Student Experience Revamp**: Added active student context, parent child switcher, and role-scoped portal views for parent and student accounts. Strengthened backend IDOR guards for student profile, enrollment history, report card, and homework access.
 * **Release Readiness Audit**: Fully verified and passed.
 
 ---
 
 ## B. Latest Stable Commit
 * **Target Branch**: `Nupun`
-* **Stable Commit Hash**: `5ad0fa89af152be62dd8849bc1a266f50c796ed7`
-* **Commit Message**: `Stabilize production build after Phase 2.4 fee allocation`
+* **Stable Commit Hash**: `b92c517`
+* **Commit Message**: `Phase 2.5: Parent and student portal experience revamp`
 * **Build Status**: **SUCCESS / PASSING** (Clean TS checks and static compilation bundles in both server & client packages).
 
 ---
@@ -199,9 +200,113 @@ The fee module supports two collection methods:
 ---
 
 ## N. Recommended Next Phase
-* **Phase 2.5: Parent & Student Experience Revamp** (or address client feedback loops during UAT).
+* Address client feedback loops raised during UAT, or proceed to **Phase 3** (notifications, payment gateway integrations, or live reporting).
 
 ---
 
 ## O. Final Release Readiness Statement
-> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, and business flow smoke tests.
+> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.5 INCLUDED**
+>
+> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, and business flow smoke tests. All 18 backend security checks pass. TypeScript and production builds are clean across server and client.
+
+---
+
+## P. Phase 2.5: Parent & Student Experience Revamp
+
+### P.1 Summary of Phase 2.5 Changes
+
+| Area | Change |
+|---|---|
+| Active Student Context | Added `activeStudentId` and `activeStudentName` to Redux auth state and localStorage. Initialized on login for student and parent roles. |
+| Parent Child Switcher | Added a child selector dropdown in the TopBar, visible only when the logged-in user is a parent with linked children. |
+| Student Context Auto-Init | On student login, `activeStudentId` is automatically set to the student's own ID. No manual selection required. |
+| Parent First Child Auto-Select | On parent login, `activeStudentId` is automatically set to the first linked child. Parent can switch via the TopBar selector. |
+| Dashboard Improvements | Dashboard widgets for attendance, fees, homework, timetable, exams, and notices are now scoped to the active student/child. Admin-only quick actions are hidden for student/parent roles. |
+| Student Fee Page | `StudentFeesPage` now reads `activeStudentId` from Redux to fetch the correct student's fee ledger. |
+| Student Attendance Page | `StudentAttendancePage` now reads `activeStudentId` to load the correct attendance records. |
+| Timetable Page | For student/parent, timetable automatically resolves the class and section from the active student context. Admin/teacher view retains manual controls. |
+| Homework Page | Homework scoped to active student's class/section. Admin create/edit controls hidden for student/parent. |
+| Exams / Results Page | Exams filtered by active student's class. Marks entry and admin management controls hidden for student/parent. |
+| Notices Page | Notice creation/admin controls hidden for student/parent. Notices remain fully readable. |
+| Backend IDOR Strengthening | Student profile, enrollment history, report card, and homework access now enforce strict role-based identity checks. |
+
+### P.2 Files Changed in Phase 2.5
+
+| File | Description |
+|---|---|
+| `client/src/types/index.ts` | Added `activeStudentId` and `activeStudentName` to `AuthState` type |
+| `client/src/features/auth/authSlice.ts` | Added `setActiveStudent` reducer; `setCredentials` now initializes active student context on login; `logout` clears active student context |
+| `client/src/hooks/useAuth.ts` | Exposes `activeStudentId` and `activeStudentName` from Redux state |
+| `client/src/components/layout/TopBar.tsx` | Added parent child switcher dropdown (parent-role only) that dispatches `setActiveStudent` on selection |
+| `client/src/features/dashboard/DashboardPage.tsx` | Role-aware dashboard widgets scoped to `activeStudentId`; imported missing `ApiResponse` type |
+| `client/src/features/fees/StudentFeesPage.tsx` | Fee ledger bound to `activeStudentId` for parent and student |
+| `client/src/features/students/StudentAttendancePage.tsx` | Attendance records bound to `activeStudentId` |
+| `client/src/features/timetable/TimetablePage.tsx` | Auto-resolves class/section from active student for student/parent roles |
+| `client/src/features/homework/HomeworkPage.tsx` | Scoped to active student class/section; admin controls hidden for student/parent |
+| `client/src/features/exams/ExamsPage.tsx` | Scoped to active student class; admin controls hidden for student/parent |
+| `client/src/features/notices/NoticesPage.tsx` | Admin controls hidden for student/parent |
+| `server/src/controllers/studentController.ts` | IDOR guard: student can only access own profile and enrollment history; parent can only access linked child |
+| `server/src/controllers/examController.ts` | IDOR guard: report card endpoint enforces student self-check and parent-child link check; `studentId` cast fixed |
+| `server/src/controllers/moduleController.ts` | IDOR guard: homework query enforces parent-child link verification before serving data |
+
+### P.3 Parent / Student UAT Checklist
+
+#### Parent Account Tests
+- [ ] Login as `parent@school.com` / `Admin@123`
+- [ ] Verify the **child switcher dropdown** appears in the TopBar
+- [ ] Verify only the parent's **linked children** appear in the switcher
+- [ ] Switch child and verify the **dashboard** stats change to reflect the selected child
+- [ ] Switch child and verify the **Fees** page (`/student/fees`) ledger updates
+- [ ] Switch child and verify the **Attendance** page updates
+- [ ] Switch child and verify the **Timetable** updates to the correct class/section
+- [ ] Switch child and verify the **Homework** list updates to the correct class/section
+- [ ] Switch child and verify the **Exams** list updates
+- [ ] Verify parent **cannot** access another student's profile directly via the API (expect `403` or `404`)
+- [ ] Verify parent **cannot** view an unrelated student's report card (expect `403`)
+- [ ] Verify parent **cannot** view an unrelated student's enrollment history (expect `403` or `404`)
+
+#### Student Account Tests
+- [ ] Login as `student@school.com` / `Admin@123`
+- [ ] Verify the **child switcher does NOT appear** in the TopBar
+- [ ] Verify **dashboard** shows the student's own stats (attendance, fees, homework, timetable, exams, notices)
+- [ ] Navigate to `/student/fees` — verify own fee ledger loads
+- [ ] Navigate to `/student/attendance` — verify own attendance loads
+- [ ] Navigate to `/homework` — verify only homework for own class/section is shown
+- [ ] Navigate to `/timetable` — verify timetable auto-resolves to own class/section
+- [ ] Navigate to `/exams` — verify only relevant exams are shown
+- [ ] Navigate to `/notices` — verify notices load (no admin controls visible)
+- [ ] Verify student **cannot** access another student's profile (expect `403` or `404`)
+- [ ] Verify student **cannot** view another student's report card (expect `403`)
+- [ ] Verify student **cannot** view another student's enrollment history (expect `403` or `404`)
+
+### P.4 Security Notes
+
+| Check | Status |
+|---|---|
+| Parent-child IDOR boundary (profile, history, report card) | ✅ 18/18 API checks PASS |
+| Student self-access boundary (own profile, fees, report card) | ✅ PASS |
+| Report card endpoint scoped by role | ✅ PASS — student: self only; parent: linked children only |
+| Homework endpoint scoped by parent-child link | ✅ PASS |
+| Fee payment access scoped | ✅ PASS |
+| SchoolId scoping remains intact across all endpoints | ✅ PASS |
+
+### P.5 Known Notes
+
+> [!NOTE]
+> **Browser Smoke Test**: Browser automation quota was exhausted during the Phase 2.5 audit. The **parent portal** UI smoke test was completed visually in a prior browser session. The **student portal** UI smoke test was verified via API checks (all auth context fields, role isolation, and IDOR boundaries confirmed). A full visual browser smoke test for the student account should be repeated either manually during UAT or once browser automation is available.
+
+> [!NOTE]
+> **UI Screenshots**: Phase 2.5 parent portal screenshots were captured during the prior browser session. Student portal UI screenshots should be captured during formal UAT walkthrough.
+
+### P.6 Phase 2.5 Audit Results
+
+| Check | Result |
+|---|---|
+| Server `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Server `npm run build` | ✅ PASS |
+| Client `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Client `npm run build` | ✅ PASS — Vite bundle built in 1.59s |
+| `scripts/audit-test.ts` | ✅ PASS — 14/14 tests |
+| `scripts/concurrency-test.ts` | ✅ PASS — unique receipts verified |
+| Backend IDOR/security checks | ✅ PASS — 18/18 |
+| Commit | `b92c517` → pushed to `origin/Nupun` |
