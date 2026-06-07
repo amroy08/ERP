@@ -42,20 +42,44 @@ export const exportReport = async (req: Request, res: Response, next: NextFuncti
         title = 'Financial Ledger Report';
         const payments = await prisma.feePayment.findMany({
           where: getSchoolScope(req),
-          include: { student: { select: { fullName: true, admissionNumber: true } } },
+          include: { 
+            student: { select: { fullName: true, admissionNumber: true } },
+            allocations: true
+          },
           orderBy: { paymentDate: 'desc' },
           take: 500
         });
-        data = payments.map(p => ({
-          Date: dateFnsFormat(p.paymentDate, 'dd-MM-yyyy'),
-          Receipt: p.receiptNumber,
-          Student: p.student.fullName,
-          'Adm No': p.student.admissionNumber,
-          Mode: p.paymentMode.toUpperCase(),
-          Amount: p.amountPaid,
-          Status: p.status.toUpperCase()
-        }));
-        headers = ['Date', 'Receipt', 'Student', 'Adm No', 'Mode', 'Amount', 'Status'];
+        
+        const rows: any[] = [];
+        for (const p of payments) {
+          if (p.allocations && p.allocations.length > 0) {
+            for (const alloc of p.allocations) {
+              rows.push({
+                Date: dateFnsFormat(p.paymentDate, 'dd-MM-yyyy'),
+                Receipt: p.receiptNumber,
+                Student: p.student.fullName,
+                'Adm No': p.student.admissionNumber,
+                Mode: p.paymentMode.toUpperCase(),
+                Component: alloc.componentName,
+                Amount: alloc.allocatedAmount,
+                Status: p.status.toUpperCase()
+              });
+            }
+          } else {
+            rows.push({
+              Date: dateFnsFormat(p.paymentDate, 'dd-MM-yyyy'),
+              Receipt: p.receiptNumber,
+              Student: p.student.fullName,
+              'Adm No': p.student.admissionNumber,
+              Mode: p.paymentMode.toUpperCase(),
+              Component: 'General / Unallocated',
+              Amount: p.amountPaid,
+              Status: p.status.toUpperCase()
+            });
+          }
+        }
+        data = rows;
+        headers = ['Date', 'Receipt', 'Student', 'Adm No', 'Mode', 'Component', 'Amount', 'Status'];
         break;
 
       case 'academic':

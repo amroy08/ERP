@@ -167,7 +167,8 @@ export const collectFee = async (req: AuthRequest, res: Response, next: NextFunc
     const populated = await prisma.feePayment.findFirst({
       where: { id: payment.id, ...getSchoolScope(req) },
       include: {
-        student: { select: { fullName: true, admissionNumber: true } }
+        student: { select: { fullName: true, admissionNumber: true } },
+        allocations: true
       }
     });
     
@@ -201,7 +202,8 @@ export const getRecentPayments = async (_req: AuthRequest, res: Response, next: 
       },
       include: {
         student: { select: { fullName: true, admissionNumber: true, class: { select: { name: true } } } },
-        school: { select: { name: true } }
+        school: { select: { name: true } },
+        allocations: true
       },
       orderBy: { createdAt: 'desc' },
       take: 50
@@ -240,6 +242,7 @@ export const getStudentPayments = async (req: AuthRequest, res: Response, next: 
 
     const payments = await prisma.feePayment.findMany({
       where: { studentId: studentId as string, ...getSchoolScope(req) },
+      include: { allocations: true },
       orderBy: { paymentDate: 'desc' }
     });
     res.json({ success: true, data: payments });

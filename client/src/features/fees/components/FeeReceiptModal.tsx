@@ -13,6 +13,7 @@ interface ReceiptData {
   paymentMode: string;
   paymentDate: string;
   remarks?: string;
+  allocations?: any[];
   student?: {
     fullName: string;
     admissionNumber: string;
@@ -105,26 +106,50 @@ export const FeeReceiptModal: React.FC<FeeReceiptModalProps> = ({
             </div>
           </div>
 
-          <div className="p-6 bg-slate-50 rounded-2xl mb-10 border border-slate-100 text-left">
-            <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
-              <span>Payment Mode</span>
-              <span className="uppercase tracking-widest text-slate-400 text-[10px]">{receipt.paymentMode}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
-              <span>Particulars</span>
-              <span className="text-slate-800">Academic Fee Collection {new Date(receipt.paymentDate).getFullYear()}</span>
-            </div>
-            {receipt.remarks && (
-              <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
-                <span>Remarks</span>
-                <span className="text-slate-800">{receipt.remarks}</span>
+          {receipt.allocations && receipt.allocations.length > 0 ? (
+            <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 mb-10 text-left">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Itemized Allocation Breakdown</h4>
+              <div className="space-y-3">
+                {receipt.allocations.map((a: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
+                    <span className="font-semibold text-slate-700">{a.componentName}</span>
+                    <span className="font-black text-slate-900">₹{a.allocatedAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
               </div>
-            )}
-            <div className="pt-4 mt-4 border-t border-slate-200 flex justify-between items-center">
-              <span className="text-lg font-black text-slate-800">Final Total</span>
-              <span className="text-2xl font-black text-blue-600">₹{receipt.amountPaid.toLocaleString('en-IN')}</span>
+              <div className="pt-4 mt-4 border-t border-slate-300 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Payment Mode: {receipt.paymentMode.toUpperCase()}</span>
+                  {receipt.remarks && <span className="text-xs font-medium text-slate-500 italic block mt-1">Notes: {receipt.remarks}</span>}
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Final Total</span>
+                  <span className="text-2xl font-black text-blue-600">₹{receipt.amountPaid.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-6 bg-slate-50 rounded-2xl mb-10 border border-slate-100 text-left">
+              <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
+                <span>Payment Mode</span>
+                <span className="uppercase tracking-widest text-slate-400 text-[10px]">{receipt.paymentMode}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
+                <span>Particulars</span>
+                <span className="text-slate-800">Academic Fee Collection {new Date(receipt.paymentDate).getFullYear()}</span>
+              </div>
+              {receipt.remarks && (
+                <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-2">
+                  <span>Remarks</span>
+                  <span className="text-slate-800">{receipt.remarks}</span>
+                </div>
+              )}
+              <div className="pt-4 mt-4 border-t border-slate-200 flex justify-between items-center">
+                <span className="text-lg font-black text-slate-800">Final Total</span>
+                <span className="text-2xl font-black text-blue-600">₹{receipt.amountPaid.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-between items-end gap-10">
             <div className="flex-1 text-left">

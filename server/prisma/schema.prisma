@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -165,6 +164,7 @@ model Student {
   results           Result[]
   assignedFees      StudentFee[]
   enrollmentHistory StudentEnrollmentHistory[]
+  feePaymentAllocations FeePaymentAllocation[]
   academicYear      AcademicYear   @relation(fields: [academicYearId], references: [id])
   class             Class          @relation(fields: [classId], references: [id])
   parent            Parent         @relation(fields: [parentId], references: [id])
@@ -380,6 +380,7 @@ model StudentFee {
   feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id])
   school         School?      @relation(fields: [schoolId], references: [id])
   student        Student      @relation(fields: [studentId], references: [id])
+  allocations    FeePaymentAllocation[]
 
   @@unique([studentId, feeStructureId, academicYearId])
   @@index([feeStructureId], map: "student_fees_feeStructureId_fkey")
@@ -402,6 +403,7 @@ model FeePayment {
   updatedAt      DateTime @updatedAt
   school         School?  @relation(fields: [schoolId], references: [id])
   student        Student  @relation(fields: [studentId], references: [id])
+  allocations    FeePaymentAllocation[]
 
   @@index([schoolId], map: "fee_payments_schoolId_fkey")
   @@index([studentId], map: "fee_payments_studentId_fkey")
@@ -606,6 +608,7 @@ model School {
   exams          Exam[]
   feePayments    FeePayment[]
   feeStructures  FeeStructure[]
+  feePaymentAllocations FeePaymentAllocation[]
   homeworks      Homework[]
   leaveRequests  LeaveRequest[]
   notices        Notice[]
@@ -725,4 +728,29 @@ enum Gender {
   male
   female
   other
+}
+
+// ── Fee Payment Allocation ──────────────────────────────────────────
+// Tracks allocations of a single payment voucher across specific components
+model FeePaymentAllocation {
+  id              String      @id @default(uuid())
+  paymentId       String
+  studentFeeId    String
+  componentName   String      // Saved as a snapshot name to remain immune to fee structure edits
+  allocatedAmount Float
+  studentId       String
+  schoolId        String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  payment         FeePayment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  studentFee      StudentFee  @relation(fields: [studentFeeId], references: [id], onDelete: Cascade)
+  student         Student     @relation(fields: [studentId], references: [id])
+  school          School      @relation(fields: [schoolId], references: [id])
+
+  @@index([paymentId])
+  @@index([studentFeeId])
+  @@index([studentId])
+  @@index([schoolId])
+  @@map("fee_payment_allocations")
 }

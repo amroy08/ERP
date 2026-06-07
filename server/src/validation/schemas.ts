@@ -24,6 +24,13 @@ export const collectFeeSchema = Joi.object({
       name: Joi.string().required(),
       amount: Joi.number().min(0).required()
     })
+  ).optional(),
+  allocations: Joi.array().items(
+    Joi.object({
+      studentFeeId: uuidRequired(),
+      componentName: Joi.string().required(),
+      amount: Joi.number().min(0).required()
+    })
   ).optional()
 });
 

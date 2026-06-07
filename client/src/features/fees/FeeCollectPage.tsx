@@ -59,6 +59,17 @@ export const FeeCollectPage: React.FC = () => {
   const [paymentForm, setPaymentForm] = useState({ amount: '', mode: 'cash', remarks: '' });
   const [latestReceipt, setLatestReceipt] = useState<any>(null);
 
+  interface AllocationInput {
+    studentFeeId: string;
+    componentName: string;
+    category: string;
+    amount: number;
+    paid: number;
+    outstanding: number;
+    amountToPay: string;
+  }
+  const [allocations, setAllocations] = useState<AllocationInput[]>([]);
+
   const [searchParams] = useSearchParams();
   const studentIdFromUrl = searchParams.get('studentId');
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -73,6 +84,31 @@ export const FeeCollectPage: React.FC = () => {
         .catch(() => {});
     }
   }, [studentIdFromUrl]);
+
+  useEffect(() => {
+    if (isPayModalOpen && ledger) {
+      const list: AllocationInput[] = [];
+      ledger.structures.forEach(s => {
+        const studentFeeId = s._studentFeeId;
+        if (!studentFeeId) return;
+        if (s.components && Array.isArray(s.components)) {
+          s.components.forEach((c: any) => {
+            list.push({
+              studentFeeId,
+              componentName: c.name,
+              category: c.category || 'miscellaneous',
+              amount: c.amount || 0,
+              paid: c.paid || 0,
+              outstanding: c.outstanding || 0,
+              amountToPay: ''
+            });
+          });
+        }
+      });
+      setAllocations(list);
+      setPaymentForm({ amount: '', mode: 'cash', remarks: '' });
+    }
+  }, [isPayModalOpen, ledger]);
 
   const fetchClasses = async () => {
     try {
@@ -112,6 +148,42 @@ export const FeeCollectPage: React.FC = () => {
     finally { setIsLoadingLedger(false); }
   };
 
+  const handleAutoFill = () => {
+    const total = parseFloat(paymentForm.amount);
+    if (isNaN(total) || total <= 0) {
+      toast.error('Please enter a valid amount to auto-allocate.');
+      return;
+    }
+    
+    let remaining = total;
+    const updated = allocations.map(a => {
+      if (remaining <= 0) {
+        return { ...a, amountToPay: '' };
+      }
+      const alloc = Math.min(remaining, a.outstanding);
+      remaining -= alloc;
+      return { ...a, amountToPay: alloc > 0 ? alloc.toFixed(2) : '' };
+    });
+
+    if (remaining > 0.01) {
+      toast.error(`Entered amount exceeds total outstanding balance of ₹${ledger?.balanceDue?.toLocaleString('en-IN')}`);
+    }
+    setAllocations(updated);
+  };
+
+  const handleAllocationChange = (index: number, val: string) => {
+    const updated = [...allocations];
+    updated[index].amountToPay = val;
+    setAllocations(updated);
+
+    // Update total amount field dynamically
+    const totalPaid = updated.reduce((sum, a) => {
+      const parsed = parseFloat(a.amountToPay);
+      return sum + (isNaN(parsed) ? 0 : parsed);
+    }, 0);
+    setPaymentForm(f => ({ ...f, amount: totalPaid > 0 ? totalPaid.toFixed(2) : '' }));
+  };
+
   const handleCollect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) {
@@ -131,6 +203,30 @@ export const FeeCollectPage: React.FC = () => {
       toast.error('Payment mode is required');
       return;
     }
+
+    const nonZeroAllocations = allocations
+      .map(a => ({
+        studentFeeId: a.studentFeeId,
+        componentName: a.componentName,
+        amount: parseFloat(a.amountToPay) || 0
+      }))
+      .filter(a => a.amount > 0);
+
+    const allocationSum = nonZeroAllocations.reduce((sum, a) => sum + a.amount, 0);
+    
+    if (nonZeroAllocations.length > 0 && Math.abs(allocationSum - amount) > 0.01) {
+      toast.error(`The sum of individual allocations (₹${allocationSum.toLocaleString('en-IN')}) must match the total amount to collect (₹${amount.toLocaleString('en-IN')}).`);
+      return;
+    }
+
+    // Ensure no individual allocation exceeds outstanding
+    for (const alloc of nonZeroAllocations) {
+      const comp = allocations.find(a => a.studentFeeId === alloc.studentFeeId && a.componentName === alloc.componentName);
+      if (comp && alloc.amount > comp.outstanding + 0.01) {
+        toast.error(`Allocation for "${alloc.componentName}" (₹${alloc.amount.toLocaleString()}) exceeds its outstanding balance of ₹${comp.outstanding.toLocaleString()}.`);
+        return;
+      }
+    }
     
     setIsSaving(true);
     try {
@@ -139,6 +235,7 @@ export const FeeCollectPage: React.FC = () => {
         amountPaid: amount,
         paymentMode: paymentForm.mode,
         remarks: paymentForm.remarks,
+        allocations: nonZeroAllocations
       });
       
       const receiptData = res.data.data;
@@ -299,19 +396,49 @@ export const FeeCollectPage: React.FC = () => {
                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                        <LayoutGrid className="w-4 h-4" /> Assigned Fee Breakdown
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                       {ledger.structures.map((s, idx) => (
-                          <div key={idx} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center group hover:bg-white hover:shadow-lg transition-all">
-                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                  {s.components?.[0]?.category || 'Fee'}
-                                </p>
-                                <p className="text-sm font-bold text-slate-800">{s.name}</p>
-                             </div>
-                             <p className="text-base font-black text-slate-800 group-hover:text-blue-600">₹{(s.effectiveAmount ?? s.totalAmount ?? 0).toLocaleString('en-IN')}</p>
-                          </div>
-                       ))}
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {ledger.structures.map((s, idx) => (
+                           <div key={idx} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-between hover:bg-white hover:shadow-lg transition-all space-y-3">
+                              <div className="flex justify-between items-center border-b border-slate-200/50 pb-2">
+                                 <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fee Structure</p>
+                                    <h4 className="text-sm font-bold text-slate-800">{s.name}</h4>
+                                 </div>
+                                 <Badge className="bg-blue-50 text-blue-600 font-bold border-none">
+                                    Total: ₹{(s.effectiveAmount ?? s.totalAmount ?? 0).toLocaleString('en-IN')}
+                                 </Badge>
+                              </div>
+                              <div className="space-y-3">
+                                 {s.components && s.components.map((c: any, cIdx: number) => {
+                                    const percent = c.amount > 0 ? Math.min(100, Math.round((c.paid / c.amount) * 100)) : 0;
+                                    return (
+                                       <div key={cIdx} className="space-y-1 text-xs">
+                                          <div className="flex justify-between font-bold text-slate-700">
+                                             <div>
+                                                <span>{c.name}</span>
+                                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">{c.category}</span>
+                                             </div>
+                                             <div className="text-right">
+                                                <span>₹{c.paid.toLocaleString('en-IN')} / ₹{c.amount.toLocaleString('en-IN')}</span>
+                                                <span className="text-[9px] text-slate-400 font-bold block">{c.outstanding > 0 ? `₹${c.outstanding.toLocaleString('en-IN')} due` : 'Paid'}</span>
+                                             </div>
+                                          </div>
+                                          <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                             <div 
+                                                className={clsx(
+                                                   "h-full rounded-full transition-all duration-500",
+                                                   percent === 100 ? "bg-emerald-500" : percent > 0 ? "bg-blue-500" : "bg-slate-300"
+                                                )}
+                                                style={{ width: `${percent}%` }}
+                                             />
+                                          </div>
+                                       </div>
+                                    );
+                                 })}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
                  </div>
 
                  {/* Historical Audit Trail */}
@@ -382,7 +509,7 @@ export const FeeCollectPage: React.FC = () => {
       )}
 
       {/* Payment Entry Modal */}
-      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Record Fee Payment" size="sm">
+      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Record Fee Payment" size="xl">
          <form onSubmit={handleCollect} className="space-y-6">
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
                <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-200">
@@ -396,66 +523,122 @@ export const FeeCollectPage: React.FC = () => {
                </div>
             </div>
 
-            <div className="space-y-5">
-               {/* Amount Payable (Outstanding) */}
-               <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
-                  <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-1">Outstanding Balance (Amount Payable)</span>
-                  <p className="text-2xl font-black text-rose-700">₹{ledger?.balanceDue?.toLocaleString('en-IN')}</p>
-               </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               {/* Left Side: Payment Details */}
+               <div className="space-y-5">
+                  {/* Amount Payable (Outstanding) */}
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                     <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-1">Outstanding Balance</span>
+                     <p className="text-2xl font-black text-rose-700">₹{ledger?.balanceDue?.toLocaleString('en-IN')}</p>
+                  </div>
 
-               {/* Amount Paid */}
-               <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
-                     Amount to Collect (Amount Paid) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                     <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  {/* Amount Paid */}
+                  <div>
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        Amount to Collect <span className="text-red-500">*</span>
+                     </label>
+                     <div className="flex gap-2">
+                        <div className="relative flex-1">
+                           <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                           <input 
+                              type="number" 
+                              step="0.01"
+                              value={paymentForm.amount} 
+                              onChange={e => {
+                                 const val = e.target.value;
+                                 setPaymentForm(f => ({ ...f, amount: val }));
+                              }}
+                              className="w-full pl-11 pr-4 py-3 font-black text-xl border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
+                              placeholder="0.00"
+                              required 
+                           />
+                        </div>
+                        <Button 
+                           type="button" 
+                           variant="secondary" 
+                           onClick={handleAutoFill}
+                           className="rounded-2xl px-4 h-12 text-xs font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 border-none hover:bg-slate-200 text-slate-700"
+                        >
+                           Auto-Fill (FIFO)
+                        </Button>
+                     </div>
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div>
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        Transaction Mode <span className="text-red-500">*</span>
+                     </label>
+                     <div className="grid grid-cols-5 gap-2">
+                       {PAYMENT_MODES.map(m => (
+                         <button key={m} type="button" onClick={() => setPaymentForm(f => ({ ...f, mode: m }))}
+                           className={clsx(
+                             "flex flex-col items-center gap-1 py-2 rounded-xl border text-[9px] font-black uppercase transition-all",
+                             paymentForm.mode === m 
+                               ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                               : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50"
+                           )}>
+                           <span className="text-lg">{MODE_ICONS[m]}</span>
+                           <span>{m}</span>
+                         </button>
+                       ))}
+                     </div>
+                  </div>
+
+                  {/* Remarks */}
+                  <div>
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Reference Notes / Remarks</label>
                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={paymentForm.amount} 
-                        onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                        className="w-full pl-11 pr-4 py-3 font-black text-xl border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
-                        placeholder="0.00"
-                        required 
+                       value={paymentForm.remarks} 
+                       onChange={e => setPaymentForm(f => ({ ...f, remarks: e.target.value }))}
+                       className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
+                       placeholder="e.g. Cash paid by mother" 
                      />
                   </div>
                </div>
 
-               {/* Payment Mode */}
-               <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
-                     Transaction Mode <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {PAYMENT_MODES.map(m => (
-                      <button key={m} type="button" onClick={() => setPaymentForm(f => ({ ...f, mode: m }))}
-                        className={clsx(
-                          "flex flex-col items-center gap-1.5 py-3 rounded-xl border text-[9px] font-black uppercase transition-all",
-                          paymentForm.mode === m 
-                            ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                            : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50"
-                        )}>
-                        <span className="text-lg">{MODE_ICONS[m]}</span>
-                        <span>{m}</span>
-                      </button>
-                    ))}
-                  </div>
-               </div>
-
-               {/* Remarks */}
-               <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Reference Notes / Admin Remarks</label>
-                  <input 
-                    value={paymentForm.remarks} 
-                    onChange={e => setPaymentForm(f => ({ ...f, remarks: e.target.value }))}
-                    className="w-full px-4 py-3 text-sm font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none text-slate-700 transition-all" 
-                    placeholder="e.g. Cash paid by mother" 
-                  />
+               {/* Right Side: Allocation Table */}
+               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Component Allocations</h4>
+                  {allocations.length === 0 ? (
+                     <p className="text-xs text-slate-400 italic">No assigned fee components found.</p>
+                  ) : (
+                     <div className="space-y-3">
+                        {allocations.map((a, idx) => (
+                           <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                 <span className="text-xs font-bold text-slate-800 block truncate">{a.componentName}</span>
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                                    {a.category} · Due: ₹{a.outstanding.toLocaleString()}
+                                 </span>
+                              </div>
+                              <div className="w-32">
+                                 <input 
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={a.amountToPay}
+                                    max={a.outstanding}
+                                    onChange={e => handleAllocationChange(idx, e.target.value)}
+                                    className={clsx(
+                                       "w-full px-3 py-2 text-sm font-black text-right border rounded-xl outline-none transition-all",
+                                       parseFloat(a.amountToPay) > a.outstanding
+                                          ? "border-red-500 bg-red-50 text-red-600 focus:ring-red-500/10"
+                                          : "border-slate-200 bg-white text-slate-800 focus:ring-blue-500/10 focus:border-blue-500"
+                                    )}
+                                 />
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  )}
+                  <p className="text-[10px] font-medium text-slate-400 italic leading-snug">
+                     💡 If component allocations are left blank, the system will automatically distribute the amount using First-In, First-Out (FIFO) logic on submission.
+                  </p>
                </div>
             </div>
 
-            <div className="flex gap-3 pt-2 border-t border-slate-100">
+            <div className="flex gap-3 pt-4 border-t border-slate-100">
                <Button type="button" variant="secondary" className="flex-1 rounded-2xl h-12 text-xs font-black uppercase tracking-widest" onClick={() => setIsPayModalOpen(false)}>Discard</Button>
                <Button type="submit" isLoading={isSaving} className="flex-1 rounded-2xl h-12 bg-blue-600 shadow-xl shadow-blue-200 text-xs font-black uppercase tracking-widest" icon={<CreditCard className="w-4 h-4" />}>Collect & Receipt</Button>
             </div>

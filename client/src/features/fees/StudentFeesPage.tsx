@@ -10,12 +10,14 @@ import { ApiResponse } from '../../types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FeeReceiptModal } from './components/FeeReceiptModal';
+import clsx from 'clsx';
 
 interface LedgerData {
   totalFee: number;
   paidAmount: number;
   balanceDue: number;
   payments: any[];
+  structures: any[];
 }
 
 export const StudentFeesPage: React.FC = () => {
@@ -51,7 +53,7 @@ export const StudentFeesPage: React.FC = () => {
     
     setIsPaying(true);
     try {
-      // Simulate an online payment
+      // Simulate an online payment (triggers FIFO fallback)
       await axiosInstance.post('/fees/collect', {
         studentId,
         amountPaid: ledger.balanceDue,
@@ -157,13 +159,74 @@ export const StudentFeesPage: React.FC = () => {
                 disabled={ledger.balanceDue <= 0}
                 isLoading={isPaying}
                 onClick={handlePaySimulated}
-             >
+              >
                 {ledger.balanceDue <= 0 ? 'No Dues Pending' : 'Pay Now'}
                 <ArrowRight className="ml-2 w-5 h-5" />
              </Button>
           </div>
         </Card>
       </div>
+
+      {/* Assigned Fees Breakdown */}
+      {ledger.structures && ledger.structures.length > 0 && (
+        <div className="space-y-4 pt-4">
+          <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-blue-500" /> Assigned Fees Breakdown
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {ledger.structures.map((s, idx) => (
+              <Card key={idx} className="p-6 border-slate-200">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">{s.name}</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Fee Structure
+                    </p>
+                  </div>
+                  <Badge className="bg-blue-50 text-blue-600 font-bold border-none">
+                    Total: ₹{(s.effectiveAmount ?? s.totalAmount ?? 0).toLocaleString()}
+                  </Badge>
+                </div>
+                
+                <div className="space-y-4">
+                  {s.components && s.components.map((c: any, cIdx: number) => {
+                    const percent = c.amount > 0 ? Math.min(100, Math.round((c.paid / c.amount) * 100)) : 0;
+                    return (
+                      <div key={cIdx} className="space-y-1.5 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                        <div className="flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-slate-700">{c.name}</span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                              {c.category}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-black text-slate-800 block">
+                              ₹{c.paid.toLocaleString()} / ₹{c.amount.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-bold block">
+                              {c.outstanding > 0 ? `₹${c.outstanding.toLocaleString()} outstanding` : 'Fully Paid'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className={clsx(
+                              "h-full rounded-full transition-all duration-500",
+                              percent === 100 ? "bg-emerald-500" : percent > 0 ? "bg-blue-500" : "bg-slate-300"
+                            )}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* History & Items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">

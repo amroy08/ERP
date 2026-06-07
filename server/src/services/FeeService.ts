@@ -51,6 +51,55 @@ export class FeeService {
       return { totalFee: 0, paidAmount: 0, balanceDue: 0, payments: [], structures: [] };
     }
 
+    // Enrich structures with component-level paid/outstanding info
+    const enrichedStructures = [];
+    for (const s of activeStructures) {
+      const studentFeeId = s._studentFeeId;
+      let components = s.components as any[];
+      const isCustom = s.effectiveAmount !== undefined && s.effectiveAmount !== s.totalAmount;
+
+      if (!components || !Array.isArray(components) || components.length === 0) {
+        components = [{
+          category: 'miscellaneous',
+          name: s.name,
+          amount: s.effectiveAmount ?? s.totalAmount,
+          frequency: 'annually'
+        }];
+      } else if (isCustom) {
+        const ratio = s.effectiveAmount / s.totalAmount;
+        components = components.map(c => ({
+          ...c,
+          amount: Math.round(c.amount * ratio * 100) / 100
+        }));
+      }
+
+      const enrichedComponents = [];
+      for (const comp of components) {
+        let paid = 0;
+        if (studentFeeId) {
+          const allocations = await (prisma as any).feePaymentAllocation.findMany({
+            where: {
+              studentFeeId,
+              componentName: comp.name,
+              studentId
+            }
+          });
+          paid = allocations.reduce((sum: number, a: any) => sum + a.allocatedAmount, 0);
+        }
+        enrichedComponents.push({
+          ...comp,
+          paid,
+          outstanding: Math.max(0, comp.amount - paid)
+        });
+      }
+
+      enrichedStructures.push({
+        ...s,
+        components: enrichedComponents
+      });
+    }
+    activeStructures = enrichedStructures;
+
     // Get payments for this student in their current academic year
     const payments = await prisma.feePayment.findMany({ 
       where: { 
@@ -131,24 +180,112 @@ export class FeeService {
       );
     }
 
-    // ── Receipt generation: concurrency-safe retry loop ───────────────────────
-    //
-    // Strategy (Option A — transaction + retry on unique conflict):
-    //   1. Read the current highest receipt number for this year.
-    //   2. Compute the next candidate number (year-scoped for clean numbering).
-    //   3. Attempt to create the payment record inside a Prisma transaction.
-    //   4. If the DB throws P2002 (unique constraint on receiptNumber), another
-    //      concurrent request won the race.  Re-read and retry with offset +1.
-    //   5. Repeat up to MAX_RECEIPT_RETRIES times before surfacing an error.
-    //
-    // The @unique constraint on FeePayment.receiptNumber already exists in the
-    // schema, so the DB is the authoritative guard. No schema change is needed.
-    //
-    // Note: full serialisability is NOT required here — we only need receipt
-    // uniqueness, which the DB unique index guarantees.  The retry loop handles
-    // the rare window where two requests read the same "last" number before
-    // either writes.
+    // ── Build resolved allocations ──────────────────────────────────────────
+    const resolvedAllocations: { studentFeeId: string; componentName: string; amount: number }[] = [];
 
+    // Retrieve all assigned student fees to do validation or FIFO
+    const assignedFees = await prisma.studentFee.findMany({
+      where: {
+        studentId: data.studentId,
+        academicYearId: paymentAcademicYearId
+      },
+      include: { feeStructure: true }
+    });
+
+    if (assignedFees.length === 0) {
+      throw createError('No fee structures are assigned to this student.', 400);
+    }
+
+    // Map each component across all assigned fees to calculate current outstanding
+    const componentsList: { studentFeeId: string; category: string; name: string; amount: number; outstanding: number }[] = [];
+    for (const af of assignedFees) {
+      let comps = af.feeStructure.components as any[];
+      const isCustom = af.customAmount !== null && af.customAmount !== undefined;
+      const effectiveAmt = af.customAmount ?? af.feeStructure.totalAmount;
+
+      if (!comps || !Array.isArray(comps) || comps.length === 0) {
+        comps = [{
+          category: 'miscellaneous',
+          name: af.feeStructure.name,
+          amount: effectiveAmt
+        }];
+      } else if (isCustom) {
+        const ratio = effectiveAmt / af.feeStructure.totalAmount;
+        comps = comps.map(c => ({
+          ...c,
+          amount: Math.round(c.amount * ratio * 100) / 100
+        }));
+      }
+
+      for (const comp of comps) {
+        const allocations = await (prisma as any).feePaymentAllocation.findMany({
+          where: {
+            studentFeeId: af.id,
+            componentName: comp.name,
+            studentId: data.studentId
+          }
+        });
+        const paid = allocations.reduce((sum: number, a: any) => sum + a.allocatedAmount, 0);
+        const outstanding = Math.max(0, comp.amount - paid);
+
+        componentsList.push({
+          studentFeeId: af.id,
+          category: comp.category || 'miscellaneous',
+          name: comp.name,
+          amount: comp.amount,
+          outstanding
+        });
+      }
+    }
+
+    if (data.allocations && Array.isArray(data.allocations) && data.allocations.length > 0) {
+      // 1. Validate explicitly provided allocations
+      const allocationSum = data.allocations.reduce((sum: number, a: any) => sum + parseFloat(a.amount || 0), 0);
+      if (Math.abs(allocationSum - amountPaid) > 0.01) {
+        throw createError(`Allocation sum (Rs.${allocationSum.toLocaleString()}) must exactly equal payment amount (Rs.${amountPaid.toLocaleString()}).`, 400);
+      }
+
+      for (const alloc of data.allocations) {
+        const comp = componentsList.find(c => c.studentFeeId === alloc.studentFeeId && c.name === alloc.componentName);
+        if (!comp) {
+          throw createError(`Invalid allocation: component "${alloc.componentName}" not found on student fee ${alloc.studentFeeId}.`, 400);
+        }
+        const allocAmt = parseFloat(alloc.amount);
+        if (isNaN(allocAmt) || allocAmt <= 0) {
+          throw createError(`Invalid allocation amount for component "${alloc.componentName}". Must be greater than zero.`, 400);
+        }
+        if (allocAmt > comp.outstanding + 0.01) {
+          throw createError(`Overpayment on component "${alloc.componentName}": trying to allocate Rs.${allocAmt.toLocaleString()} but only Rs.${comp.outstanding.toLocaleString()} is outstanding.`, 400);
+        }
+
+        resolvedAllocations.push({
+          studentFeeId: alloc.studentFeeId,
+          componentName: alloc.componentName,
+          amount: allocAmt
+        });
+      }
+    } else {
+      // 2. Fallback to FIFO auto-allocation
+      let remainingToAllocate = amountPaid;
+      for (const comp of componentsList) {
+        if (remainingToAllocate <= 0) break;
+        if (comp.outstanding <= 0) continue;
+
+        const allocAmt = Math.min(remainingToAllocate, comp.outstanding);
+        resolvedAllocations.push({
+          studentFeeId: comp.studentFeeId,
+          componentName: comp.name,
+          amount: allocAmt
+        });
+        remainingToAllocate -= allocAmt;
+      }
+
+      if (remainingToAllocate > 0.01) {
+        throw createError(`Failed to auto-allocate: payment amount exceeds total outstanding balance.`, 400);
+      }
+    }
+
+    // ── Receipt generation: concurrency-safe retry loop ───────────────────────
     const year = new Date().getFullYear();
     let lastError: unknown;
 
@@ -157,7 +294,7 @@ export class FeeService {
         const receiptNumber = await this.nextReceiptCandidate(year, attempt);
 
         const payment = await prisma.$transaction(async (tx) => {
-          return tx.feePayment.create({
+          const p = await tx.feePayment.create({
             data: {
               amountPaid,
               studentId: data.studentId,
@@ -170,6 +307,51 @@ export class FeeService {
               schoolId: student.schoolId
             }
           });
+
+          // Write allocation records
+          for (const alloc of resolvedAllocations) {
+            await (tx as any).feePaymentAllocation.create({
+              data: {
+                paymentId: p.id,
+                studentFeeId: alloc.studentFeeId,
+                componentName: alloc.componentName,
+                allocatedAmount: alloc.amount,
+                studentId: data.studentId,
+                schoolId: student.schoolId!
+              }
+            });
+          }
+
+          // Update StudentFee status fields affected by this payment
+          const affectedFeeIds = Array.from(new Set(resolvedAllocations.map(a => a.studentFeeId)));
+          for (const feeId of affectedFeeIds) {
+            const allAllocations = await (tx as any).feePaymentAllocation.findMany({
+              where: { studentFeeId: feeId }
+            });
+            const totalAllocated = allAllocations.reduce((sum: number, a: any) => sum + a.allocatedAmount, 0);
+
+            const studentFee = await tx.studentFee.findUnique({
+              where: { id: feeId },
+              include: { feeStructure: true }
+            });
+
+            if (studentFee) {
+              const totalAssigned = studentFee.customAmount ?? studentFee.feeStructure.totalAmount;
+              let status = 'pending';
+              if (totalAllocated >= totalAssigned - 0.01) {
+                status = 'completed';
+              } else if (totalAllocated > 0.01) {
+                status = 'partial';
+              }
+
+              await tx.studentFee.update({
+                where: { id: feeId },
+                data: { status }
+              });
+            }
+          }
+
+          return p;
         });
 
         return payment; // success — exit retry loop
