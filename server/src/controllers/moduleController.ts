@@ -1497,6 +1497,32 @@ export const getHomework = async (req: AuthRequest, res: Response, next: NextFun
         where.AND.push({ classId: student.classId });
         if (student.sectionId) where.AND.push({ OR: [{ sectionId: student.sectionId }, { sectionId: null }] });
       }
+    } else if (authUser.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: authUser.id },
+        include: { children: { select: { classId: true, sectionId: true } } }
+      });
+      if (parent && parent.children.length > 0) {
+        const classIds = parent.children.map(c => c.classId);
+        const sectionIds = parent.children.filter(c => c.sectionId).map(c => c.sectionId as string);
+        
+        if (classId && !classIds.includes(classId)) {
+          return next(createError('Access denied. This class is not linked to your children.', 403));
+        }
+        if (sectionId && !sectionIds.includes(sectionId)) {
+          return next(createError('Access denied. This section is not linked to your children.', 403));
+        }
+        
+        if (!classId) {
+          where.AND.push({ classId: { in: classIds } });
+        }
+        if (!sectionId) {
+          where.AND.push({ OR: [{ sectionId: { in: sectionIds } }, { sectionId: null }] });
+        }
+      } else {
+        res.json({ success: true, data: [] });
+        return;
+      }
     } else if (authUser.role === 'teacher') {
       const teacher = await prisma.teacher.findUnique({ 
         where: { userId: authUser.id },

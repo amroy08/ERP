@@ -42,10 +42,10 @@ interface AttendanceReport {
 
 export const StudentAttendancePage: React.FC = () => {
   const { id: urlId } = useParams<{ id: string }>();
-  const { user } = useAuth();
-  // Use URL param if available, otherwise use student's own ID from auth
-  const studentId = urlId || (user as any)?.student?.id;
-  const isSelfView = !urlId && user?.role === 'student';
+  const { user, activeStudentId } = useAuth();
+  // Use URL param if available, otherwise use activeStudentId, fallback to student's own ID from auth
+  const studentId = urlId || activeStudentId || (user as any)?.student?.id;
+  const isSelfView = !urlId && (user?.role === 'student' || user?.role === 'parent');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [report, setReport] = useState<AttendanceReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);

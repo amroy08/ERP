@@ -20,9 +20,11 @@ import axiosInstance from '../../api/axiosInstance';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store/store';
+import { setActiveStudent } from '../../features/auth/authSlice';
 import { clsx } from 'clsx';
+import { ApiResponse } from '../../types';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -41,8 +43,9 @@ const SkeletonCard = () => (
 export const DashboardPage: React.FC = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { school } = useSelector((state: RootState) => state.settings);
-  const { scopedSchoolId, scopedSchoolName } = useSelector((state: RootState) => state.auth);
+  const { scopedSchoolId, scopedSchoolName, activeStudentId, activeStudentName } = useSelector((state: RootState) => state.auth);
   const enabledModules = (school?.enabledModules as string[]) || [];
 
   const [stats, setStats] = useState<any>(null);
@@ -50,6 +53,61 @@ export const DashboardPage: React.FC = () => {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [supportData, setSupportData] = useState({ subject: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [studentStats, setStudentStats] = useState<any>(null);
+  const [studentAttendance, setStudentAttendance] = useState<any>(null);
+  const [timetableToday, setTimetableToday] = useState<any[]>([]);
+  const [homeworkPending, setHomeworkPending] = useState<any[]>([]);
+  const [examsUpcoming, setExamsUpcoming] = useState<any[]>([]);
+  const [studentDetails, setStudentDetails] = useState<any>(null);
+  const [isStudentDataLoading, setIsStudentDataLoading] = useState(false);
+
+  const fetchStudentData = async (stuId: string) => {
+    setIsStudentDataLoading(true);
+    try {
+      const [ledgerRes, attendanceRes, studentRes] = await Promise.all([
+        axiosInstance.get<ApiResponse<any>>(`/fees/status/${stuId}`),
+        axiosInstance.get<ApiResponse<any>>(`/attendance/report/${stuId}`),
+        axiosInstance.get<ApiResponse<any>>(`/students/${stuId}`)
+      ]);
+      setStudentStats(ledgerRes.data.data);
+      setStudentAttendance(attendanceRes.data.data);
+      setStudentDetails(studentRes.data.data);
+
+      const sectionId = studentRes.data.data?.section?.id;
+      const classId = studentRes.data.data?.class?.id;
+      if (sectionId) {
+        const [ttRes, hwRes, examsRes] = await Promise.all([
+          axiosInstance.get<ApiResponse<any[]>>(`/timetables?sectionId=${sectionId}`),
+          axiosInstance.get<ApiResponse<any[]>>(`/homework`),
+          axiosInstance.get<ApiResponse<any[]>>(`/exams?classId=${classId}`)
+        ]);
+        
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const todayName = daysOfWeek[new Date().getDay()];
+        const entries = ttRes.data.data?.[0]?.entries || [];
+        const todayEntries = entries.filter((e: any) => e.day === todayName)
+          .sort((a: any, b: any) => a.startTime.localeCompare(b.startTime));
+        setTimetableToday(todayEntries);
+
+        const activeHw = hwRes.data.data || [];
+        setHomeworkPending(activeHw.filter((h: any) => new Date(h.dueDate) >= new Date()).slice(0, 3));
+
+        const activeExams = examsRes.data.data || [];
+        setExamsUpcoming(activeExams.filter((e: any) => new Date(e.startDate) >= new Date()).slice(0, 3));
+      }
+    } catch (err) {
+      console.error('Failed to load student data:', err);
+    } finally {
+      setIsStudentDataLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeStudentId && (user?.role === 'parent' || user?.role === 'student')) {
+      fetchStudentData(activeStudentId);
+    }
+  }, [activeStudentId, user?.role]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -470,75 +528,204 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── STUDENT HUB ────────────────────────────────────────────── */}
-      {isStudent && (
+      {/* ── STUDENT/PARENT TERMINAL ─────────────────────────────────── */}
+      {isStudentParent && (
         <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-          {enabledModules.includes('fees') && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <Card className="md:col-span-2 p-10 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 text-white border-0 shadow-2xl relative overflow-hidden rounded-[3rem]">
-                <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-10">
-                       <div className="px-4 py-1.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">
-                          Account Ledger
-                       </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-10">
-                      <div className="space-y-2">
-                          <p className="text-sm font-black text-blue-200/50 uppercase tracking-widest">Total Outstanding Balance</p>
-                          <div className="flex items-baseline gap-3">
-                             <span className="text-2xl font-light text-blue-400">₹</span>
-                             <p className="text-6xl font-black tracking-tight leading-none">{stats?.student?.balanceDue?.toLocaleString() || '0'}</p>
-                          </div>
-                      </div>
-                      <Link to="/student/fees" className="h-16 px-10 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-2xl shadow-blue-500/40 active:scale-95 group">
-                          View Breakdown <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                      </Link>
-                    </div>
-                </div>
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
-              </Card>
-
-              <Card className="p-10 border-slate-200 shadow-sm flex flex-col justify-between group rounded-[3rem] bg-white hover:shadow-2xl transition-all duration-500">
-                <div>
-                    <div className="w-20 h-20 rounded-[1.5rem] bg-blue-50 text-blue-600 flex items-center justify-center mb-8 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner">
-                      <Wallet className="w-10 h-10" />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Quick Clearance</h3>
-                    <p className="text-sm text-slate-400 mt-4 font-bold leading-relaxed opacity-80 uppercase tracking-tight">Settle your session dues instantly via digital payment gateways.</p>
-                </div>
-                <Button 
-                    onClick={() => navigate('/student/fees')}
-                    className="mt-10 w-full h-16 shadow-2xl shadow-blue-500/10 rounded-2xl font-black uppercase tracking-widest text-[10px]"
-                    disabled={(stats?.student?.balanceDue || 0) <= 0}
-                >
-                    {(stats?.student?.balanceDue || 0) > 0 ? 'Initialize Payment' : 'Account Cleared'}
-                </Button>
-              </Card>
+          {/* Active context indicator */}
+          {user?.role === 'parent' && activeStudentName && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-[2rem] p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">Active Child Profile</p>
+                <h3 className="text-xl font-black text-indigo-900 mt-1 flex items-center gap-2">
+                  <GraduationCap className="w-6 h-6 text-indigo-600" />
+                  {activeStudentName}
+                </h3>
+                {studentDetails && (
+                  <p className="text-xs text-indigo-700 font-bold uppercase mt-1">
+                    Class: {studentDetails.class?.name} &bull; Section: {studentDetails.section?.name} &bull; Adm No: {studentDetails.admissionNumber}
+                  </p>
+                )}
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-widest rounded-full">
+                Multi-Child view enabled
+              </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-             {[
-               { label: 'Attendance', icon: UserCheck, color: 'bg-emerald-50 text-emerald-600', href: '/student/attendance', moduleId: 'attendance' },
-               { label: 'Curriculum', icon: Calendar, color: 'bg-violet-50 text-violet-600', href: '/timetable', moduleId: 'timetable' },
-               { label: 'Task List', icon: BookOpen, color: 'bg-amber-50 text-amber-600', href: '/homework', moduleId: 'homework' },
-               { label: 'Academics', icon: Award, color: 'bg-rose-50 text-rose-600', href: '/exams', moduleId: 'exams' },
-             ]
-             .filter(item => enabledModules.includes(item.moduleId))
-             .map(item => (
-                <button 
-                  key={item.label} onClick={() => navigate(item.href)}
-                  className="p-8 rounded-[2.5rem] bg-white border border-slate-100 hover:border-blue-400/30 hover:shadow-2xl hover:shadow-blue-500/5 transition-all text-left group"
+          {isStudentDataLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : (
+            <>
+              {/* Dashboard stats cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Attendance Summary */}
+                <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all duration-500">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Attendance</p>
+                    <p className="text-3xl font-black text-slate-900 mt-1">
+                      {studentAttendance?.stats?.percentage ?? 0}%
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {studentAttendance?.stats?.present ?? 0} Present / {studentAttendance?.stats?.absent ?? 0} Absent
+                    </p>
+                  </div>
+                  <div className={clsx(
+                    "w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transition-all group-hover:scale-110",
+                    (studentAttendance?.stats?.percentage ?? 0) >= 80 ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                  )}>
+                    <UserCheck className="w-7 h-7" />
+                  </div>
+                </div>
+
+                {/* Financial Ledger Status */}
+                <div 
+                  onClick={() => navigate('/student/fees')}
+                  className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm flex items-center justify-between group hover:border-blue-200 hover:shadow-md cursor-pointer transition-all duration-500"
                 >
-                   <div className={clsx("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-md", item.color)}>
-                      <item.icon className="w-7 h-7" />
-                   </div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1 leading-none">{item.label}</p>
-                   <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Access Portal</p>
-                </button>
-             ))}
-          </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financial Ledger</p>
+                    <p className="text-3xl font-black text-slate-900 mt-1">
+                      ₹{studentStats?.balanceDue ?? 0}
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                      {studentStats?.balanceDue > 0 ? (
+                        <span className="text-rose-500 font-bold uppercase tracking-wider text-[9px] bg-rose-50 px-1.5 py-0.5 rounded">Outstanding Dues</span>
+                      ) : (
+                        <span className="text-emerald-500 font-bold uppercase tracking-wider text-[9px] bg-emerald-50 px-1.5 py-0.5 rounded">All Cleared</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-md transition-all group-hover:scale-110">
+                    <Wallet className="w-7 h-7" />
+                  </div>
+                </div>
+
+                {/* Homework Queue Card */}
+                <div 
+                  onClick={() => navigate('/homework')}
+                  className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm flex items-center justify-between group hover:border-amber-200 hover:shadow-md cursor-pointer transition-all duration-500"
+                >
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Assignments</p>
+                    <p className="text-3xl font-black text-slate-900 mt-1">
+                      {homeworkPending.length}
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Active deliverables in progress
+                    </p>
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-md transition-all group-hover:scale-110">
+                    <BookOpen className="w-7 h-7" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Timetable Widget */}
+                <div className="lg:col-span-6 bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm">
+                  <h3 className="font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight text-lg">
+                    <div className="p-2 bg-violet-50 rounded-xl text-violet-600"><Clock className="w-5 h-5" /></div>
+                    Today's Academic Schedule
+                  </h3>
+                  {timetableToday.length > 0 ? (
+                    <div className="space-y-4">
+                      {timetableToday.map((entry: any, i: number) => (
+                        <div key={i} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all duration-300">
+                          <div className="px-3 py-1 bg-violet-100 text-violet-700 text-xs font-black rounded-lg">
+                            {entry.startTime} - {entry.endTime}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{entry.subject?.name}</p>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{entry.subject?.teacher?.name || 'Assigned Instructor'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                      <Clock className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Class Periods Scheduled</p>
+                      <p className="text-xs font-medium text-slate-400 mt-1">Enjoy your free time today!</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Homework List Widget */}
+                <div className="lg:col-span-6 bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm">
+                  <h3 className="font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight text-lg">
+                    <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><ClipboardList className="w-5 h-5" /></div>
+                    Homework deliverables
+                  </h3>
+                  {homeworkPending.length > 0 ? (
+                    <div className="space-y-4">
+                      {homeworkPending.map((hw: any) => (
+                        <div 
+                          key={hw.id} 
+                          onClick={() => navigate('/homework')}
+                          className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all duration-300 cursor-pointer group flex items-start gap-4"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded uppercase">{hw.subject?.name}</span>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due: {format(new Date(hw.dueDate), 'dd MMM')}</span>
+                            </div>
+                            <p className="text-sm font-black text-slate-800 mt-2 truncate group-hover:text-blue-600 transition-colors uppercase tracking-tight">{hw.title}</p>
+                            <p className="text-xs text-slate-400 line-clamp-1 font-medium mt-1">{hw.description}</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 self-center group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                      <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Pending Homework</p>
+                      <p className="text-xs font-medium text-slate-400 mt-1">Outstanding assignments are up to date!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upcoming Exams (Only for student/parent view) */}
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm">
+                <h3 className="font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight text-lg">
+                  <div className="p-2 bg-rose-50 rounded-xl text-rose-600"><Award className="w-5 h-5" /></div>
+                  Upcoming Exams & Assessments
+                </h3>
+                {examsUpcoming.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {examsUpcoming.map((exam: any) => (
+                      <div 
+                        key={exam.id} 
+                        onClick={() => navigate('/exams')}
+                        className="p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all duration-300 cursor-pointer group flex items-center gap-4"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 text-white flex flex-col items-center justify-center font-black text-xs shadow-lg shadow-rose-200 group-hover:scale-110 transition-transform">
+                          <span className="leading-none">{format(new Date(exam.startDate), 'dd')}</span>
+                          <span className="text-[8px] uppercase opacity-80">{format(new Date(exam.startDate), 'MMM')}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-black text-slate-800 truncate uppercase tracking-tight group-hover:text-blue-600 transition-colors">{exam.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{exam.type}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                    <Award className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No Upcoming Assessments</p>
+                    <p className="text-xs font-medium text-slate-400 mt-1">No exam schedules have been announced yet.</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

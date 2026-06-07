@@ -41,17 +41,13 @@ interface Timetable {
 }
 
 export const TimetablePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, activeStudentId } = useAuth();
   const isAdmin = ['admin', 'super_admin', 'principal'].includes(user?.role || '');
   const isStudent = user?.role === 'student' || user?.role === 'parent';
   
-  // For students, auto-set class/section from their profile
-  const studentClassId = (user as any)?.student?.classId || '';
-  const studentSectionId = (user as any)?.student?.sectionId || '';
-  
   // Navigation State
-  const [selectedClassId, setSelectedClassId] = useState(isStudent ? studentClassId : '');
-  const [selectedSectionId, setSelectedSectionId] = useState(isStudent ? studentSectionId : '');
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedSectionId, setSelectedSectionId] = useState('');
   const [mode, setMode] = useState<'view' | 'manage'>('view');
   const [manageMode, setManageMode] = useState<'grid' | 'pdf'>('grid');
 
@@ -68,6 +64,24 @@ export const TimetablePage: React.FC = () => {
   const [pdfForm, setPdfForm] = useState({ fileUrl: '', notes: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load student details class and section context if student/parent role
+  useEffect(() => {
+    if (activeStudentId && isStudent) {
+      axiosInstance.get<ApiResponse<any>>(`/students/${activeStudentId}`).then(res => {
+        const student = res.data.data;
+        if (student) {
+          setSelectedClassId(student.classId || student.class?.id || '');
+          setSelectedSectionId(student.sectionId || student.section?.id || '');
+        }
+      }).catch(err => {
+        console.error('Failed to load student details for timetable:', err);
+      });
+    } else if (user?.role === 'student' && (user as any)?.student) {
+      setSelectedClassId((user as any).student.classId || '');
+      setSelectedSectionId((user as any).student.sectionId || '');
+    }
+  }, [activeStudentId, isStudent, user]);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

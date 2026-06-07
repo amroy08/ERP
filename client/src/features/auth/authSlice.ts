@@ -8,6 +8,9 @@ const storedRefreshToken = localStorage.getItem('erp_refresh_token');
 const storedScopedId = localStorage.getItem('erp_scoped_school_id');
 const storedScopedName = localStorage.getItem('erp_scoped_school_name');
 
+const storedActiveStudentId = localStorage.getItem('erp_active_student_id');
+const storedActiveStudentName = localStorage.getItem('erp_active_student_name');
+
 const initialState: AuthState = {
   user: storedUser ? JSON.parse(storedUser) : null,
   accessToken: storedAccessToken,
@@ -16,6 +19,8 @@ const initialState: AuthState = {
   isLoading: false,
   scopedSchoolId: storedScopedId,
   scopedSchoolName: storedScopedName,
+  activeStudentId: storedActiveStudentId,
+  activeStudentName: storedActiveStudentName,
 };
 
 const authSlice = createSlice({
@@ -35,6 +40,20 @@ const authSlice = createSlice({
       localStorage.setItem('erp_user', JSON.stringify(action.payload.user));
       localStorage.setItem('erp_access_token', action.payload.accessToken);
       localStorage.setItem('erp_refresh_token', action.payload.refreshToken);
+
+      let activeId = null;
+      let activeName = null;
+      if (action.payload.user.role === 'student' && action.payload.user.student) {
+        activeId = action.payload.user.student.id;
+        activeName = action.payload.user.student.fullName || action.payload.user.name;
+      } else if (action.payload.user.role === 'parent' && action.payload.user.parent?.children?.length) {
+        activeId = action.payload.user.parent.children[0].id;
+        activeName = action.payload.user.parent.children[0].fullName;
+      }
+      state.activeStudentId = activeId;
+      state.activeStudentName = activeName;
+      if (activeId) localStorage.setItem('erp_active_student_id', activeId);
+      if (activeName) localStorage.setItem('erp_active_student_name', activeName);
     },
     setTokens: (
       state,
@@ -50,9 +69,13 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
+      state.activeStudentId = null;
+      state.activeStudentName = null;
       localStorage.removeItem('erp_user');
       localStorage.removeItem('erp_access_token');
       localStorage.removeItem('erp_refresh_token');
+      localStorage.removeItem('erp_active_student_id');
+      localStorage.removeItem('erp_active_student_name');
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -70,8 +93,21 @@ const authSlice = createSlice({
         localStorage.removeItem('erp_scoped_school_name');
       }
     },
+    setActiveStudent: (state, action: PayloadAction<{ id: string; name: string } | null>) => {
+      if (action.payload) {
+        state.activeStudentId = action.payload.id;
+        state.activeStudentName = action.payload.name;
+        localStorage.setItem('erp_active_student_id', action.payload.id);
+        localStorage.setItem('erp_active_student_name', action.payload.name);
+      } else {
+        state.activeStudentId = null;
+        state.activeStudentName = null;
+        localStorage.removeItem('erp_active_student_id');
+        localStorage.removeItem('erp_active_student_name');
+      }
+    },
   },
 });
 
-export const { setCredentials, setTokens, logout, setLoading, setSchoolScope } = authSlice.actions;
+export const { setCredentials, setTokens, logout, setLoading, setSchoolScope, setActiveStudent } = authSlice.actions;
 export default authSlice.reducer;

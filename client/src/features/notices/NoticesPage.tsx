@@ -17,7 +17,7 @@ import { RootState } from '../../store/store';
 
 export const NoticesPage: React.FC = () => {
   const user = useSelector((state: RootState) => state.auth.user);
-  const isStudent = user?.role === 'student';
+  const isStudent = user?.role === 'student' || user?.role === 'parent';
   
   const [notices, setNotices] = useState<Notice[]>([]);
   const [isLoading, setIsLoading] = useState(true);

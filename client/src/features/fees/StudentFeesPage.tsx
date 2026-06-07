@@ -21,15 +21,15 @@ interface LedgerData {
 }
 
 export const StudentFeesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, activeStudentId } = useAuth();
   const [ledger, setLedger] = useState<LedgerData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
-  // Student ID from the enriched user object
-  const studentId = (user as any)?.student?.id;
+  // Student ID from the active student context or user object fallback
+  const studentId = activeStudentId || (user as any)?.student?.id;
 
   const fetchLedger = async () => {
     if (!studentId) return;

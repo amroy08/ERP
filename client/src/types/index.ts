@@ -90,6 +90,8 @@ export interface AuthState {
   isLoading: boolean;
   scopedSchoolId?: string | null;
   scopedSchoolName?: string | null;
+  activeStudentId?: string | null;
+  activeStudentName?: string | null;
 }
 
 export interface PaginatedResponse<T> {

@@ -95,7 +95,32 @@ export const submitMarks = async (req: AuthRequest, res: Response, next: NextFun
 
 export const getReportCard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const data = await ExamService.getStudentReportCard(req.params.studentId as string);
+    const studentId = req.params.studentId as string;
+    const authUser = req.user!;
+
+    // Enforce role-based scoping checks for student and parent
+    if (authUser.role === 'student') {
+      const student = await prisma.student.findUnique({ where: { userId: authUser.id } });
+      if (!student || student.id !== studentId) {
+        return next(createError('Access denied. You can only view your own report card.', 403));
+      }
+    } else if (authUser.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: authUser.id },
+        include: { children: { select: { id: true } } }
+      });
+      if (!parent || !parent.children.some(child => child.id === studentId)) {
+        return next(createError('Access denied. This student is not linked to your account.', 403));
+      }
+    } else {
+      // For staff roles, ensure student belongs to the same school
+      const student = await prisma.student.findUnique({ where: { id: studentId } });
+      if (!student || (req.user?.schoolId && student.schoolId !== req.user.schoolId)) {
+        return next(createError('Access denied. Student not found in your school.', 403));
+      }
+    }
+
+    const data = await ExamService.getStudentReportCard(studentId as string);
     res.json({ success: true, data });
   } catch (error) { next(error); }
 };

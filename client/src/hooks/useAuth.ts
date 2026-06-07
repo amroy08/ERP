@@ -5,7 +5,7 @@ import { User } from '../types';
 
 export const useAuth = () => {
   const dispatch = useDispatch();
-  const { user, isAuthenticated, isLoading, accessToken } = useSelector((state: RootState) => state.auth);
+  const { user, isAuthenticated, isLoading, accessToken, activeStudentId, activeStudentName } = useSelector((state: RootState) => state.auth);
 
   const login = (userData: User, accessToken: string, refreshToken: string) => {
     dispatch(setCredentials({ user: userData, accessToken, refreshToken }));
@@ -20,6 +20,8 @@ export const useAuth = () => {
     isAuthenticated,
     isLoading,
     accessToken,
+    activeStudentId,
+    activeStudentName,
     login,
     logout,
   };

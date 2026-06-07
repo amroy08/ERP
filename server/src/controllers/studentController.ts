@@ -101,10 +101,19 @@ export const getStudent = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // RBAC: Students can only view their own profile
+    // RBAC: Students and parents scoping
     const authUser = (req as any).user;
     if (authUser.role === 'student' && student.userId !== authUser.id) {
       return next(createError('Access denied. You can only view your own profile.', 403));
+    }
+    if (authUser.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: authUser.id },
+        include: { children: { select: { id: true } } }
+      });
+      if (!parent || !parent.children.some(child => child.id === student.id)) {
+        return next(createError('Access denied. This student is not linked to your account.', 403));
+      }
     }
 
     res.json({ success: true, data: student });
@@ -513,9 +522,18 @@ export const getStudentEnrollmentHistory = async (req: AuthRequest, res: Respons
     const student = await prisma.student.findFirst({ where: { id: id as string, ...scope } });
     if (!student) return next(createError('Student not found or access denied', 404));
 
-    // RBAC: Students can only see their own history
+    // RBAC: Students/parents scoping rules
     if (req.user?.role === 'student' && student.userId !== req.user.id) {
       return next(createError('Access denied. You can only view your own enrollment history.', 403));
+    }
+    if (req.user?.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: req.user.id },
+        include: { children: { select: { id: true } } }
+      });
+      if (!parent || !parent.children.some(child => child.id === student.id)) {
+        return next(createError('Access denied. This student is not linked to your account.', 403));
+      }
     }
 
     const history = await EnrollmentService.getHistory(id as string);

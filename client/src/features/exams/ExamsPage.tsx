@@ -32,7 +32,7 @@ interface Exam {
 }
 
 export const ExamsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, activeStudentId } = useAuth();
   const isStudent = user?.role === 'student' || user?.role === 'parent';
   const [exams, setExams] = useState<Exam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,19 +60,21 @@ export const ExamsPage: React.FC = () => {
   });
   const [classes, setClasses] = useState<ClassDoc[]>([]);
 
+  const [studentInfo, setStudentInfo] = useState<any>(null);
+
   useEffect(() => {
     if (!isStudent) {
       axiosInstance.get<ApiResponse<ClassDoc[]>>('/classes')
         .then(res => setClasses(res.data.data))
         .catch(() => console.error('Failed to load classes'));
     }
-    fetchExams();
   }, [isStudent]);
 
-  const fetchExams = async () => {
+  const fetchExams = async (classId?: string) => {
     setIsLoading(true);
     try {
-      const res = await axiosInstance.get<ApiResponse<Exam[]>>('/exams');
+      const url = classId ? `/exams?classId=${classId}` : '/exams';
+      const res = await axiosInstance.get<ApiResponse<Exam[]>>(url);
       setExams(res.data.data);
     } catch {
       toast.error('Failed to load examinations');
@@ -80,6 +82,22 @@ export const ExamsPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeStudentId && isStudent) {
+      axiosInstance.get<ApiResponse<any>>(`/students/${activeStudentId}`).then(res => {
+        setStudentInfo(res.data.data);
+        fetchExams(res.data.data?.classId || res.data.data?.class?.id);
+      }).catch(err => {
+        console.error('Failed to load student details for exams:', err);
+        fetchExams();
+      });
+    } else if (user?.role === 'student' && (user as any)?.student) {
+      fetchExams((user as any).student.classId);
+    } else {
+      fetchExams();
+    }
+  }, [activeStudentId, isStudent, user]);
 
   const handleEnterRecording = async (exam: Exam) => {
     setSelectedExam(exam);
@@ -96,7 +114,7 @@ export const ExamsPage: React.FC = () => {
   };
 
   const handleViewResults = async (exam: Exam) => {
-    const studentId = (user as any)?.student?.id || (user as any)?.parent?.children?.[0]?.id;
+    const studentId = activeStudentId || (user as any)?.student?.id;
     if (!studentId) return toast.error('Student profile not found');
     
     setSelectedExam(exam);

@@ -5,7 +5,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/store';
-import { logout, setSchoolScope } from '../../features/auth/authSlice';
+import { logout, setSchoolScope, setActiveStudent } from '../../features/auth/authSlice';
 import axiosInstance from '../../api/axiosInstance';
 import { clsx } from 'clsx';
 
@@ -26,7 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [notices, setNotices] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const { scopedSchoolId, scopedSchoolName } = useSelector((state: RootState) => state.auth);
+  const { scopedSchoolId, scopedSchoolName, activeStudentId, activeStudentName } = useSelector((state: RootState) => state.auth);
 
   const fetchSearchResults = async (query: string) => {
     if (!query) {
@@ -150,6 +150,30 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
+        {/* Parent Child Selector */}
+        {user?.role === 'parent' && user?.parent?.children && user.parent.children.length > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl mr-2">
+            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mr-1.5">Child:</span>
+            <select
+              value={activeStudentId || ''}
+              onChange={(e) => {
+                const childId = e.target.value;
+                const child = user.parent?.children.find((c: any) => c.id === childId);
+                if (child) {
+                  dispatch(setActiveStudent({ id: child.id, name: child.fullName }));
+                }
+              }}
+              className="text-xs font-bold text-slate-700 bg-transparent border-none outline-none cursor-pointer focus:ring-0"
+            >
+              {user.parent.children.map((child: any) => (
+                <option key={child.id} value={child.id} className="text-slate-700 font-bold bg-white">
+                  {child.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Academic Year */}
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-lg">
           <span className="text-xs font-medium text-blue-600">

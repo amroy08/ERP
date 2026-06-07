@@ -18,12 +18,13 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 
 export const HomeworkPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, activeStudentId } = useAuth();
   const isStudent = user?.role === 'student' || user?.role === 'parent';
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [classes, setClasses] = useState<ClassDoc[]>([]);
   const [sections, setSections] = useState<SectionDoc[]>([]);
   const [subjects, setSubjects] = useState<SubjectDoc[]>([]);
+  const [studentInfo, setStudentInfo] = useState<any>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,12 +41,35 @@ export const HomeworkPage: React.FC = () => {
     fileUrl: ''
   });
 
+  // Load student details class and section context if student/parent role
+  useEffect(() => {
+    if (activeStudentId && isStudent) {
+      axiosInstance.get<ApiResponse<any>>(`/students/${activeStudentId}`).then(res => {
+        setStudentInfo(res.data.data);
+      }).catch(err => {
+        console.error('Failed to load student details for homework:', err);
+      });
+    }
+  }, [activeStudentId, isStudent]);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
       if (isStudent) {
-        const hwRes = await axiosInstance.get<ApiResponse<Homework[]>>('/homework');
-        setHomeworks(hwRes.data.data);
+        const targetStudentId = activeStudentId || (user as any)?.student?.id;
+        if (targetStudentId) {
+          let classId = studentInfo?.classId || studentInfo?.class?.id;
+          let sectionId = studentInfo?.sectionId || studentInfo?.section?.id;
+          if (!classId) {
+            const studentRes = await axiosInstance.get<ApiResponse<any>>(`/students/${targetStudentId}`);
+            classId = studentRes.data.data?.classId || studentRes.data.data?.class?.id;
+            sectionId = studentRes.data.data?.sectionId || studentRes.data.data?.section?.id;
+          }
+          const hwRes = await axiosInstance.get<ApiResponse<Homework[]>>(`/homework?classId=${classId || ''}&sectionId=${sectionId || ''}`);
+          setHomeworks(hwRes.data.data);
+        } else {
+          setHomeworks([]);
+        }
       } else {
         const [hwRes, classRes, subRes] = await Promise.all([
           axiosInstance.get<ApiResponse<Homework[]>>('/homework'),
@@ -65,7 +89,7 @@ export const HomeworkPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeStudentId, studentInfo]);
 
   useEffect(() => {
     if (form.classId) {
