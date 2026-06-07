@@ -20,6 +20,7 @@ import { ApiResponse } from '../../types';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import clsx from 'clsx';
 import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 interface AttendanceRecord {
   id: string;

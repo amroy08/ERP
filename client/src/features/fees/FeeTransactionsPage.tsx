@@ -78,7 +78,7 @@ export const FeeTransactionsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'Fee Management', path: '/fees' }, { label: 'Payment Reports' }]} />
+      <Breadcrumb items={[{ label: 'Fee Management', href: '/fees' }, { label: 'Payment Reports' }]} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

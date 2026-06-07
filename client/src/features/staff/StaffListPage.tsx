@@ -55,6 +55,7 @@ export const StaffListPage: React.FC = () => {
   const columns: TableColumn<Record<string, unknown>>[] = [
     { key: 'employeeId', label: 'Employee ID', render: (val) => <span className="font-mono text-xs font-medium text-purple-600">{String(val)}</span> },
     { 
+      key: 'fullName',
       label: 'Name', 
       sortable: true,
       render: (_, row: any) => row.user?.name || row.fullName || '—'

@@ -58,6 +58,30 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !school) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    setIsSaving(true);
+    try {
+      const res = await axiosInstance.post<ApiResponse<School>>('/school/logo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setSchool(res.data.data);
+      toast.success('Logo uploaded successfully!');
+    } catch (err) {
+      console.error('Logo upload failed:', err);
+      toast.error('Failed to upload logo.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleYearSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedYear) return;
