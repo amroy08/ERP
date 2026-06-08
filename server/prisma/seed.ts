@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Enforce email safety during seeding
+process.env.SEEDING = 'true';
+
 const prisma = new PrismaClient({
   datasources: {
     db: {

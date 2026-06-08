@@ -1188,9 +1188,12 @@ export const updateSchoolSettings = async (req: AuthRequest, res: Response, next
       return;
     }
 
+    // Strip out immutable/read-only database fields before updating
+    const { id, createdAt, updatedAt, ...updateData } = req.body;
+
     const school = await prisma.school.update({
       where: { id: schoolId },
-      data: req.body
+      data: updateData
     });
     res.json({ success: true, data: school });
   } catch (error) { next(error); }

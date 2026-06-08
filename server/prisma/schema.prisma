@@ -627,6 +627,7 @@ model School {
   transportRoutes TransportRoute[]
   vehicles       Vehicle[]
   users          User[]         @relation("UserSchool")
+  emailNotificationLogs EmailNotificationLog[]
 
   @@map("school_settings")
 }
@@ -754,4 +755,31 @@ model FeePaymentAllocation {
   @@index([studentId])
   @@index([schoolId])
   @@map("fee_payment_allocations")
+}
+
+// ── Email Notification Log ──────────────────────────────────────────
+// Tracks every email send attempt for auditability and debugging.
+model EmailNotificationLog {
+  id              String    @id @default(uuid())
+  schoolId        String?
+  recipientEmail  String
+  recipientUserId String?
+  recipientRole   String?
+  eventType       String
+  subject         String
+  status          String    @default("pending")  // pending | sent | failed | skipped | test
+  errorMessage    String?   @db.Text
+  sentAt          DateTime?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  school          School?   @relation(fields: [schoolId], references: [id])
+
+  @@index([schoolId])
+  @@index([eventType])
+  @@index([status])
+  @@index([recipientEmail])
+  @@index([createdAt])
+  @@map("email_notification_logs")
 }
