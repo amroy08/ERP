@@ -17,14 +17,15 @@ The following implementation phases have been successfully completed and audited
 * **Phase 2.4: Fee Line-Item Allocation**: Developed itemized transaction structures, FIFO auto-allocation, manual allocation input grids, and ledger/receipt views.
 * **Phase 2.4.1: Production Build Stabilization**: Cleaned and compiled all server-side and client-side modules to achieve 100% type-checking pass rates.
 * **Phase 2.5: Parent & Student Experience Revamp**: Added active student context, parent child switcher, and role-scoped portal views for parent and student accounts. Strengthened backend IDOR guards for student profile, enrollment history, report card, and homework access.
+* **Phase 2.6: Email Notification System**: Implemented backend email notification infrastructure and event-triggered email logs for admissions, academic updates, fee receipts, and student absences.
 * **Release Readiness Audit**: Fully verified and passed.
 
 ---
 
 ## B. Latest Stable Commit
 * **Target Branch**: `Nupun`
-* **Stable Commit Hash**: `b92c517`
-* **Commit Message**: `Phase 2.5: Parent and student portal experience revamp`
+* **Stable Commit Hash**: `64c2dd8337d81a7d86e7e4b9b873f6b6ed79e1ab`
+* **Commit Message**: `Phase 2.6E: Add fee receipt and attendance absent email triggers`
 * **Build Status**: **SUCCESS / PASSING** (Clean TS checks and static compilation bundles in both server & client packages).
 
 ---
@@ -205,9 +206,9 @@ The fee module supports two collection methods:
 ---
 
 ## O. Final Release Readiness Statement
-> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.5 INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.6 EMAIL NOTIFICATIONS INCLUDED**
 >
-> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, and business flow smoke tests. All 18 backend security checks pass. TypeScript and production builds are clean across server and client.
+> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, email notification system triggers, and business flow smoke tests. All backend security and duplicate checks pass. TypeScript and production builds are clean across server and client.
 
 ---
 
@@ -396,3 +397,145 @@ The fee module supports two collection methods:
 | Mobile 375px layout | ✅ PASS |
 | Tablet 768px layout | ✅ PASS |
 | Client `npx tsc --noEmit` after fixes | ✅ PASS — 0 errors |
+
+---
+
+## R. Phase 2.6: Email Notification System
+
+### R.1 Summary
+The School ERP now includes a backend email notification infrastructure and event-triggered email flows for key school events. Emails are disabled/test-mode by default and all email dispatches are designed as fire-and-forget, ensuring failure to send does not block core ERP operations.
+
+### R.2 Email Infrastructure Added
+The notification system is backed by the following architecture:
+- `EmailService`: Low-level SMTP transport layer wrapping Nodemailer, providing event log creation, and duplicate prevention.
+- `NotificationService`: High-level orchestrator class directing queries, batch processing, and templates compilation for each event.
+- `emailTemplates`: Curated HTML and plain-text template mappings with premium CSS styling.
+- `emailHelpers`: Utility methods for address formatting, synthetic domain detection, and masking.
+- `EmailNotificationLog`: Database table recording the logs and execution state of every notification dispatch.
+- **SMTP Environment Variables**: Support for host, port, credentials, and custom sender aliases.
+- **Diagnostics Script**: Developer script to verify SMTP transport and database log creations.
+- **Disabled/Test Modes**: Toggle to prevent real SMTP connections and write mock logs.
+- **Synthetic Email Skipping**: Skips transport and writes a skipped log for mock domains ending with `@school.local`.
+- **Duplicate Prevention**: Time-window (30 seconds) suppression utilizing metadata combinations.
+
+### R.3 Environment Variables
+Configure the following options in your `.env` configuration file:
+```env
+EMAIL_ENABLED=false
+EMAIL_PROVIDER=smtp
+EMAIL_TEST_MODE=true
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM_EMAIL=noreply@school.local
+SMTP_FROM_NAME=School ERP
+```
+> [!WARNING]
+> - Never commit SMTP username and password credentials to git.
+> - Local/UAT environments should keep `EMAIL_TEST_MODE=true` to skip SMTP connections and avoid API performance blocks.
+> - Production should run with real SMTP credentials only after strict approval.
+> - `.env.example` contains safe placeholder defaults.
+
+### R.4 Email Events Implemented
+
+#### Admission and Account Management
+- **Admission application submitted**: Notifies parents of application receipt.
+- **Admission approved**: Notifies parents of admission approval and next steps.
+- **Admission rejected**: Sends rejection and feedback/remarks.
+- **Student enrolled**: Welcomes parents and student and sends portal credentials.
+- **Teacher welcome**: Welcomes teacher and sends employee login credentials.
+- **Staff welcome**: Welcomes operational staff/clerk and sends credentials.
+- **Student password reset**: Sends updated student temporary password.
+- **Teacher password reset**: Sends updated teacher temporary password.
+- **Staff password reset**: Sends updated staff temporary password.
+
+#### Academic and Communication Updates
+- **Notice published**: Dispatches notices to target audience roles (Admin/Staff/Teacher/Parent/Student).
+- **Homework assigned**: Informs students and parents of new class/section homework and deadlines.
+- **Exam scheduled**: Notifies students and parents of upcoming class exams.
+- **Exam date changed**: Sends Old vs New dates comparison tables for rescheduled exams.
+- **Result/marks published**: Sends grades and scorecards securely.
+
+#### Finance and Attendance
+- **Fee payment receipt**: Generates a fee payment receipt containing transaction parameters, itemized component allocations, and balance due.
+- **Attendance absent alert**: Sends daily alerts to parents of absent students.
+
+### R.5 Email Safety Rules
+- **Fire-and-Forget**: All emails run asynchronously. Failure to send cannot block or roll back database transactions.
+- **No Block on Business API**: If the SMTP host is unreachable, the ERP business flow succeeds.
+- **Synthetic Email Suppression**: Addresses ending with `@school.local` write a log with status `skipped` and skip transport.
+- **No SMTP in Test Mode**: Prevents connections to real hosts when `EMAIL_TEST_MODE=true`.
+- **Seed Safety Guard**: Seeding completely skips logs and emails when `SEEDING=true`.
+- **Deduplication Suppression**: Filters out duplicate notifications inside a 30-second window based on unique identifiers (e.g. `paymentId`, `studentId + attendanceDate`).
+- **School Tenant Boundaries**: Verifies matching `schoolId` to guarantee no cross-tenant leakage.
+
+### R.6 Email Log Table
+The `EmailNotificationLog` table stores execution details for auditing:
+- `recipientEmail`: Targeted recipient.
+- `recipientUserId`: User model identifier.
+- `recipientRole`: Audience role (e.g., student, parent).
+- `eventType`: Type of trigger event.
+- `subject`: Email subject line.
+- `status`: Execution status (`test`, `sent`, `skipped`, or `failed`).
+- `errorMessage`: Exception details.
+- `metadata`: JSON payload containing reference IDs (e.g., `paymentId`, `attendanceDate`).
+- `schoolId`: Tenant boundary scope.
+- `sentAt` / `createdAt`: Timestamps.
+
+### R.7 UAT Email Testing Checklist
+- [ ] Set `EMAIL_ENABLED=true` and `EMAIL_TEST_MODE=true` in server environment.
+- [ ] Submit an admission application and verify the log for application submission.
+- [ ] Approve the application and verify the approval log.
+- [ ] Reject an application and verify the rejection log.
+- [ ] Enroll an approved candidate and verify student/parent credentials logs.
+- [ ] Register a teacher/staff and verify welcome credentials logs.
+- [ ] Reset a user's password and verify the reset log.
+- [ ] Publish an administrative notice and check role-targeted user logs.
+- [ ] Post homework and verify class/section student/parent logs.
+- [ ] Schedule an exam and verify logs.
+- [ ] Reschedule an exam date and verify the old/new dates changes log.
+- [ ] Publish exam results and verify isolated scorecard logs.
+- [ ] Collect a flat fee payment and verify receipt log generation.
+- [ ] Mark a student absent and verify the parent absence alert log.
+- [ ] Run seed database reset and verify exactly **0** logs are generated.
+- [ ] Confirm no external SMTP calls are sent in test mode.
+
+### R.8 Commands for Email Testing
+Run E2E verification test suites using:
+```bash
+cd server
+
+# Diagnose general Nodemailer setup
+EMAIL_ENABLED=true EMAIL_TEST_MODE=true npm run test-email -- test@example.com
+
+# Verify admission & account triggers
+EMAIL_ENABLED=true EMAIL_TEST_MODE=true npx ts-node --transpile-only scripts/test-triggers.ts
+
+# Verify notice, homework, exam & result triggers
+EMAIL_ENABLED=true EMAIL_TEST_MODE=true npx ts-node --transpile-only scripts/test-academic-emails.ts
+
+# Verify fee receipt & absent alert triggers
+EMAIL_ENABLED=true EMAIL_TEST_MODE=true npx ts-node --transpile-only scripts/test-fee-attendance-emails.ts
+```
+
+To test seed safety:
+```bash
+mysql -h 127.0.0.1 -u root -pAmroy@123 -D school_erp -e "delete from email_notification_logs;"
+EMAIL_ENABLED=true EMAIL_TEST_MODE=true npm run seed
+mysql -h 127.0.0.1 -u root -pAmroy@123 -D school_erp -e "select count(*) as emailLogCount from email_notification_logs;"
+```
+Expected output: `emailLogCount = 0`.
+
+### R.9 Not Implemented Yet / Future Scope
+- **Fee Due Reminders**: Scheduled reminders for pending/partial fees are not implemented.
+- **Overdue Reminders**: Automatic overdue warnings are not implemented.
+- **Low Attendance Alerts**: Threshold warnings for low attendance are not implemented.
+- **Scheduler / Cron Jobs**: No scheduler task or background daemon runs in this phase.
+- **Email Settings UI**: Frontend configurations for email preferences are not implemented.
+- **Editable Email Templates**: No custom template editors are available.
+- **Production SMTP**: Real sending requires configuration of production mailservers.
+
+### R.10 Final Status
+> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.6 EMAIL NOTIFICATIONS INCLUDED**
