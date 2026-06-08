@@ -629,6 +629,11 @@ export const createNotice = async (req: AuthRequest, res: Response, next: NextFu
         schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
+
+    NotificationService.notifyNoticePublished(notice).catch((error) => {
+      console.error('Notice email notification failed:', error);
+    });
+
     res.status(201).json({ success: true, data: notice });
   } catch (error) { next(error); }
 };
@@ -1675,6 +1680,11 @@ export const createHomework = async (req: AuthRequest, res: Response, next: Next
         schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
+
+    NotificationService.notifyHomeworkAssigned(homework).catch((error) => {
+      console.error('Homework email notification failed:', error);
+    });
+
     res.status(201).json({ success: true, data: homework });
   } catch (error) { next(error); }
 };

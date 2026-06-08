@@ -1,6 +1,7 @@
 import { AuthRequest } from "../middleware/authMiddleware";
 import { Request, Response, NextFunction } from 'express';
 import { ExamService } from '../services/ExamService';
+import { NotificationService } from '../services/NotificationService';
 import prisma from '../config/prisma';
 import { getSchoolScope } from '../utils/schoolScope';
 import { createError } from '../middleware/errorHandler';
@@ -77,6 +78,11 @@ export const createExam = async (req: AuthRequest, res: Response, next: NextFunc
         schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId
       }
     });
+
+    NotificationService.notifyExamScheduled(exam).catch((error) => {
+      console.error('Exam scheduled email notification failed:', error);
+    });
+
     res.status(201).json({ success: true, data: exam });
   } catch (error) {
     next(error);
@@ -87,7 +93,17 @@ export const submitMarks = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
     const data = await ExamService.submitResults(req.body, schoolId);
-    res.json({ success: true, data });
+
+    NotificationService.notifyResultPublished({
+      examId: req.body.examId,
+      subjectId: req.body.subjectId,
+      results: data,
+      schoolId
+    }).catch((error) => {
+      console.error('Result published email notification failed:', error);
+    });
+
+    res.json({ success: true, data: data });
   } catch (error) {
     next(error);
   }
@@ -174,6 +190,18 @@ export const updateExam = async (req: AuthRequest, res: Response, next: NextFunc
         ...(status && { status }),
       }
     });
+
+    const oldStart = exam.startDate.getTime();
+    const oldEnd = exam.endDate.getTime();
+    const newStart = startDate ? new Date(startDate).getTime() : oldStart;
+    const newEnd = endDate ? new Date(endDate).getTime() : oldEnd;
+
+    if (oldStart !== newStart || oldEnd !== newEnd) {
+      NotificationService.notifyExamDateChanged(exam, updated).catch((error) => {
+        console.error('Exam date changed email notification failed:', error);
+      });
+    }
+
     res.json({ success: true, data: updated });
   } catch (error) {
     next(error);

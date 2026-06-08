@@ -157,6 +157,26 @@ export class EmailService {
           
           const currentMeta = metadata as Record<string, any>;
           const loggedMeta = log.metadata as Record<string, any>;
+
+          if (eventType === 'notice_published') {
+            return !!(currentMeta.noticeId && loggedMeta.noticeId && currentMeta.noticeId === loggedMeta.noticeId);
+          }
+
+          if (eventType === 'homework_assigned') {
+            return !!(currentMeta.homeworkId && loggedMeta.homeworkId && currentMeta.homeworkId === loggedMeta.homeworkId);
+          }
+
+          if (eventType === 'exam_scheduled' || eventType === 'exam_date_changed') {
+            return !!(currentMeta.examId && loggedMeta.examId && currentMeta.examId === loggedMeta.examId);
+          }
+
+          if (eventType === 'result_published') {
+            return !!(
+              currentMeta.examId && loggedMeta.examId && currentMeta.examId === loggedMeta.examId &&
+              currentMeta.subjectId && loggedMeta.subjectId && currentMeta.subjectId === loggedMeta.subjectId &&
+              currentMeta.studentId && loggedMeta.studentId && currentMeta.studentId === loggedMeta.studentId
+            );
+          }
           
           const entityKeys = ['admissionId', 'studentId', 'userId', 'staffId', 'teacherId'];
           for (const key of entityKeys) {

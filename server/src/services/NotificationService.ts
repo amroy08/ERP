@@ -37,6 +37,11 @@ import {
   studentEnrolledTemplate,
   welcomeUserTemplate,
   passwordResetTemplate,
+  noticePublishedTemplate,
+  homeworkAssignedTemplate,
+  examScheduledTemplate,
+  examDateChangedTemplate,
+  resultPublishedTemplate,
 } from '../templates/emailTemplates';
 import { isRealEmail } from '../utils/emailHelpers';
 
@@ -371,26 +376,435 @@ export class NotificationService {
     }
   }
 
-  // ── Placeholder Methods (Phase 2.6D) ──────────────────────────
+  // ── Real Methods (Phase 2.6D) ──────────────────────────
 
   /** Notice published — notifies target audience */
-  static async notifyNoticePublished(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
-  }
+  static async notifyNoticePublished(notice: any): Promise<NotifyResult> {
+    try {
+      const school = notice.schoolId ? await prisma.school.findUnique({ where: { id: notice.schoolId } }) : null;
+      const schoolName = school?.name || 'School ERP';
+      
+      const roles = notice.targetRoles ? notice.targetRoles.split(',').map((r: string) => r.trim()).filter(Boolean) : [];
+      
+      const whereClause: any = {
+        schoolId: notice.schoolId,
+        isActive: true,
+      };
+      
+      if (roles.length > 0 && !roles.includes('all')) {
+        whereClause.role = { in: roles };
+      }
+      
+      const users = await prisma.user.findMany({
+        where: whereClause,
+        select: { id: true, email: true, name: true, role: true }
+      });
+      
+      const template = noticePublishedTemplate({
+        title: notice.title,
+        content: notice.content,
+        priority: notice.priority || 'normal',
+        publishDate: notice.publishDate ? new Date(notice.publishDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        schoolName,
+      });
 
-  /** Exam scheduled — notifies students + parents in class */
-  static async notifyExamScheduled(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
-  }
-
-  /** Result published — notifies individual students + parents */
-  static async notifyResultPublished(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
+      const batchSize = 10;
+      for (let i = 0; i < users.length; i += batchSize) {
+        const batch = users.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(user => 
+            EmailService.sendEmail({
+              to: user.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'notice_published',
+              schoolId: notice.schoolId,
+              recipientUserId: user.id,
+              recipientRole: user.role,
+              metadata: { noticeId: notice.id }
+            }).catch(err => console.error('[NotificationService] Notice email fail:', user.email, err))
+          )
+        );
+      }
+      
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyNoticePublished error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
   }
 
   /** Homework assigned — notifies students + parents in class/section */
-  static async notifyHomeworkAssigned(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
+  static async notifyHomeworkAssigned(homework: any): Promise<NotifyResult> {
+    try {
+      const cls = await prisma.class.findUnique({ where: { id: homework.classId } });
+      const sec = homework.sectionId ? await prisma.section.findUnique({ where: { id: homework.sectionId } }) : null;
+      const sub = await prisma.subject.findUnique({ where: { id: homework.subjectId } });
+      const school = homework.schoolId ? await prisma.school.findUnique({ where: { id: homework.schoolId } }) : null;
+      const schoolName = school?.name || 'School ERP';
+
+      const students = await prisma.student.findMany({
+        where: {
+          schoolId: homework.schoolId,
+          classId: homework.classId,
+          sectionId: homework.sectionId || undefined,
+          status: 'active'
+        },
+        include: {
+          user: { select: { id: true, email: true, name: true, isActive: true } },
+          parent: {
+            include: {
+              user: { select: { id: true, email: true, name: true, isActive: true } }
+            }
+          }
+        }
+      });
+
+      const template = homeworkAssignedTemplate({
+        title: homework.title,
+        subject: sub?.name || 'Homework',
+        className: cls?.name || 'N/A',
+        sectionName: sec?.name || undefined,
+        dueDate: homework.dueDate ? new Date(homework.dueDate).toLocaleDateString() : 'N/A',
+        description: homework.description || '',
+        schoolName,
+      });
+
+      const recipients: { email: string; name: string; userId: string | null; role: string; studentId: string }[] = [];
+      const seenEmails = new Set<string>();
+
+      for (const student of students) {
+        if (student.parent?.user) {
+          const pUser = student.parent.user;
+          if (pUser.isActive && pUser.email && !seenEmails.has(pUser.email)) {
+            seenEmails.add(pUser.email);
+            recipients.push({
+              email: pUser.email,
+              name: student.parent.fatherName || student.parent.motherName || 'Parent',
+              userId: pUser.id,
+              role: 'parent',
+              studentId: student.id
+            });
+          }
+        }
+        if (student.user) {
+          const sUser = student.user;
+          if (sUser.isActive && sUser.email && !seenEmails.has(sUser.email)) {
+            seenEmails.add(sUser.email);
+            recipients.push({
+              email: sUser.email,
+              name: student.fullName || sUser.name,
+              userId: sUser.id,
+              role: 'student',
+              studentId: student.id
+            });
+          }
+        }
+      }
+
+      const batchSize = 10;
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const batch = recipients.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(r => 
+            EmailService.sendEmail({
+              to: r.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'homework_assigned',
+              schoolId: homework.schoolId,
+              recipientUserId: r.userId,
+              recipientRole: r.role,
+              metadata: { homeworkId: homework.id, studentId: r.studentId }
+            }).catch(err => console.error('[NotificationService] Homework email fail:', r.email, err))
+          )
+        );
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyHomeworkAssigned error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
+  }
+
+  /** Exam scheduled — notifies students + parents in class */
+  static async notifyExamScheduled(exam: any): Promise<NotifyResult> {
+    try {
+      const cls = await prisma.class.findUnique({ where: { id: exam.classId } });
+      const school = exam.schoolId ? await prisma.school.findUnique({ where: { id: exam.schoolId } }) : null;
+      const schoolName = school?.name || 'School ERP';
+
+      const students = await prisma.student.findMany({
+        where: {
+          schoolId: exam.schoolId,
+          classId: exam.classId,
+          status: 'active'
+        },
+        include: {
+          user: { select: { id: true, email: true, name: true, isActive: true } },
+          parent: {
+            include: {
+              user: { select: { id: true, email: true, name: true, isActive: true } }
+            }
+          }
+        }
+      });
+
+      const template = examScheduledTemplate({
+        examName: exam.name,
+        examType: exam.type,
+        className: cls?.name || 'N/A',
+        startDate: exam.startDate ? new Date(exam.startDate).toLocaleDateString() : 'N/A',
+        endDate: exam.endDate ? new Date(exam.endDate).toLocaleDateString() : 'N/A',
+        schoolName,
+      });
+
+      const recipients: { email: string; name: string; userId: string | null; role: string; studentId: string }[] = [];
+      const seenEmails = new Set<string>();
+
+      for (const student of students) {
+        if (student.parent?.user) {
+          const pUser = student.parent.user;
+          if (pUser.isActive && pUser.email && !seenEmails.has(pUser.email)) {
+            seenEmails.add(pUser.email);
+            recipients.push({
+              email: pUser.email,
+              name: student.parent.fatherName || student.parent.motherName || 'Parent',
+              userId: pUser.id,
+              role: 'parent',
+              studentId: student.id
+            });
+          }
+        }
+        if (student.user) {
+          const sUser = student.user;
+          if (sUser.isActive && sUser.email && !seenEmails.has(sUser.email)) {
+            seenEmails.add(sUser.email);
+            recipients.push({
+              email: sUser.email,
+              name: student.fullName || sUser.name,
+              userId: sUser.id,
+              role: 'student',
+              studentId: student.id
+            });
+          }
+        }
+      }
+
+      const batchSize = 10;
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const batch = recipients.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(r => 
+            EmailService.sendEmail({
+              to: r.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'exam_scheduled',
+              schoolId: exam.schoolId,
+              recipientUserId: r.userId,
+              recipientRole: r.role,
+              metadata: { examId: exam.id, studentId: r.studentId }
+            }).catch(err => console.error('[NotificationService] Exam scheduled email fail:', r.email, err))
+          )
+        );
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyExamScheduled error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
+  }
+
+  /** Exam date changed — notifies students + parents in class */
+  static async notifyExamDateChanged(oldExam: any, updatedExam: any): Promise<NotifyResult> {
+    try {
+      const exam = updatedExam;
+      const cls = await prisma.class.findUnique({ where: { id: exam.classId } });
+      const school = exam.schoolId ? await prisma.school.findUnique({ where: { id: exam.schoolId } }) : null;
+      const schoolName = school?.name || 'School ERP';
+
+      const students = await prisma.student.findMany({
+        where: {
+          schoolId: exam.schoolId,
+          classId: exam.classId,
+          status: 'active'
+        },
+        include: {
+          user: { select: { id: true, email: true, name: true, isActive: true } },
+          parent: {
+            include: {
+              user: { select: { id: true, email: true, name: true, isActive: true } }
+            }
+          }
+        }
+      });
+
+      const template = examDateChangedTemplate({
+        examName: exam.name,
+        oldStartDate: oldExam.startDate ? new Date(oldExam.startDate).toLocaleDateString() : 'N/A',
+        oldEndDate: oldExam.endDate ? new Date(oldExam.endDate).toLocaleDateString() : 'N/A',
+        newStartDate: exam.startDate ? new Date(exam.startDate).toLocaleDateString() : 'N/A',
+        newEndDate: exam.endDate ? new Date(exam.endDate).toLocaleDateString() : 'N/A',
+        className: cls?.name || 'N/A',
+        schoolName,
+      });
+
+      const recipients: { email: string; name: string; userId: string | null; role: string; studentId: string }[] = [];
+      const seenEmails = new Set<string>();
+
+      for (const student of students) {
+        if (student.parent?.user) {
+          const pUser = student.parent.user;
+          if (pUser.isActive && pUser.email && !seenEmails.has(pUser.email)) {
+            seenEmails.add(pUser.email);
+            recipients.push({
+              email: pUser.email,
+              name: student.parent.fatherName || student.parent.motherName || 'Parent',
+              userId: pUser.id,
+              role: 'parent',
+              studentId: student.id
+            });
+          }
+        }
+        if (student.user) {
+          const sUser = student.user;
+          if (sUser.isActive && sUser.email && !seenEmails.has(sUser.email)) {
+            seenEmails.add(sUser.email);
+            recipients.push({
+              email: sUser.email,
+              name: student.fullName || sUser.name,
+              userId: sUser.id,
+              role: 'student',
+              studentId: student.id
+            });
+          }
+        }
+      }
+
+      const batchSize = 10;
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const batch = recipients.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(r => 
+            EmailService.sendEmail({
+              to: r.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'exam_date_changed',
+              schoolId: exam.schoolId,
+              recipientUserId: r.userId,
+              recipientRole: r.role,
+              metadata: { examId: exam.id, studentId: r.studentId }
+            }).catch(err => console.error('[NotificationService] Exam date change email fail:', r.email, err))
+          )
+        );
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyExamDateChanged error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
+  }
+
+  /** Result published — notifies individual students + parents */
+  static async notifyResultPublished(data: { examId: string; subjectId: string; results: any[]; schoolId?: string }): Promise<NotifyResult> {
+    try {
+      const exam = await prisma.exam.findUnique({
+        where: { id: data.examId },
+        include: { school: true }
+      });
+      const sub = await prisma.subject.findUnique({ where: { id: data.subjectId } });
+      if (!exam || !sub) {
+        return { success: false, status: 'failed', error: 'Exam or subject not found' };
+      }
+
+      const schoolName = exam.school?.name || 'School ERP';
+      const schoolId = exam.schoolId;
+
+      for (const resRecord of data.results) {
+        const student = await prisma.student.findUnique({
+          where: { id: resRecord.studentId },
+          include: {
+            user: { select: { id: true, email: true, name: true, isActive: true } },
+            parent: {
+              include: {
+                user: { select: { id: true, email: true, name: true, isActive: true } }
+              }
+            }
+          }
+        });
+
+        if (!student || student.status !== 'active') continue;
+        if (schoolId && student.schoolId !== schoolId) continue;
+
+        const template = resultPublishedTemplate({
+          studentName: student.fullName,
+          examName: exam.name,
+          subject: sub.name,
+          marksObtained: resRecord.marksObtained,
+          maxMarks: resRecord.maxMarks,
+          grade: resRecord.grade || undefined,
+          schoolName
+        });
+
+        if (student.parent?.user) {
+          const pUser = student.parent.user;
+          if (pUser.isActive && pUser.email) {
+            await EmailService.sendEmail({
+              to: pUser.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'result_published',
+              schoolId,
+              recipientUserId: pUser.id,
+              recipientRole: 'parent',
+              metadata: {
+                examId: data.examId,
+                subjectId: data.subjectId,
+                studentId: student.id,
+                resultId: resRecord.id
+              }
+            }).catch(err => console.error('[NotificationService] Result email fail for parent:', pUser.email, err));
+          }
+        }
+
+        if (student.user) {
+          const sUser = student.user;
+          if (sUser.isActive && sUser.email) {
+            await EmailService.sendEmail({
+              to: sUser.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'result_published',
+              schoolId,
+              recipientUserId: sUser.id,
+              recipientRole: 'student',
+              metadata: {
+                examId: data.examId,
+                subjectId: data.subjectId,
+                studentId: student.id,
+                resultId: resRecord.id
+              }
+            }).catch(err => console.error('[NotificationService] Result email fail for student:', sUser.email, err));
+          }
+        }
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyResultPublished error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
   }
 
   // ── Placeholder Methods (Phase 2.6E) ──────────────────────────

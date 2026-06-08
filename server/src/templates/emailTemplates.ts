@@ -374,3 +374,229 @@ export const passwordResetTemplate = (vars: {
     text: stripHtml(html),
   };
 };
+
+// ── Phase 2.6D Academic Templates ──────────────────────────────────
+
+/**
+ * Notice published template
+ */
+export const noticePublishedTemplate = (vars: {
+  title: string;
+  content: string;
+  priority?: string;
+  publishDate: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const priorityLabel = vars.priority ? vars.priority.charAt(0).toUpperCase() + vars.priority.slice(1) : 'Normal';
+
+  const body = `
+    <h2>📢 New Notice Published</h2>
+    <p>Dear recipient,</p>
+    <p>A new notice has been published by school administration.</p>
+    <div class="info-box">
+      <strong>Notice Details:</strong><br/>
+      <strong>Title:</strong> ${vars.title}<br/>
+      <strong>Priority:</strong> ${priorityLabel}<br/>
+      <strong>Publish Date:</strong> ${vars.publishDate}
+    </div>
+    <div class="credential-box" style="white-space: pre-wrap; font-family: inherit;">
+      ${vars.content}
+    </div>
+    <p>— ${school} Administration Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `New Notice: ${vars.title} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Homework assigned template
+ */
+export const homeworkAssignedTemplate = (vars: {
+  title: string;
+  subject: string;
+  className: string;
+  sectionName?: string;
+  dueDate: string;
+  description: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const sec = vars.sectionName ? ` - ${vars.sectionName}` : '';
+
+  const body = `
+    <h2>📝 New Homework Assigned</h2>
+    <p>Dear student/parent,</p>
+    <p>A new homework assignment has been posted for your class.</p>
+    <div class="info-box">
+      <strong>Homework Details:</strong><br/>
+      <strong>Subject:</strong> ${vars.subject}<br/>
+      <strong>Class:</strong> ${vars.className}${sec}<br/>
+      <strong>Title:</strong> ${vars.title}<br/>
+      <strong>Due Date:</strong> ${vars.dueDate}
+    </div>
+    <p><strong>Description:</strong></p>
+    <div class="credential-box" style="white-space: pre-wrap; font-family: inherit;">
+      ${vars.description}
+    </div>
+    <p>Please log in to the student/parent portal to submit or track completion.</p>
+    <p>— ${school} Academic Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Homework Assigned: ${vars.subject} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Exam scheduled template
+ */
+export const examScheduledTemplate = (vars: {
+  examName: string;
+  examType: string;
+  className: string;
+  subjectName?: string;
+  startDate: string;
+  endDate: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const sub = vars.subjectName ? `<br/><strong>Subject:</strong> ${vars.subjectName}` : '';
+
+  const body = `
+    <h2>📅 Exam Scheduled</h2>
+    <p>Dear student/parent,</p>
+    <p>An exam has been scheduled for your class.</p>
+    <div class="info-box">
+      <strong>Exam Details:</strong><br/>
+      <strong>Exam Name:</strong> ${vars.examName}<br/>
+      <strong>Type:</strong> ${vars.examType}<br/>
+      <strong>Class:</strong> ${vars.className}${sub}<br/>
+      <strong>Start Date:</strong> ${vars.startDate}<br/>
+      <strong>End Date:</strong> ${vars.endDate}
+    </div>
+    <p>Please review the exam timetable in the portal and prepare accordingly.</p>
+    <p>— ${school} Examination Desk</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Exam Scheduled: ${vars.examName} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Exam date changed template
+ */
+export const examDateChangedTemplate = (vars: {
+  examName: string;
+  oldStartDate: string;
+  oldEndDate: string;
+  newStartDate: string;
+  newEndDate: string;
+  className: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+
+  const body = `
+    <h2>⚠️ Exam Schedule Changed</h2>
+    <p>Dear student/parent,</p>
+    <p>Please note that the schedule for the exam <strong>${vars.examName}</strong> (Class: ${vars.className}) has been updated.</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Schedule</th>
+          <th>Old Dates</th>
+          <th>New Dates</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Start Date</strong></td>
+          <td><span style="color: #c53030; text-decoration: line-through;">${vars.oldStartDate}</span></td>
+          <td><span style="color: #2f855a; font-weight: bold;">${vars.newStartDate}</span></td>
+        </tr>
+        <tr>
+          <td><strong>End Date</strong></td>
+          <td><span style="color: #c53030; text-decoration: line-through;">${vars.oldEndDate}</span></td>
+          <td><span style="color: #2f855a; font-weight: bold;">${vars.newEndDate}</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Please refer to the updated exam schedule in your portal dashboard.</p>
+    <p>— ${school} Examination Desk</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Exam Schedule Updated: ${vars.examName} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Result published template
+ */
+export const resultPublishedTemplate = (vars: {
+  studentName: string;
+  examName: string;
+  subject: string;
+  marksObtained: number;
+  maxMarks: number;
+  grade?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const gradeRow = vars.grade ? `<tr><td><strong>Grade</strong></td><td>${vars.grade}</td></tr>` : '';
+  const percentage = vars.maxMarks > 0 ? Math.round((vars.marksObtained / vars.maxMarks) * 100) : 0;
+
+  const body = `
+    <h2>📊 Exam Result Published</h2>
+    <p>Dear student/parent,</p>
+    <p>The marks/result for <strong>${vars.studentName}</strong> have been published.</p>
+    <div class="info-box">
+      <strong>Exam & Subject:</strong> ${vars.examName} - ${vars.subject}
+    </div>
+    <table class="data-table" style="max-width: 400px; margin: 16px 0;">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Marks Obtained</strong></td>
+          <td><strong>${vars.marksObtained}</strong> / ${vars.maxMarks}</td>
+        </tr>
+        <tr>
+          <td><strong>Percentage</strong></td>
+          <td><strong>${percentage}%</strong></td>
+        </tr>
+        ${gradeRow}
+      </tbody>
+    </table>
+    <p>For detail scorecard and class analysis, please log in to the portal.</p>
+    <p>— ${school} Examination Desk</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Marks Released: ${vars.subject} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
