@@ -22,16 +22,17 @@ export class EnrollmentService {
     sectionId: string;
     rollNumber?: string | null;
     createdById?: string | null;
-  }) {
+  }, tx?: any) {
+    const db = tx ?? prisma;
     const { studentId, schoolId, academicYearId, classId, sectionId, rollNumber, createdById } = params;
 
     // Guard: do not create if active enrollment already exists (idempotent)
-    const existing = await (prisma as any).studentEnrollmentHistory.findFirst({
+    const existing = await (db as any).studentEnrollmentHistory.findFirst({
       where: { studentId, status: 'active' }
     });
     if (existing) return existing;
 
-    return (prisma as any).studentEnrollmentHistory.create({
+    return (db as any).studentEnrollmentHistory.create({
       data: {
         studentId,
         schoolId,

@@ -139,3 +139,238 @@ export const genericNotificationTemplate = (vars: {
     text: stripHtml(html),
   };
 };
+
+// ── Phase 2.6C Event Templates ─────────────────────────────────────
+
+/**
+ * Admission application submitted template
+ */
+export const admissionApplicationSubmittedTemplate = (vars: {
+  parentName?: string;
+  studentName: string;
+  applicationNo?: string;
+  className?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const parent = vars.parentName || 'Parent';
+  const school = vars.schoolName || 'School ERP';
+  const appNo = vars.applicationNo || 'N/A';
+  const cls = vars.className || 'N/A';
+
+  const body = `
+    <h2>📝 Application Received Successfully</h2>
+    <p>Dear ${parent},</p>
+    <p>Thank you for submitting an admission application to <strong>${school}</strong>. We have received your application and will process it shortly.</p>
+    <div class="info-box">
+      <strong>Application Details:</strong><br/>
+      Student Name: ${vars.studentName}<br/>
+      Application No: ${appNo}<br/>
+      Applied Class: ${cls}
+    </div>
+    <p>You will receive further email notifications as the status of your application updates.</p>
+    <p>— ${school} Admissions Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Application Received — ${vars.studentName}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Admission approved template
+ */
+export const admissionApprovedTemplate = (vars: {
+  parentName?: string;
+  studentName: string;
+  className?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const parent = vars.parentName || 'Parent';
+  const school = vars.schoolName || 'School ERP';
+  const cls = vars.className || 'N/A';
+
+  const body = `
+    <h2>🎉 Admission Approved!</h2>
+    <p>Dear ${parent},</p>
+    <p>We are pleased to inform you that the admission application for <strong>${vars.studentName}</strong> has been <strong>approved</strong> at ${school}.</p>
+    <div class="info-box">
+      <strong>Details:</strong><br/>
+      Student Name: ${vars.studentName}<br/>
+      Approved Class: ${cls}
+    </div>
+    <p><strong>Next Steps:</strong> Please visit the school office to complete the remaining documentation and secure enrollment credentials.</p>
+    <p>Congratulations, and welcome to our school family!</p>
+    <p>— ${school} Admissions Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Admission Approved — ${vars.studentName}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Admission rejected template
+ */
+export const admissionRejectedTemplate = (vars: {
+  parentName?: string;
+  studentName: string;
+  schoolName?: string;
+  remarks?: string;
+}): EmailTemplateResult => {
+  const parent = vars.parentName || 'Parent';
+  const school = vars.schoolName || 'School ERP';
+  const reasons = vars.remarks ? `<p><strong>Remarks / Feedback:</strong> ${vars.remarks}</p>` : '';
+
+  const body = `
+    <h2>Admission Status Update</h2>
+    <p>Dear ${parent},</p>
+    <p>We would like to thank you for your interest in <strong>${school}</strong>.</p>
+    <p>After reviewing the application for <strong>${vars.studentName}</strong>, we regret to inform you that we are unable to approve the admission at this time.</p>
+    ${reasons}
+    <p>If you have any questions or would like to request clarification, please reach out to our admissions office.</p>
+    <p>— ${school} Admissions Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Admission Update — ${vars.studentName}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Student enrolled welcome template
+ */
+export const studentEnrolledTemplate = (vars: {
+  parentName?: string;
+  studentName: string;
+  admissionNo: string;
+  className?: string;
+  sectionName?: string;
+  studentEmail?: string;
+  studentPassword?: string;
+  parentEmail?: string;
+  parentPassword?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const parent = vars.parentName || 'Parent';
+  const school = vars.schoolName || 'School ERP';
+  const cls = vars.className || 'N/A';
+  const sec = vars.sectionName || 'N/A';
+
+  let credentialsHtml = '';
+  if (vars.studentEmail && vars.studentPassword) {
+    credentialsHtml += `
+      <strong>Student Portal Login:</strong><br/>
+      Email: ${vars.studentEmail}<br/>
+      Temp Password: ${vars.studentPassword}<br/><br/>
+    `;
+  }
+  if (vars.parentEmail && vars.parentPassword) {
+    credentialsHtml += `
+      <strong>Parent Portal Login:</strong><br/>
+      Email: ${vars.parentEmail}<br/>
+      Password: ${vars.parentPassword}<br/>
+    `;
+  }
+
+  const body = `
+    <h2>🎓 Enrollment Welcome & Credentials</h2>
+    <p>Dear ${parent},</p>
+    <p>We are thrilled to welcome <strong>${vars.studentName}</strong> as an officially enrolled student at <strong>${school}</strong>!</p>
+    <div class="info-box">
+      <strong>Enrollment Details:</strong><br/>
+      Student Name: ${vars.studentName}<br/>
+      Admission No: ${vars.admissionNo}<br/>
+      Class: ${cls} | Section: ${sec}
+    </div>
+    <p>Below are your initial portal login credentials. Please log in and change your password at your earliest convenience.</p>
+    <div class="credential-box">
+      ${credentialsHtml}
+    </div>
+    <p>If you have any issues logging in, please contact school administration.</p>
+    <p>— ${school} Administration Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Welcome! ${vars.studentName} is now enrolled`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Welcome user template (Teacher / Staff)
+ */
+export const welcomeUserTemplate = (vars: {
+  name: string;
+  role: string;
+  loginEmail: string;
+  password?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const roleDisplay = vars.role.charAt(0).toUpperCase() + vars.role.slice(1);
+  const tempPass = vars.password ? `<br/>Temporary Password: ${vars.password}` : '';
+
+  const body = `
+    <h2>🏫 Welcome to the Team!</h2>
+    <p>Hello ${vars.name},</p>
+    <p>Your account as a <strong>${roleDisplay}</strong> at <strong>${school}</strong> is ready for use.</p>
+    <p>Please log in using the credentials below:</p>
+    <div class="credential-box">
+      Login Email: ${vars.loginEmail}${tempPass}
+    </div>
+    <p>For security reasons, please update your password after your first login.</p>
+    <p>— ${school} Administration Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Welcome to ${school} — Your Account is Ready`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Password reset template
+ */
+export const passwordResetTemplate = (vars: {
+  name: string;
+  role: string;
+  loginEmail: string;
+  password?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const roleDisplay = vars.role.charAt(0).toUpperCase() + vars.role.slice(1);
+  const tempPass = vars.password ? `<br/>New Temporary Password: ${vars.password}` : '';
+
+  const body = `
+    <h2>🔒 Password Reset Notification</h2>
+    <p>Hello ${vars.name},</p>
+    <p>The password for your <strong>${roleDisplay}</strong> account at <strong>${school}</strong> has been reset by school administration.</p>
+    <p>Your new login credentials are below:</p>
+    <div class="credential-box">
+      Login Email: ${vars.loginEmail}${tempPass}
+    </div>
+    <p>Please log in and update your password immediately to secure your account.</p>
+    <p>— ${school} IT Support</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Password Reset — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};

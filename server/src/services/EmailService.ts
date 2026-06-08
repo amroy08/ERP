@@ -138,6 +138,46 @@ export class EmailService {
         };
       }
 
+      // ── Duplicate Prevention check ──────────────────────────────
+      if (eventType !== 'password_reset') {
+        const duplicateWindowSeconds = 30; // 30 seconds window
+        const checkTime = new Date(Date.now() - duplicateWindowSeconds * 1000);
+        
+        const potentialDuplicates = await prisma.emailNotificationLog.findMany({
+          where: {
+            eventType,
+            recipientEmail: to,
+            createdAt: { gte: checkTime },
+            schoolId: schoolId || null,
+          },
+        });
+
+        const isDuplicate = potentialDuplicates.some(log => {
+          if (!metadata || !log.metadata) return true; // If no metadata supplied, treat as duplicate
+          
+          const currentMeta = metadata as Record<string, any>;
+          const loggedMeta = log.metadata as Record<string, any>;
+          
+          const entityKeys = ['admissionId', 'studentId', 'userId', 'staffId', 'teacherId'];
+          for (const key of entityKeys) {
+            if (currentMeta[key] && loggedMeta[key] && currentMeta[key] === loggedMeta[key]) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (isDuplicate && potentialDuplicates.length > 0) {
+          console.warn(`[EmailService] Duplicate send prevented for ${maskEmail(to)} with eventType "${eventType}"`);
+          return {
+            success: true,
+            status: 'skipped',
+            logId: potentialDuplicates[0].id,
+            error: 'Duplicate request suppressed',
+          };
+        }
+      }
+
       // ── Test mode: log without sending ─────────────────────────
       if (isEmailTestMode()) {
         const log = await this.createLog({

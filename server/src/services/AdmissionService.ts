@@ -116,7 +116,7 @@ export class AdmissionService {
         sectionId: resolvedSectionId,
         rollNumber: null,
         createdById: createdBy,
-      });
+      }, tx);
 
       // 5. Link Assigned Fees to Student
       const admissionFees = await tx.admissionFee.findMany({

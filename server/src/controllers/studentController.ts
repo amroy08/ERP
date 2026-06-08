@@ -8,6 +8,7 @@ import { createLog } from '../services/LogService';
 import { FeeService } from '../services/FeeService';
 import { ArchiveService } from '../services/ArchiveService';
 import { EnrollmentService } from '../services/EnrollmentService';
+import { NotificationService } from '../services/NotificationService';
 import { getSchoolScope } from '../utils/schoolScope';
 import { requireFields, requireValidDate } from '../utils/validate';
 
@@ -490,10 +491,24 @@ export const resetStudentPassword = async (req: AuthRequest, res: Response, next
       return next(new Error('Student user not found'));
     }
 
-    const hashedPassword = await bcrypt.hash('Student@123', 10);
+    const defaultPassword = 'Student@123';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     await prisma.user.update({
       where: { id: student.userId as string },
       data: { password: hashedPassword }
+    });
+
+    // Password reset email fire-and-forget
+    NotificationService.notifyPasswordReset({
+      to: student.user.email,
+      name: student.user.name,
+      role: 'student',
+      loginEmail: student.user.email,
+      password: defaultPassword,
+      schoolId: student.user.schoolId || undefined,
+      recipientUserId: student.userId as string
+    }).catch((err) => {
+      console.error('[NotificationTrigger] Student password reset notification failed:', err);
     });
 
     res.json({ success: true, message: 'Password reset successfully to Student@123' });

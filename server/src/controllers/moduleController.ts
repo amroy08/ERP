@@ -5,6 +5,7 @@ import { createError } from '../middleware/errorHandler';
 import { AdmissionService } from '../services/AdmissionService';
 import { TeacherService } from '../services/TeacherService';
 import { ArchiveService } from '../services/ArchiveService';
+import { NotificationService } from '../services/NotificationService';
 import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
@@ -93,6 +94,21 @@ export const createTeacher = async (req: AuthRequest, res: Response, next: NextF
     }
     const scopedSchoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
     const result = await TeacherService.createTeacher(req.body, scopedSchoolId || undefined);
+
+    // Welcome teacher email fire-and-forget
+    const targetEmail = req.body.email || result.credentials.email;
+    NotificationService.notifyWelcomeUser({
+      to: targetEmail,
+      name: `${req.body.firstName} ${req.body.lastName}`,
+      role: 'teacher',
+      loginEmail: result.credentials.email,
+      password: result.credentials.password,
+      schoolId: scopedSchoolId || undefined,
+      recipientUserId: result.teacher.userId
+    }).catch((err) => {
+      console.error('[NotificationTrigger] Welcome teacher email notification failed:', err);
+    });
+
     res.status(201).json({ 
       success: true, 
       message: 'Teacher created successfully',
@@ -177,10 +193,10 @@ export const resetTeacherPassword = async (req: Request, res: Response, next: Ne
   try {
     const teacher = await prisma.teacher.findFirst({
       where: { id: req.params.id as string, ...getSchoolScope(req as any) },
-      select: { userId: true }
+      include: { user: { select: { name: true, email: true, schoolId: true } } }
     });
 
-    if (!teacher || !teacher.userId) {
+    if (!teacher || !teacher.userId || !teacher.user) {
       next(createError('Teacher user account not found', 404));
       return;
     }
@@ -193,6 +209,19 @@ export const resetTeacherPassword = async (req: Request, res: Response, next: Ne
       data: { password: hashedPassword }
     });
 
+    // Password reset email fire-and-forget
+    NotificationService.notifyPasswordReset({
+      to: teacher.user.email,
+      name: teacher.user.name,
+      role: 'teacher',
+      loginEmail: teacher.user.email,
+      password: defaultPassword,
+      schoolId: teacher.user.schoolId || undefined,
+      recipientUserId: teacher.userId
+    }).catch((err) => {
+      console.error('[NotificationTrigger] Teacher password reset notification failed:', err);
+    });
+
     res.json({ success: true, message: 'Password reset to Teacher@123' });
   } catch (error) { next(error); }
 };
@@ -201,10 +230,10 @@ export const resetStaffPassword = async (req: Request, res: Response, next: Next
   try {
     const staff = await prisma.staff.findFirst({
       where: { id: req.params.id as string, ...getSchoolScope(req as any) },
-      select: { userId: true }
+      include: { user: { select: { name: true, email: true, schoolId: true } } }
     });
 
-    if (!staff || !staff.userId) {
+    if (!staff || !staff.userId || !staff.user) {
       next(createError('Staff user account not found', 404));
       return;
     }
@@ -215,6 +244,19 @@ export const resetStaffPassword = async (req: Request, res: Response, next: Next
     await prisma.user.update({
       where: { id: staff.userId },
       data: { password: hashedPassword }
+    });
+
+    // Password reset email fire-and-forget
+    NotificationService.notifyPasswordReset({
+      to: staff.user.email,
+      name: staff.user.name,
+      role: 'staff',
+      loginEmail: staff.user.email,
+      password: defaultPassword,
+      schoolId: staff.user.schoolId || undefined,
+      recipientUserId: staff.userId
+    }).catch((err) => {
+      console.error('[NotificationTrigger] Staff password reset notification failed:', err);
     });
 
     res.json({ success: true, message: 'Password reset to Staff@123' });
@@ -322,6 +364,20 @@ export const createStaff = async (req: AuthRequest, res: Response, next: NextFun
       });
 
       return { staff, credentials: { email: user.email, password: rawPassword } };
+    });
+
+    // Welcome staff email fire-and-forget
+    const targetEmail = req.body.email || result.credentials.email;
+    NotificationService.notifyWelcomeUser({
+      to: targetEmail,
+      name: `${firstName} ${lastName}`,
+      role: 'staff',
+      loginEmail: result.credentials.email,
+      password: result.credentials.password,
+      schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId,
+      recipientUserId: result.staff.userId
+    }).catch((err) => {
+      console.error('[NotificationTrigger] Welcome staff email notification failed:', err);
     });
 
     res.status(201).json({ 
@@ -741,6 +797,12 @@ export const createAdmission = async (req: AuthRequest, res: Response, next: Nex
         } : undefined
       }
     });
+
+    // Fire-and-forget notification for admission submitted
+    NotificationService.notifyAdmissionSubmitted(admission).catch((err) => {
+      console.error('[NotificationTrigger] Admission submitted email notification failed:', err);
+    });
+
     res.status(201).json({ success: true, data: admission });
   } catch (error) { next(error); }
 };
@@ -749,6 +811,14 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
   try {
     const { feeAssignments, dateOfBirth, ...admissionData } = req.body;
     
+    const existing = await prisma.admission.findUnique({
+      where: { id: req.params.id as string, ...getSchoolScope(req) }
+    });
+    if (!existing) {
+      next(createError('Admission not found', 404));
+      return;
+    }
+
     const admission = await prisma.admission.update({
       where: { id: req.params.id as string, ...getSchoolScope(req) },
       data: {
@@ -763,6 +833,18 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
         } : undefined
       }
     });
+
+    // Trigger email notifications fire-and-forget on status change
+    if (existing.status !== 'approved' && admission.status === 'approved') {
+      NotificationService.notifyAdmissionApproved(admission).catch((err) => {
+        console.error('[NotificationTrigger] Admission approved email notification failed:', err);
+      });
+    } else if (existing.status !== 'rejected' && admission.status === 'rejected') {
+      NotificationService.notifyAdmissionRejected(admission).catch((err) => {
+        console.error('[NotificationTrigger] Admission rejected email notification failed:', err);
+      });
+    }
+
     res.json({ success: true, data: admission });
   } catch (error) { next(error); }
 };
@@ -772,6 +854,12 @@ export const convertAdmissionToStudent = async (req: AuthRequest, res: Response,
     const { id } = req.params;
     const schoolId = (getSchoolScope(req) as any).schoolId || req.user?.schoolId;
     const result = await AdmissionService.convertToStudent(id as string, req.user!.id as string, req.body, schoolId);
+
+    // Trigger student enrollment email fire-and-forget
+    NotificationService.notifyStudentEnrolled(result.student, result.credentials).catch((err) => {
+      console.error('[NotificationTrigger] Student enrolled email notification failed:', err);
+    });
+
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 };
