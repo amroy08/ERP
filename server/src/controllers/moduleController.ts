@@ -785,23 +785,48 @@ export const createAdmission = async (req: AuthRequest, res: Response, next: Nex
     const count = await prisma.admission.count();
     const applicationNo = `ADM-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
 
-    const { feeAssignments, dateOfBirth, ...admissionData } = req.body;
+    const {
+      feeAssignments,
+      dateOfBirth,
+      previousMarks,
+      fatherAnnualIncome,
+      motherAnnualIncome,
+      transportRequired,
+      hostelRequired,
+      ...admissionData
+    } = req.body;
     
-    const admission = await prisma.admission.create({
-      data: {
-        ...admissionData,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(),
-        applicationNo,
-        academicYearId: academicYear.id,
-        schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId,
-        assignedFees: feeAssignments && feeAssignments.length > 0 ? {
-          create: feeAssignments.map((fa: { feeStructureId: string; amount: number }) => ({ 
-            feeStructureId: fa.feeStructureId,
-            customAmount: fa.amount 
-          }))
-        } : undefined
-      }
-    });
+    const data: any = {
+      ...admissionData,
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(),
+      applicationNo,
+      academicYearId: academicYear.id,
+      schoolId: (getSchoolScope(req) as any).schoolId || req.user?.schoolId,
+      assignedFees: feeAssignments && feeAssignments.length > 0 ? {
+        create: feeAssignments.map((fa: { feeStructureId: string; amount: number }) => ({ 
+          feeStructureId: fa.feeStructureId,
+          customAmount: fa.amount 
+        }))
+      } : undefined
+    };
+
+    if (previousMarks !== undefined && previousMarks !== null && previousMarks !== '') {
+      data.previousMarks = parseFloat(previousMarks as string);
+    }
+    if (fatherAnnualIncome !== undefined && fatherAnnualIncome !== null && fatherAnnualIncome !== '') {
+      data.fatherAnnualIncome = parseFloat(fatherAnnualIncome as string);
+    }
+    if (motherAnnualIncome !== undefined && motherAnnualIncome !== null && motherAnnualIncome !== '') {
+      data.motherAnnualIncome = parseFloat(motherAnnualIncome as string);
+    }
+    if (transportRequired !== undefined && transportRequired !== null) {
+      data.transportRequired = String(transportRequired) === 'true' || transportRequired === true;
+    }
+    if (hostelRequired !== undefined && hostelRequired !== null) {
+      data.hostelRequired = String(hostelRequired) === 'true' || hostelRequired === true;
+    }
+
+    const admission = await prisma.admission.create({ data });
 
     // Fire-and-forget notification for admission submitted
     NotificationService.notifyAdmissionSubmitted(admission).catch((err) => {
@@ -814,7 +839,16 @@ export const createAdmission = async (req: AuthRequest, res: Response, next: Nex
 
 export const updateAdmission = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { feeAssignments, dateOfBirth, ...admissionData } = req.body;
+    const {
+      feeAssignments,
+      dateOfBirth,
+      previousMarks,
+      fatherAnnualIncome,
+      motherAnnualIncome,
+      transportRequired,
+      hostelRequired,
+      ...admissionData
+    } = req.body;
     
     const existing = await prisma.admission.findUnique({
       where: { id: req.params.id as string, ...getSchoolScope(req) }
@@ -824,19 +858,37 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
       return;
     }
 
+    const data: any = {
+      ...admissionData,
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      assignedFees: feeAssignments ? {
+        deleteMany: {}, // Clear existing assignments
+        create: feeAssignments.map((fa: { feeStructureId: string; amount: number }) => ({ 
+          feeStructureId: fa.feeStructureId,
+          customAmount: fa.amount
+        }))
+      } : undefined
+    };
+
+    if (previousMarks !== undefined) {
+      data.previousMarks = previousMarks === null || previousMarks === '' ? null : parseFloat(previousMarks as string);
+    }
+    if (fatherAnnualIncome !== undefined) {
+      data.fatherAnnualIncome = fatherAnnualIncome === null || fatherAnnualIncome === '' ? null : parseFloat(fatherAnnualIncome as string);
+    }
+    if (motherAnnualIncome !== undefined) {
+      data.motherAnnualIncome = motherAnnualIncome === null || motherAnnualIncome === '' ? null : parseFloat(motherAnnualIncome as string);
+    }
+    if (transportRequired !== undefined) {
+      data.transportRequired = transportRequired === null ? null : (String(transportRequired) === 'true' || transportRequired === true);
+    }
+    if (hostelRequired !== undefined) {
+      data.hostelRequired = hostelRequired === null ? null : (String(hostelRequired) === 'true' || hostelRequired === true);
+    }
+
     const admission = await prisma.admission.update({
       where: { id: req.params.id as string, ...getSchoolScope(req) },
-      data: {
-        ...admissionData,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        assignedFees: feeAssignments ? {
-          deleteMany: {}, // Clear existing assignments
-          create: feeAssignments.map((fa: { feeStructureId: string; amount: number }) => ({ 
-            feeStructureId: fa.feeStructureId,
-            customAmount: fa.amount
-          }))
-        } : undefined
-      }
+      data
     });
 
     // Trigger email notifications fire-and-forget on status change

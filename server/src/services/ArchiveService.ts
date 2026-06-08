@@ -25,7 +25,9 @@ export class ArchiveService {
               results: true,
               assignedFees: true,
               leaveRequests: true,
-              activityLogs: true
+              activityLogs: true,
+              enrollmentHistory: true,
+              feePaymentAllocations: true
             }
           });
           name = record?.fullName || name;
@@ -86,6 +88,8 @@ export class ArchiveService {
       // NOTE: In production, you'd want to handle cascading or disconnection more carefully.
       switch (type) {
         case 'student':
+          await tx.studentEnrollmentHistory.deleteMany({ where: { studentId: id } });
+          await tx.feePaymentAllocation.deleteMany({ where: { studentId: id } });
           await tx.attendance.deleteMany({ where: { studentId: id } });
           await tx.feePayment.deleteMany({ where: { studentId: id } });
           await tx.result.deleteMany({ where: { studentId: id } });
@@ -142,7 +146,7 @@ export class ArchiveService {
           const { 
             user, parent, class: cls, section, 
             attendance, feePayments, results, assignedFees, 
-            leaveRequests, activityLogs,
+            leaveRequests, activityLogs, enrollmentHistory, feePaymentAllocations,
             ...studentData 
           } = data;
           
@@ -155,6 +159,8 @@ export class ArchiveService {
           if (assignedFees) await tx.studentFee.createMany({ data: assignedFees });
           if (leaveRequests) await tx.leaveRequest.createMany({ data: leaveRequests });
           if (activityLogs) await tx.activityLog.createMany({ data: activityLogs });
+          if (enrollmentHistory) await tx.studentEnrollmentHistory.createMany({ data: enrollmentHistory });
+          if (feePaymentAllocations) await tx.feePaymentAllocation.createMany({ data: feePaymentAllocations });
           break;
           
         case 'teacher':

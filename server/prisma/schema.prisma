@@ -487,6 +487,70 @@ model Admission {
   schoolId       String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  // Student extended fields
+  middleName             String?
+  bloodGroup             String?
+  religion               String?
+  category               String?
+  nationality            String?  @default("Indian")
+  motherTongue           String?
+
+  // Academic fields
+  previousBoard          String?
+  lastClassAttended      String?
+  previousMarks          Float?
+  transferCertificateNo  String?
+  admissionSource        String?
+
+  // Father fields
+  fatherEmail            String?
+  fatherOccupation       String?
+  fatherQualification    String?
+  fatherAnnualIncome     Float?
+  fatherAadhaar          String?
+  fatherOfficeAddress    String?
+
+  // Mother fields
+  motherEmail            String?
+  motherOccupation       String?
+  motherQualification    String?
+  motherAnnualIncome     Float?
+  motherAadhaar          String?
+  motherOfficeAddress    String?
+
+  // Guardian/emergency fields
+  guardianRelationship   String?
+  guardianOccupation     String?
+  guardianAddress        String?
+  emergencyContactName   String?
+  emergencyContactPhone  String?
+
+  // Detailed address fields
+  addressStreet          String?
+  addressCity            String?
+  addressState           String?
+  addressPincode         String?
+  permanentAddressStreet String?
+  permanentAddressCity   String?
+  permanentAddressState  String?
+  permanentAddressPincode String?
+
+  // Medical/additional fields
+  medicalCondition       String?
+  allergies              String?
+  specialNeeds           String?
+  transportRequired      Boolean? @default(false)
+  hostelRequired         Boolean? @default(false)
+
+  // Document path placeholders
+  studentPhoto           String?
+  birthCertificateDoc    String?
+  studentAadhaarDoc      String?
+  parentAadhaarDoc       String?
+  transferCertificateDoc String?
+  previousMarksCardDoc   String?
+
   assignedFees   AdmissionFee[]
   academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
   class          Class          @relation(fields: [classId], references: [id])

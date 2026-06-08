@@ -59,14 +59,33 @@ export class AdmissionService {
 
       parent = await tx.parent.findFirst({ where: { userId: parentUser.id } });
       if (!parent) {
+        const parentAddressParts = [
+          admission.addressStreet,
+          admission.addressCity,
+          admission.addressState,
+          admission.addressPincode
+        ].filter(Boolean);
+        const resolvedParentAddress = parentAddressParts.length > 0
+          ? parentAddressParts.join(', ')
+          : (admission.address || 'Address to be updated');
+
+        const resolvedAnnualIncome = admission.fatherAnnualIncome !== null && admission.fatherAnnualIncome !== undefined
+          ? admission.fatherAnnualIncome
+          : (admission.motherAnnualIncome !== null && admission.motherAnnualIncome !== undefined
+            ? admission.motherAnnualIncome
+            : null);
+
         parent = await tx.parent.create({
           data: {
             userId: parentUser.id,
             fatherName: admission.fatherName || admission.parentName,
             fatherPhone: admission.fatherPhone || admission.parentPhone,
+            fatherOccupation: admission.fatherOccupation || null,
             motherName: admission.motherName || '',
             motherPhone: admission.motherPhone || '',
-            address: admission.address || 'Address to be updated',
+            motherOccupation: admission.motherOccupation || null,
+            annualIncome: resolvedAnnualIncome,
+            address: resolvedParentAddress,
             schoolId: schoolId || admission.schoolId
           }
         });
@@ -87,6 +106,12 @@ export class AdmissionService {
         }
       });
 
+      const medicalNotes = [];
+      if (admission.medicalCondition) medicalNotes.push(`Condition: ${admission.medicalCondition}`);
+      if (admission.allergies) medicalNotes.push(`Allergies: ${admission.allergies}`);
+      if (admission.specialNeeds) medicalNotes.push(`Special Needs: ${admission.specialNeeds}`);
+      const resolvedMedicalNote = medicalNotes.length > 0 ? medicalNotes.join('\n') : null;
+
       const student = await tx.student.create({
         data: {
           userId: studentUser.id,
@@ -96,6 +121,9 @@ export class AdmissionService {
           fullName: `${admission.firstName} ${admission.lastName}`,
           dateOfBirth: admission.dateOfBirth,
           gender: admission.gender,
+          bloodGroup: admission.bloodGroup || null,
+          religion: admission.religion || null,
+          category: admission.category || 'general',
           parentId: parent.id,
           classId: resolvedClassId,
           sectionId: resolvedSectionId,
@@ -103,6 +131,14 @@ export class AdmissionService {
           aadhaarNumber: admission.aadhaarNumber || null,
           previousSchool: admission.previousSchool || null,
           status: 'active',
+          addressStreet: admission.addressStreet || admission.address || null,
+          addressCity: admission.addressCity || null,
+          addressState: admission.addressState || null,
+          addressPincode: admission.addressPincode || null,
+          emergencyName: admission.emergencyContactName || admission.parentName,
+          emergencyPhone: admission.emergencyContactPhone || admission.parentPhone,
+          emergencyRel: admission.guardianRelationship || 'Guardian',
+          medicalNote: resolvedMedicalNote,
           schoolId: schoolId || admission.schoolId
         }
       });
