@@ -28,6 +28,7 @@
 
 import prisma from '../config/prisma';
 import { EmailService, SendEmailResult } from './EmailService';
+import { FeeService } from './FeeService';
 import {
   testEmailTemplate,
   genericNotificationTemplate,
@@ -42,6 +43,8 @@ import {
   examScheduledTemplate,
   examDateChangedTemplate,
   resultPublishedTemplate,
+  feePaymentReceiptTemplate,
+  attendanceAbsentAlertTemplate,
 } from '../templates/emailTemplates';
 import { isRealEmail } from '../utils/emailHelpers';
 
@@ -807,15 +810,250 @@ export class NotificationService {
     }
   }
 
-  // ── Placeholder Methods (Phase 2.6E) ──────────────────────────
+  // ── Real Methods (Phase 2.6E) ──────────────────────────
 
   /** Fee payment receipt — notifies student + parent */
-  static async notifyFeePaymentReceipt(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
+  static async notifyFeePaymentReceipt(payment: any): Promise<NotifyResult> {
+    try {
+      if (!payment || !payment.id) {
+        return { success: false, status: 'failed', error: 'Invalid payment data provided' };
+      }
+
+      // Fetch or populate the full payment details
+      const fullPayment = await prisma.feePayment.findUnique({
+        where: { id: payment.id },
+        include: {
+          student: {
+            include: {
+              user: { select: { id: true, email: true, name: true, isActive: true } },
+              parent: {
+                include: {
+                  user: { select: { id: true, email: true, name: true, isActive: true } }
+                }
+              }
+            }
+          },
+          allocations: true,
+          school: { select: { name: true } }
+        }
+      });
+
+      if (!fullPayment) {
+        return { success: false, status: 'failed', error: `Payment with ID ${payment.id} not found` };
+      }
+
+      const student = fullPayment.student;
+      if (!student) {
+        return { success: false, status: 'failed', error: 'Student record not found for payment' };
+      }
+
+      // Ensure payment.schoolId matches student.schoolId
+      if (fullPayment.schoolId !== student.schoolId) {
+        console.warn(`[NotificationService] notifyFeePaymentReceipt skipped: school ID mismatch. Payment schoolId: ${fullPayment.schoolId}, Student schoolId: ${student.schoolId}`);
+        return { success: true, status: 'skipped', error: 'School ID mismatch' };
+      }
+
+      // Get outstanding balance using existing ledger logic if safe
+      let totalOutstanding: number | undefined;
+      try {
+        const ledger = await FeeService.getStudentLedger(student.id);
+        totalOutstanding = ledger?.balanceDue;
+      } catch (ledgerError) {
+        console.error('[NotificationService] Failed to calculate outstanding balance:', ledgerError);
+      }
+
+      const schoolName = fullPayment.school?.name || 'School ERP';
+
+      // Map component allocations
+      const componentAllocations = fullPayment.allocations?.map(alloc => ({
+        componentName: alloc.componentName,
+        amount: alloc.allocatedAmount
+      })) || [];
+
+      const template = feePaymentReceiptTemplate({
+        studentName: student.fullName,
+        receiptNumber: fullPayment.receiptNumber,
+        amountPaid: fullPayment.amountPaid,
+        paymentMode: fullPayment.paymentMode,
+        paymentDate: fullPayment.paymentDate ? new Date(fullPayment.paymentDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        schoolName,
+        componentAllocations,
+        totalOutstanding
+      });
+
+      const metadata = {
+        paymentId: fullPayment.id,
+        receiptNumber: fullPayment.receiptNumber,
+        studentId: student.id,
+        schoolId: fullPayment.schoolId
+      };
+
+      let parentResult: NotifyResult | null = null;
+
+      // 1. Parent email first
+      const parentUser = student.parent?.user;
+      if (parentUser) {
+        parentResult = await EmailService.sendEmail({
+          to: parentUser.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          eventType: 'fee_payment_receipt',
+          schoolId: fullPayment.schoolId,
+          recipientUserId: parentUser.id,
+          recipientRole: 'parent',
+          metadata
+        });
+      } else {
+        // Log skipped/missing parent email
+        await EmailService.sendEmail({
+          to: '(empty)',
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          eventType: 'fee_payment_receipt',
+          schoolId: fullPayment.schoolId,
+          recipientUserId: student.parent?.userId || null,
+          recipientRole: 'parent',
+          metadata
+        });
+      }
+
+      // 2. Student email only if real
+      const studentUser = student.user;
+      if (studentUser) {
+        if (studentUser.email && isRealEmail(studentUser.email)) {
+          await EmailService.sendEmail({
+            to: studentUser.email,
+            subject: template.subject,
+            html: template.html,
+            text: template.text,
+            eventType: 'fee_payment_receipt',
+            schoolId: fullPayment.schoolId,
+            recipientUserId: studentUser.id,
+            recipientRole: 'student',
+            metadata
+          });
+        } else {
+          // Log skipped synthetic student email
+          await EmailService.sendEmail({
+            to: studentUser.email || '(empty)',
+            subject: template.subject,
+            html: template.html,
+            text: template.text,
+            eventType: 'fee_payment_receipt',
+            schoolId: fullPayment.schoolId,
+            recipientUserId: studentUser.id,
+            recipientRole: 'student',
+            metadata
+          });
+        }
+      }
+
+      return parentResult || { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyFeePaymentReceipt error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
   }
 
   /** Attendance absent alert — notifies parent */
-  static async notifyAttendanceAbsent(_data: any): Promise<NotifyResult> {
-    return NOT_IMPLEMENTED;
+  static async notifyAttendanceAbsent(absentRecords: any[]): Promise<NotifyResult> {
+    try {
+      if (!absentRecords) {
+        return { success: true, status: 'skipped', error: 'No absent records to process' };
+      }
+
+      const records = Array.isArray(absentRecords) ? absentRecords : [absentRecords];
+      if (records.length === 0) {
+        return { success: true, status: 'skipped', error: 'No absent records to process' };
+      }
+
+      for (const record of records) {
+        try {
+          const student = await prisma.student.findUnique({
+            where: { id: record.studentId },
+            include: {
+              class: { select: { id: true, name: true } },
+              section: { select: { id: true, name: true } },
+              school: { select: { id: true, name: true } },
+              parent: {
+                include: {
+                  user: { select: { id: true, email: true, name: true, isActive: true } }
+                }
+              }
+            }
+          });
+
+          if (!student) {
+            console.warn(`[NotificationService] notifyAttendanceAbsent: Student with ID ${record.studentId} not found`);
+            continue;
+          }
+
+          // Format date normalized as YYYY-MM-DD
+          const dateObj = new Date(record.date);
+          const attendanceDate = dateObj.toISOString().split('T')[0];
+
+          const parentName = student.parent ? (student.parent.fatherName || student.parent.motherName || 'Parent') : 'Parent';
+          const parentUser = student.parent?.user;
+          const parentEmail = parentUser?.email;
+
+          const schoolName = student.school?.name || 'School ERP';
+
+          const template = attendanceAbsentAlertTemplate({
+            parentName,
+            studentName: student.fullName,
+            date: new Date(record.date).toLocaleDateString(),
+            className: student.class.name,
+            sectionName: student.section?.name || undefined,
+            schoolName
+          });
+
+          const metadata = {
+            attendanceId: record.id || null,
+            studentId: student.id,
+            attendanceDate,
+            classId: student.classId,
+            sectionId: student.sectionId,
+            schoolId: student.schoolId
+          };
+
+          // Send to parent only. Skip/log if synthetic or missing.
+          if (parentUser && parentEmail && isRealEmail(parentEmail)) {
+            await EmailService.sendEmail({
+              to: parentEmail,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'attendance_absent_alert',
+              schoolId: student.schoolId,
+              recipientUserId: parentUser.id,
+              recipientRole: 'parent',
+              metadata
+            });
+          } else {
+            // Log skipped synthetic/missing parent email
+            await EmailService.sendEmail({
+              to: parentEmail || '(empty)',
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              eventType: 'attendance_absent_alert',
+              schoolId: student.schoolId,
+              recipientUserId: student.parent?.userId || null,
+              recipientRole: 'parent',
+              metadata
+            });
+          }
+        } catch (singleError) {
+          console.error(`[NotificationService] Failed to process absent attendance alert for student ${record.studentId}:`, singleError);
+        }
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyAttendanceAbsent error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
   }
 }

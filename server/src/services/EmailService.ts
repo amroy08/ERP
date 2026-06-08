@@ -177,6 +177,27 @@ export class EmailService {
               currentMeta.studentId && loggedMeta.studentId && currentMeta.studentId === loggedMeta.studentId
             );
           }
+
+          if (eventType === 'fee_payment_receipt') {
+            if (currentMeta.paymentId && loggedMeta.paymentId) {
+              return currentMeta.paymentId === loggedMeta.paymentId;
+            }
+            return !!(currentMeta.receiptNumber && loggedMeta.receiptNumber && currentMeta.receiptNumber === loggedMeta.receiptNumber);
+          }
+
+          if (eventType === 'attendance_absent_alert') {
+            const getYYYYMMDD = (d: any) => {
+              if (!d) return '';
+              const str = typeof d === 'string' ? d : new Date(d).toISOString();
+              return str.split('T')[0];
+            };
+            const currentDate = getYYYYMMDD(currentMeta.attendanceDate);
+            const loggedDate = getYYYYMMDD(loggedMeta.attendanceDate);
+            return !!(
+              currentMeta.studentId && loggedMeta.studentId && currentMeta.studentId === loggedMeta.studentId &&
+              currentDate && loggedDate && currentDate === loggedDate
+            );
+          }
           
           const entityKeys = ['admissionId', 'studentId', 'userId', 'staffId', 'teacherId'];
           for (const key of entityKeys) {

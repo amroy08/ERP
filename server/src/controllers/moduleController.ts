@@ -1220,6 +1220,13 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
       })
     );
     
+    const absentRecords = results.filter((r: any) => r.status === 'absent');
+    if (absentRecords.length > 0) {
+      NotificationService.notifyAttendanceAbsent(absentRecords).catch((error) => {
+        console.error('Attendance absent email notification failed:', error);
+      });
+    }
+    
     res.status(201).json({ success: true, message: `Attendance marked for ${results.length} students`, data: results });
   } catch (error) { next(error); }
 };

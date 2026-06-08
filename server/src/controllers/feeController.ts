@@ -5,6 +5,7 @@ import prisma from '../config/prisma';
 import { createError } from '../middleware/errorHandler';
 import { getSchoolScope } from '../utils/schoolScope';
 import { requireFields, requirePositiveNumber, VALID_PAYMENT_MODES } from '../utils/validate';
+import { NotificationService } from '../services/NotificationService';
 
 // ── Fee Structures ─────────────────────────────────────────────────
 export const getFeeStructures = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -162,6 +163,10 @@ export const collectFee = async (req: AuthRequest, res: Response, next: NextFunc
       ...req.body,
       collectedBy: req.user!.id as string,
       schoolId
+    });
+
+    NotificationService.notifyFeePaymentReceipt(payment).catch((error) => {
+      console.error('Fee receipt email notification failed:', error);
     });
     
     const populated = await prisma.feePayment.findFirst({

@@ -600,3 +600,111 @@ export const resultPublishedTemplate = (vars: {
   };
 };
 
+/**
+ * Fee payment receipt template
+ */
+export const feePaymentReceiptTemplate = (vars: {
+  studentName: string;
+  receiptNumber: string;
+  amountPaid: number;
+  paymentMode: string;
+  paymentDate: string;
+  schoolName?: string;
+  componentAllocations?: Array<{ componentName: string; amount: number }>;
+  totalOutstanding?: number;
+}): EmailTemplateResult => {
+  const school = vars.schoolName || 'School ERP';
+  const hasAllocations = vars.componentAllocations && vars.componentAllocations.length > 0;
+  
+  let allocationsHtml = '';
+  if (hasAllocations) {
+    allocationsHtml = `
+      <h3>Allocated Components</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Component Name</th>
+            <th>Amount Allocated</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${vars.componentAllocations!.map(alloc => `
+            <tr>
+              <td>${alloc.componentName}</td>
+              <td><strong>Rs.${Number(alloc.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  const outstandingHtml = vars.totalOutstanding !== undefined
+    ? `<div class="info-box" style="border-left-color: #e53e3e; background-color: #fff5f5;">
+        <strong>Total Outstanding Balance:</strong> Rs.${Number(vars.totalOutstanding).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+       </div>`
+    : '';
+
+  const body = `
+    <h2>🧾 Fee Payment Receipt</h2>
+    <p>Dear Parent,</p>
+    <p>We are pleased to inform you that the fee payment for <strong>${vars.studentName}</strong> has been successfully received.</p>
+    <div class="info-box">
+      <strong>Receipt Details:</strong><br/>
+      <strong>Receipt Number:</strong> ${vars.receiptNumber}<br/>
+      <strong>Amount Paid:</strong> Rs.${Number(vars.amountPaid).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<br/>
+      <strong>Payment Mode:</strong> ${vars.paymentMode}<br/>
+      <strong>Payment Date:</strong> ${vars.paymentDate}
+    </div>
+    ${allocationsHtml}
+    ${outstandingHtml}
+    <p>Please log in to the portal to view your transaction history or download a PDF receipt.</p>
+    <p>— ${school} Accounts Desk</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Fee Payment Receipt: ${vars.receiptNumber} — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+/**
+ * Attendance absent alert template
+ */
+export const attendanceAbsentAlertTemplate = (vars: {
+  parentName?: string;
+  studentName: string;
+  date: string;
+  className: string;
+  sectionName?: string;
+  schoolName?: string;
+}): EmailTemplateResult => {
+  const parent = vars.parentName || 'Parent';
+  const school = vars.schoolName || 'School ERP';
+  const sec = vars.sectionName ? ` - ${vars.sectionName}` : '';
+
+  const body = `
+    <h2>⚠️ Attendance Alert: Student Absent</h2>
+    <p>Dear ${parent},</p>
+    <p>Please note that your child, <strong>${vars.studentName}</strong>, was marked <strong>absent</strong> from class.</p>
+    <div class="info-box">
+      <strong>Details:</strong><br/>
+      <strong>Student Name:</strong> ${vars.studentName}<br/>
+      <strong>Date:</strong> ${vars.date}<br/>
+      <strong>Class & Section:</strong> ${vars.className}${sec}
+    </div>
+    <p>If you have not already submitted a leave request or believe this to be an error, please contact the school administration immediately.</p>
+    <p>— ${school} Administration Team</p>
+  `;
+
+  const html = wrapHtml(body, school);
+  return {
+    subject: `Absence Alert: ${vars.studentName} is absent — ${school}`,
+    html,
+    text: stripHtml(html),
+  };
+};
+
+
