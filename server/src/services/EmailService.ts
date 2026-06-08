@@ -143,7 +143,7 @@ export class EmailService {
         const duplicateWindowSeconds = 30; // 30 seconds window
         const checkTime = new Date(Date.now() - duplicateWindowSeconds * 1000);
         
-        const potentialDuplicates = await prisma.emailNotificationLog.findMany({
+        const potentialDuplicates = await (prisma as any).emailNotificationLog.findMany({
           where: {
             eventType,
             recipientEmail: to,
@@ -152,7 +152,7 @@ export class EmailService {
           },
         });
 
-        const isDuplicate = potentialDuplicates.some(log => {
+        const isDuplicate = potentialDuplicates.some((log: any) => {
           if (!metadata || !log.metadata) return true; // If no metadata supplied, treat as duplicate
           
           const currentMeta = metadata as Record<string, any>;
@@ -290,7 +290,7 @@ export class EmailService {
     metadata?: Record<string, any> | null;
   }) {
     try {
-      return await prisma.emailNotificationLog.create({
+      return await (prisma as any).emailNotificationLog.create({
         data: {
           recipientEmail: data.recipientEmail,
           subject: data.subject,

@@ -68,7 +68,7 @@ async function runTests() {
   }
 
   // Clear existing email logs to start clean
-  await prisma.emailNotificationLog.deleteMany({});
+  await (prisma as any).emailNotificationLog.deleteMany({});
   console.log('🧹 Cleared all email notification logs.');
 
   // Mock user session context
@@ -108,7 +108,7 @@ async function runTests() {
   // Wait for fire-and-forget notification to log
   await wait(500);
 
-  let logs = await prisma.emailNotificationLog.findMany({
+  let logs = await (prisma as any).emailNotificationLog.findMany({
     where: { eventType: 'admission_application_submitted' },
   });
   if (logs.length === 1 && logs[0].status === 'test' && logs[0].recipientEmail === 'parent.tom@example.com') {
@@ -130,7 +130,7 @@ async function runTests() {
   await updateAdmission(req2, res2, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  logs = await prisma.emailNotificationLog.findMany({
+  logs = await (prisma as any).emailNotificationLog.findMany({
     where: { eventType: 'admission_approved' },
   });
   if (logs.length === 1 && logs[0].status === 'test' && logs[0].recipientEmail === 'parent.tom@example.com') {
@@ -153,7 +153,7 @@ async function runTests() {
   await updateAdmission(req3, res3, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  const approvedLogsCount = await prisma.emailNotificationLog.count({
+  const approvedLogsCount = await (prisma as any).emailNotificationLog.count({
     where: { eventType: 'admission_approved', recipientEmail: 'parent.tom@example.com' },
   });
   if (approvedLogsCount === 1) {
@@ -195,7 +195,7 @@ async function runTests() {
   await updateAdmission(req4b, res4b, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  logs = await prisma.emailNotificationLog.findMany({
+  logs = await (prisma as any).emailNotificationLog.findMany({
     where: { eventType: 'admission_rejected' },
   });
   if (logs.length === 1 && logs[0].status === 'test' && logs[0].recipientEmail === 'parent.rejected@example.com') {
@@ -218,10 +218,10 @@ async function runTests() {
   await convertAdmissionToStudent(req5, res5, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  const parentEnrolledLog = await prisma.emailNotificationLog.findFirst({
+  const parentEnrolledLog = await (prisma as any).emailNotificationLog.findFirst({
     where: { eventType: 'student_enrolled', recipientRole: 'parent' },
   });
-  const studentEnrolledLog = await prisma.emailNotificationLog.findFirst({
+  const studentEnrolledLog = await (prisma as any).emailNotificationLog.findFirst({
     where: { eventType: 'student_enrolled', recipientRole: 'student' },
   });
 
@@ -258,7 +258,7 @@ async function runTests() {
   const createdTeacher = res6.body.teacher;
 
   await wait(500);
-  logs = await prisma.emailNotificationLog.findMany({
+  logs = await (prisma as any).emailNotificationLog.findMany({
     where: { eventType: 'welcome_user', recipientRole: 'teacher', recipientEmail: teacherEmail },
   });
   if (logs.length === 1 && logs[0].status === 'test' && logs[0].recipientEmail === teacherEmail) {
@@ -288,7 +288,7 @@ async function runTests() {
   const createdStaff = res7.body.data;
 
   await wait(500);
-  logs = await prisma.emailNotificationLog.findMany({
+  logs = await (prisma as any).emailNotificationLog.findMany({
     where: { eventType: 'welcome_user', recipientRole: 'staff', recipientEmail: staffEmail },
   });
   if (logs.length === 1 && logs[0].status === 'test' && logs[0].recipientEmail === staffEmail) {
@@ -314,7 +314,7 @@ async function runTests() {
   await resetStudentPassword(req8, res8, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  const studentResetLog = await prisma.emailNotificationLog.findFirst({
+  const studentResetLog = await (prisma as any).emailNotificationLog.findFirst({
     where: { eventType: 'password_reset', recipientRole: 'student' },
   });
   if (studentResetLog && studentResetLog.status === 'skipped') {
@@ -333,7 +333,7 @@ async function runTests() {
   await resetTeacherPassword(req9, res9, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  const teacherResetLog = await prisma.emailNotificationLog.findFirst({
+  const teacherResetLog = await (prisma as any).emailNotificationLog.findFirst({
     where: { eventType: 'password_reset', recipientRole: 'teacher' },
   });
   if (teacherResetLog && teacherResetLog.status === 'skipped') {
@@ -352,7 +352,7 @@ async function runTests() {
   await resetStaffPassword(req10, res10, (err) => { if (err) console.error(err); });
 
   await wait(500);
-  const staffResetLog = await prisma.emailNotificationLog.findFirst({
+  const staffResetLog = await (prisma as any).emailNotificationLog.findFirst({
     where: { eventType: 'password_reset', recipientRole: 'staff', recipientEmail: staffEmail },
   });
   if (staffResetLog && staffResetLog.status === 'test') {
