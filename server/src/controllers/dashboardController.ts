@@ -119,7 +119,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         include: { 
           subjects: { select: { classId: true } },
           assignedClasses: { select: { id: true } },
-          classTeacherOf: { select: { id: true, classId: true } }
+          classTeacherOf: { select: { id: true, classId: true } },
+          subjectTeachers: {
+            select: {
+              sectionId: true,
+              subject: { select: { classId: true } }
+            }
+          }
         }
       });
 
@@ -130,16 +136,34 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       const classIds = new Set<string>(teacher.subjects.map(s => s.classId));
       teacher.assignedClasses.forEach(c => classIds.add(c.id));
       teacher.classTeacherOf.forEach(s => classIds.add(s.classId));
+      teacher.subjectTeachers.forEach(st => {
+        if (st.subject?.classId) {
+          classIds.add(st.subject.classId);
+        }
+      });
       
-      const sectionIds = teacher.classTeacherOf.map(s => s.id);
+      const sectionIds = new Set<string>(teacher.classTeacherOf.map(s => s.id));
+      teacher.subjectTeachers.forEach(st => {
+        sectionIds.add(st.sectionId);
+      });
+
       const classIdArray = Array.from(classIds);
+      const sectionIdArray = Array.from(sectionIds);
 
       const [totalActiveStudents, totalClasses, totalSubjects, pendingHomework, recentNotices] = await Promise.all([
         prisma.student.count({ 
-          where: { OR: [{ classId: { in: classIdArray } }, { sectionId: { in: sectionIds } }], status: 'active', ...scope } 
+          where: { OR: [{ classId: { in: classIdArray } }, { sectionId: { in: sectionIdArray } }], status: 'active', ...scope } 
         }),
         prisma.class.count({ where: { id: { in: classIdArray }, ...scope } }),
-        prisma.subject.count({ where: { teacherId: teacher.id, ...scope } }),
+        prisma.subject.count({
+          where: {
+            OR: [
+              { teacherId: teacher.id },
+              { subjectTeachers: { some: { teacherId: teacher.id } } }
+            ],
+            ...scope
+          }
+        }),
         prisma.homework.count({ where: { assignedById: teacher.id, dueDate: { gte: today }, ...scope } }),
         prisma.notice.findMany({ where: { isPublished: true, ...scope }, orderBy: { createdAt: 'desc' }, take: 5 })
       ]);

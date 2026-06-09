@@ -1046,6 +1046,16 @@ export const getSubjects = async (req: Request, res: Response, next: NextFunctio
         class: { select: { id: true, name: true } },
         teacher: { 
           include: { user: { select: { name: true } } }
+        },
+        subjectTeachers: {
+          include: {
+            section: true,
+            teacher: {
+              include: {
+                user: true
+              }
+            }
+          }
         }
       },
       orderBy: { name: 'asc' }
@@ -1062,29 +1072,106 @@ export const createSubject = async (req: AuthRequest, res: Response, next: NextF
     const fieldErr = requireFields(req.body, ['name']);
     if (fieldErr) return next(fieldErr);
 
+    const { assignments, ...subjectData } = req.body;
+
     // Validate class belongs to this school (if classId provided)
-    if (req.body.classId) {
-      const cls = await prisma.class.findFirst({ where: { id: req.body.classId, schoolId } });
+    if (subjectData.classId) {
+      const cls = await prisma.class.findFirst({ where: { id: subjectData.classId, schoolId } });
       if (!cls) return next(createError('Selected class not found in this school.', 400));
     }
 
     // Validate teacherId belongs to this school (if provided)
-    if (req.body.teacherId) {
-      const tch = await prisma.teacher.findFirst({ where: { id: req.body.teacherId, schoolId } });
+    if (subjectData.teacherId) {
+      const tch = await prisma.teacher.findFirst({ where: { id: subjectData.teacherId, schoolId } });
       if (!tch) return next(createError('Selected teacher not found in this school.', 400));
     }
 
     // Duplicate subject name in same class
     const dupSubject = await prisma.subject.findFirst({
-      where: { name: req.body.name.trim(), classId: req.body.classId || null, schoolId }
+      where: { name: subjectData.name.trim(), classId: subjectData.classId || null, schoolId }
     });
     if (dupSubject) {
-      return next(createError(`A subject named "${req.body.name}" already exists for this class.`, 409));
+      return next(createError(`A subject named "${subjectData.name}" already exists for this class.`, 409));
     }
 
-    const subject = await prisma.subject.create({
-      data: { ...req.body, schoolId }
+    // Validate assignments if provided
+    if (assignments !== undefined) {
+      if (!Array.isArray(assignments)) {
+        return next(createError('Assignments must be an array of section/teacher pairs.', 400));
+      }
+
+      const seenSections = new Set<string>();
+      for (const a of assignments) {
+        if (!a.sectionId) {
+          return next(createError('Each assignment must contain a sectionId.', 400));
+        }
+        if (seenSections.has(a.sectionId)) {
+          return next(createError(`Duplicate section assignment in payload for section ID: ${a.sectionId}`, 400));
+        }
+        seenSections.add(a.sectionId);
+
+        // Validate section belongs to the class
+        const sec = await prisma.section.findFirst({
+          where: { id: a.sectionId, classId: subjectData.classId, schoolId }
+        });
+        if (!sec) {
+          return next(createError(`Selected section ${a.sectionId} not found in this class or school.`, 400));
+        }
+
+        // Validate teacher if provided
+        if (a.teacherId) {
+          const tch = await prisma.teacher.findFirst({
+            where: { id: a.teacherId, schoolId }
+          });
+          if (!tch) {
+            return next(createError(`Selected teacher ${a.teacherId} not found in this school.`, 400));
+          }
+        }
+      }
+    }
+
+    const subject = await prisma.$transaction(async (tx) => {
+      const createdSubject = await tx.subject.create({
+        data: { ...subjectData, schoolId }
+      });
+
+      if (assignments && assignments.length > 0) {
+        let currentAcademicYearId: string | null = null;
+        const currentYear = await tx.academicYear.findFirst({
+          where: { isCurrent: true, schoolId }
+        });
+        if (currentYear) {
+          currentAcademicYearId = currentYear.id;
+        }
+
+        await tx.subjectTeacher.createMany({
+          data: assignments.map((a: any) => ({
+            schoolId,
+            academicYearId: currentAcademicYearId,
+            subjectId: createdSubject.id,
+            sectionId: a.sectionId,
+            teacherId: a.teacherId || null
+          }))
+        });
+      }
+
+      return tx.subject.findUnique({
+        where: { id: createdSubject.id },
+        include: {
+          class: { select: { id: true, name: true } },
+          teacher: {
+            include: { user: { select: { name: true } } }
+          },
+          subjectTeachers: {
+            include: {
+              section: { select: { id: true, name: true } },
+              teacher: { include: { user: { select: { name: true } } } }
+            }
+          }
+        }
+      });
     });
+
     res.status(201).json({ success: true, data: subject });
   } catch (error) { next(error); }
 };
@@ -1092,10 +1179,118 @@ export const createSubject = async (req: AuthRequest, res: Response, next: NextF
 export const updateSubject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const subject = await prisma.subject.update({
-      where: { id: id as string, ...getSchoolScope(req as any) },
-      data: req.body
+    const schoolId = (getSchoolScope(req as any) as any).schoolId || (req as any).user?.schoolId;
+
+    const existingSubject = await prisma.subject.findFirst({
+      where: { id: id as string, schoolId }
     });
+    if (!existingSubject) {
+      return next(createError('Subject not found', 404));
+    }
+
+    const { assignments, ...subjectData } = req.body;
+    const classId = subjectData.classId || existingSubject.classId;
+
+    // Validate class belongs to this school (if classId provided)
+    if (subjectData.classId) {
+      const cls = await prisma.class.findFirst({ where: { id: subjectData.classId, schoolId } });
+      if (!cls) return next(createError('Selected class not found in this school.', 400));
+    }
+
+    // Validate teacherId belongs to this school (if provided)
+    if (subjectData.teacherId) {
+      const tch = await prisma.teacher.findFirst({ where: { id: subjectData.teacherId, schoolId } });
+      if (!tch) return next(createError('Selected teacher not found in this school.', 400));
+    }
+
+    // Validate assignments if provided
+    if (assignments !== undefined) {
+      if (!Array.isArray(assignments)) {
+        return next(createError('Assignments must be an array of section/teacher pairs.', 400));
+      }
+
+      const seenSections = new Set<string>();
+      for (const a of assignments) {
+        if (!a.sectionId) {
+          return next(createError('Each assignment must contain a sectionId.', 400));
+        }
+        if (seenSections.has(a.sectionId)) {
+          return next(createError(`Duplicate section assignment in payload for section ID: ${a.sectionId}`, 400));
+        }
+        seenSections.add(a.sectionId);
+
+        // Validate section belongs to the class
+        const sec = await prisma.section.findFirst({
+          where: { id: a.sectionId, classId, schoolId }
+        });
+        if (!sec) {
+          return next(createError(`Selected section ${a.sectionId} not found in this class or school.`, 400));
+        }
+        if (sec.classId !== classId) {
+          return next(createError(`Selected section ${a.sectionId} does not belong to class ${classId}.`, 400));
+        }
+
+        // Validate teacher if provided
+        if (a.teacherId) {
+          const tch = await prisma.teacher.findFirst({
+            where: { id: a.teacherId, schoolId }
+          });
+          if (!tch) {
+            return next(createError(`Selected teacher ${a.teacherId} not found in this school.`, 400));
+          }
+        }
+      }
+    }
+
+    const subject = await prisma.$transaction(async (tx) => {
+      await tx.subject.update({
+        where: { id: id as string },
+        data: subjectData
+      });
+
+      if (assignments !== undefined) {
+        let currentAcademicYearId: string | null = null;
+        const currentYear = await tx.academicYear.findFirst({
+          where: { isCurrent: true, schoolId }
+        });
+        if (currentYear) {
+          currentAcademicYearId = currentYear.id;
+        }
+
+        await tx.subjectTeacher.deleteMany({
+          where: { subjectId: id as string }
+        });
+
+        if (assignments.length > 0) {
+          await tx.subjectTeacher.createMany({
+            data: assignments.map((a: any) => ({
+              schoolId,
+              academicYearId: currentAcademicYearId,
+              subjectId: id as string,
+              sectionId: a.sectionId,
+              teacherId: a.teacherId || null
+            }))
+          });
+        }
+      }
+
+      return tx.subject.findUnique({
+        where: { id: id as string },
+        include: {
+          class: { select: { id: true, name: true } },
+          teacher: {
+            include: { user: { select: { name: true } } }
+          },
+          subjectTeachers: {
+            include: {
+              section: { select: { id: true, name: true } },
+              teacher: { include: { user: { select: { name: true } } } }
+            }
+          }
+        }
+      });
+    });
+
     res.json({ success: true, data: subject });
   } catch (error) { next(error); }
 };
@@ -1724,10 +1919,35 @@ export const createHomework = async (req: AuthRequest, res: Response, next: Next
     
     if (!teacher) { next(createError('Only teachers can assign homework', 403)); return; }
 
-    const isClassTeacher = teacher.classTeacherOf.some(s => s.id === req.body.sectionId);
-    const isSubjectTeacher = teacher.subjects.some(s => s.classId === req.body.classId && s.id === req.body.subjectId);
-    
-    if (!isClassTeacher && !isSubjectTeacher && authUser.role !== 'admin' && authUser.role !== 'super_admin') {
+    let isAuthorized = false;
+    if (authUser.role === 'admin' || authUser.role === 'super_admin') {
+      isAuthorized = true;
+    } else {
+      const isClassTeacher = req.body.sectionId ? teacher.classTeacherOf.some(s => s.id === req.body.sectionId) : false;
+
+      let isSubjectTeacher = false;
+      if (req.body.sectionId) {
+        // 1. Look for section-specific assignment in SubjectTeacher
+        const sectionAssignment = await prisma.subjectTeacher.findFirst({
+          where: {
+            subjectId: req.body.subjectId,
+            sectionId: req.body.sectionId
+          }
+        });
+
+        if (sectionAssignment) {
+          isSubjectTeacher = sectionAssignment.teacherId === teacher.id;
+        } else {
+          isSubjectTeacher = teacher.subjects.some(s => s.classId === req.body.classId && s.id === req.body.subjectId);
+        }
+      } else {
+        isSubjectTeacher = teacher.subjects.some(s => s.classId === req.body.classId && s.id === req.body.subjectId);
+      }
+
+      isAuthorized = isClassTeacher || isSubjectTeacher;
+    }
+
+    if (!isAuthorized) {
        next(createError('Unauthorized: You must be either the Class Teacher of this section or the Subject Teacher for this specific subject to assign homework.', 403));
        return;
     }
