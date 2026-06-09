@@ -1,0 +1,154 @@
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { UserProfile, SchoolContext } from '../types/auth.types';
+import {
+  clearAuthTokens,
+  saveAccessToken,
+  saveRefreshToken,
+  getAccessToken,
+} from '../utils/secureStorage';
+import { loginUser, fetchCurrentUser } from '../api/authApi';
+
+interface AuthContextType {
+  user: UserProfile | null;
+  school: SchoolContext | null;
+  role: 'parent' | 'student' | 'teacher' | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Normalize the backend role string to a mobile role.
+ * Backend roles: super_admin | admin | principal | teacher | clerk | parent | student
+ */
+const toMobileRole = (
+  backendRole: string
+): 'parent' | 'student' | 'teacher' | null => {
+  if (backendRole === 'parent') return 'parent';
+  if (backendRole === 'student') return 'student';
+  if (backendRole === 'teacher') return 'teacher';
+  return null;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [school, setSchool] = useState<SchoolContext | null>(null);
+  const [role, setRole] = useState<'parent' | 'student' | 'teacher' | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // ────────────────────────────────────────────────────────
+  // Restore session on cold start
+  // ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const existingToken = await getAccessToken();
+        if (!existingToken) {
+          setIsLoading(false);
+          return;
+        }
+        // Validate token by fetching current user
+        const meData = await fetchCurrentUser();
+        if (meData?.user) {
+          const restoredUser: UserProfile = meData.user;
+          const restoredRole = toMobileRole(restoredUser.role);
+          setUser(restoredUser);
+          setRole(restoredRole);
+          if (meData.school) setSchool(meData.school);
+        }
+      } catch {
+        // Token invalid / expired – clear and show login
+        await clearAuthTokens();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    restoreSession();
+  }, []);
+
+  // ────────────────────────────────────────────────────────
+  // Real login
+  // ────────────────────────────────────────────────────────
+  const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const data = await loginUser(email, password);
+
+      // Backend returns: { accessToken, refreshToken, user, school }
+      if (!data.accessToken) throw new Error('No access token returned.');
+
+      await saveAccessToken(data.accessToken);
+      if (data.refreshToken) await saveRefreshToken(data.refreshToken);
+
+      const loggedInUser: UserProfile = data.user;
+      const mobileRole = toMobileRole(loggedInUser.role);
+
+      if (!mobileRole) {
+        throw new Error(
+          `Role '${loggedInUser.role}' does not have mobile access. Only parent, student, and teacher accounts can use the mobile app.`
+        );
+      }
+
+      setUser(loggedInUser);
+      setRole(mobileRole);
+      if (data.school) setSchool(data.school);
+    } catch (e) {
+      setIsLoading(false);
+      throw e;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Sign out
+  // ────────────────────────────────────────────────────────
+  const signOut = async () => {
+    setIsLoading(true);
+    try {
+      await clearAuthTokens();
+      setUser(null);
+      setSchool(null);
+      setRole(null);
+    } catch (e) {
+      console.error('[AuthContext] Error signing out:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isAuthenticated = !!user;
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        school,
+        role,
+        isLoading,
+        isAuthenticated,
+        signIn,
+        signOut,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthContext;

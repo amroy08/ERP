@@ -5,9 +5,20 @@ import {
   unregisterDevice,
   getParentDashboard,
   getParentStudentProfile,
+  getParentAttendance,
+  getParentFees,
+  getParentNotices,
   getStudentDashboard,
+  getStudentTimetable,
+  getStudentHomework,
+  getStudentExams,
+  getStudentResults,
   getTeacherDashboard,
-  getTeacherTimetable
+  getTeacherTimetable,
+  getTeacherNotices,
+  getTeacherAttendanceClasses,
+  getTeacherAttendanceStudents,
+  submitTeacherAttendance,
 } from '../controllers/mobileController';
 
 const router = Router();
@@ -15,19 +26,31 @@ const router = Router();
 // Apply auth middleware to protect all mobile routes
 router.use(protect);
 
-// Device token endpoints
+// ── Device token ─────────────────────────────────────────────
 router.post('/devices/register', registerDevice);
 router.post('/devices/unregister', unregisterDevice);
 
-// Parent dashboard endpoints
+// ── Parent ────────────────────────────────────────────────────
 router.get('/parent/dashboard', getParentDashboard);
 router.get('/parent/student-profile/:studentId', getParentStudentProfile);
+router.get('/parent/attendance', getParentAttendance);
+router.get('/parent/fees', getParentFees);
+router.get('/parent/notices', getParentNotices);
 
-// Student dashboard endpoints
+// ── Student ───────────────────────────────────────────────────
 router.get('/student/dashboard', getStudentDashboard);
+router.get('/student/timetable', getStudentTimetable);
+router.get('/student/homework', getStudentHomework);
+router.get('/student/exams', getStudentExams);
+router.get('/student/results', getStudentResults);
 
-// Teacher dashboard endpoints
+// ── Teacher ───────────────────────────────────────────────────
 router.get('/teacher/dashboard', getTeacherDashboard);
 router.get('/teacher/timetable', getTeacherTimetable);
+router.get('/teacher/notices', getTeacherNotices);
+router.get('/teacher/attendance-classes', getTeacherAttendanceClasses);
+router.get('/teacher/attendance-students', getTeacherAttendanceStudents);
+router.post('/teacher/attendance-submit', submitTeacherAttendance);
 
 export default router;
+
