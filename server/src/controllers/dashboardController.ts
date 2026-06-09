@@ -16,7 +16,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const scope = getSchoolScope(req);
 
-    if (user.role === 'admin' || user.role === 'super_admin') {
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'clerk') {
       const [
         totalStudents,
         totalTeachers,

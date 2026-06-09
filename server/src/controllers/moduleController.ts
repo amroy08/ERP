@@ -1406,6 +1406,22 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
       }
     }
 
+    // Fetch students to get schoolId, classId, and sectionId
+    const studentIds = records.map((r: any) => r.studentId);
+    const students = await prisma.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, classId: true, sectionId: true, schoolId: true }
+    });
+
+    const studentMap = new Map(students.map(s => [s.id, s]));
+
+    // Validate that all students exist
+    for (const record of records) {
+      if (!studentMap.has(record.studentId)) {
+        return next(createError(`Student with ID ${record.studentId} not found.`, 404));
+      }
+    }
+
     // Protection logic for teachers
     if (authUser.role === 'teacher') {
       const teacher = await prisma.teacher.findUnique({
@@ -1425,12 +1441,6 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
         ]);
         const allowedSectionIds = new Set(teacher.classTeacherOf.map(s => s.id));
         
-        const studentIds = records.map((r: any) => r.studentId);
-        const students = await prisma.student.findMany({
-          where: { id: { in: studentIds } },
-          select: { id: true, classId: true, sectionId: true }
-        });
-
         const unauthorized = students.some(s => 
           !allowedClassIds.has(s.classId) && !allowedSectionIds.has(s.sectionId)
         );
@@ -1447,6 +1457,7 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
         // Robust UTC normalization
         const dateStr = record.date.includes('T') ? record.date.split('T')[0] : record.date;
         const dateObj = new Date(dateStr + 'T00:00:00Z');
+        const studentInfo = studentMap.get(record.studentId)!;
         
         return prisma.attendance.upsert({
           where: {
@@ -1457,13 +1468,15 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
           },
           update: {
             status: record.status,
-            remark: record.remark
+            remark: record.remark,
+            schoolId: studentInfo.schoolId
           },
           create: {
             date: dateObj,
             status: record.status,
             remark: record.remark,
-            studentId: record.studentId
+            studentId: record.studentId,
+            schoolId: studentInfo.schoolId
           }
         });
       })
