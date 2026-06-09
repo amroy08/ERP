@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
-import { getAccessToken, clearAuthTokens } from '../utils/secureStorage';
+import {
+  getAccessToken,
+  getRefreshToken,
+  saveAccessToken,
+  saveRefreshToken,
+  clearAuthTokens,
+} from '../utils/secureStorage';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -38,12 +44,21 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        // Placeholder for refresh token request in Phase 3.0D
-        // const newTokens = await refreshAuthTokens();
-        // if (newTokens) {
-        //   originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-        //   return apiClient(originalRequest);
-        // }
+        const refreshToken = await getRefreshToken();
+        if (refreshToken) {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+          if (response.data?.success && response.data?.data) {
+            const { accessToken: newAccess, refreshToken: newRefresh } = response.data.data;
+            await saveAccessToken(newAccess);
+            if (newRefresh) {
+              await saveRefreshToken(newRefresh);
+            }
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+            }
+            return apiClient(originalRequest);
+          }
+        }
       } catch (refreshError) {
         console.error('[API Client] Token refresh retry failed:', refreshError);
         await clearAuthTokens();
