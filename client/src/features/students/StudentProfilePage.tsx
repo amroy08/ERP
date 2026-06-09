@@ -6,7 +6,7 @@ import {
   FileText, History, DollarSign, BookOpen, 
   User as UserIcon, Download, 
   TrendingUp, Award, Clock, CheckCircle2, XCircle,
-  Trash2, Plus
+  Trash2, Plus, Upload
 } from 'lucide-react';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { Card } from '../../components/common/Card';
@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Select } from '../../components/common/Select';
+import { uploadStudentDocument, downloadStudentDocument, deleteStudentDocument } from './studentApi';
 
 export const StudentProfilePage: React.FC = () => {
   const { id } = useReactParams();
@@ -54,6 +55,93 @@ export const StudentProfilePage: React.FC = () => {
   const [editingFee, setEditingFee] = useState<any>(null);
   const [newFeeData, setNewFeeData] = useState({ feeStructureId: '', customAmount: '' });
   const [feeStructures, setFeeStructures] = useState<any[]>([]);
+
+  // Document management state & actions
+  const [selectedDocType, setSelectedDocType] = useState<string | null>(null);
+  const [isProcessingDoc, setIsProcessingDoc] = useState<Record<string, boolean>>({});
+
+  const triggerFileInput = (docType: string) => {
+    setSelectedDocType(docType);
+    const fileInput = document.getElementById('student-doc-file-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedDocType) return;
+
+    // Reset value
+    e.target.value = '';
+
+    // File validation
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+    if (!allowedExtensions.includes(fileExt) || !allowedMimeTypes.includes(file.type)) {
+      toast.error('Invalid file type. Only PDF, JPG, JPEG, and PNG files are allowed.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large. Maximum allowed size is 5MB.');
+      return;
+    }
+
+    setIsProcessingDoc(prev => ({ ...prev, [selectedDocType]: true }));
+    try {
+      const data = await uploadStudentDocument(id!, selectedDocType, file);
+      setStudent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          [selectedDocType]: data.data.fileName
+        };
+      });
+      toast.success(`${file.name} uploaded successfully.`);
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || 'Failed to upload document.';
+      toast.error(errMsg);
+    } finally {
+      setIsProcessingDoc(prev => ({ ...prev, [selectedDocType]: false }));
+      setSelectedDocType(null);
+    }
+  };
+
+  const handleDownloadDoc = async (docType: string) => {
+    setIsProcessingDoc(prev => ({ ...prev, [docType]: true }));
+    try {
+      await downloadStudentDocument(id!, docType);
+      toast.success('Document downloaded.');
+    } catch (err: any) {
+      toast.error('Failed to download document.');
+    } finally {
+      setIsProcessingDoc(prev => ({ ...prev, [docType]: false }));
+    }
+  };
+
+  const handleDeleteDoc = async (docType: string) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    setIsProcessingDoc(prev => ({ ...prev, [docType]: true }));
+    try {
+      await deleteStudentDocument(id!, docType);
+      setStudent(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          [docType]: null
+        };
+      });
+      toast.success('Document deleted successfully.');
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || 'Failed to delete document.';
+      toast.error(errMsg);
+    } finally {
+      setIsProcessingDoc(prev => ({ ...prev, [docType]: false }));
+    }
+  };
 
   useEffect(() => {
     fetchStudent();
@@ -245,6 +333,7 @@ export const StudentProfilePage: React.FC = () => {
     { id: 'attendance', label: 'Attendance', icon: <Calendar className="w-4 h-4" /> },
     { id: 'fees', label: 'Fees & Finance', icon: <DollarSign className="w-4 h-4" /> },
     { id: 'leaves', label: 'Leaves', icon: <FileText className="w-4 h-4" /> },
+    { id: 'documents', label: 'Documents', icon: <FileText className="w-4 h-4" /> },
   ];
 
   const InfoRow = ({ label, value, icon }: { label: string; value: string | React.ReactNode; icon?: React.ReactNode }) => (
@@ -605,6 +694,120 @@ export const StudentProfilePage: React.FC = () => {
                         )}
                      </div>
                    )}
+
+                   {activeTab === 'documents' && (() => {
+                      const documentTypes = [
+                        { key: 'studentPhoto', name: 'Student Photo', description: 'Recent passport size photo of the student' },
+                        { key: 'birthCertificateDoc', name: 'Birth Certificate', description: 'Official government-issued certificate' },
+                        { key: 'studentAadhaarDoc', name: 'Student Aadhaar Card', description: 'UIDAI Aadhaar Card of the student' },
+                        { key: 'parentAadhaarDoc', name: 'Parent/Guardian Aadhaar Card', description: 'UIDAI Aadhaar Card of primary parent/guardian' },
+                        { key: 'transferCertificateDoc', name: 'Transfer Certificate / LC / TC', description: 'School Leaving/Transfer Certificate' },
+                        { key: 'previousMarksCardDoc', name: 'Previous Marksheet', description: 'Marks card from the last attended class/school' }
+                      ];
+
+                      return (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <input
+                            id="student-doc-file-input"
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={handleFileChange}
+                          />
+
+                          {student.sourceAdmissionId && (
+                            <div className="flex items-center gap-2 p-3 bg-blue-50/50 border border-blue-100/50 rounded-2xl w-fit animate-in fade-in duration-300">
+                              <Badge variant="blue">Created from Admission</Badge>
+                              <span className="text-xs text-slate-500 font-medium font-mono">Admission ID: {student.sourceAdmissionId}</span>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {documentTypes.map((doc) => {
+                              const filename = (student as any)[doc.key];
+                              const isUploaded = !!filename;
+                              const isProcessing = !!isProcessingDoc[doc.key];
+
+                              return (
+                                <Card key={doc.key} className="p-6 border-slate-100 shadow-sm flex flex-col justify-between min-h-[160px] hover:border-blue-100 transition-all">
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between">
+                                      <div className="pr-4">
+                                        <h4 className="text-sm font-black text-slate-800">{doc.name}</h4>
+                                        <p className="text-xs text-slate-400 font-medium leading-normal mt-0.5">{doc.description}</p>
+                                      </div>
+                                      <Badge variant={isUploaded ? 'emerald' : 'orange'}>
+                                        {isProcessing ? 'Processing...' : (isUploaded ? 'Uploaded' : 'Missing')}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                      Accepted: PDF, JPG, PNG • Max size: 5MB
+                                    </p>
+                                    {isUploaded && (
+                                      <div className="p-2 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between text-[10px] text-slate-500 font-mono font-bold truncate">
+                                        <span className="truncate pr-2">{filename}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-50">
+                                    {!isUploaded ? (
+                                      hasPermission('student:update') && (
+                                        <Button
+                                          size="sm"
+                                          variant="primary"
+                                          icon={<Upload className="w-3.5 h-3.5" />}
+                                          onClick={() => triggerFileInput(doc.key)}
+                                          disabled={isProcessing}
+                                        >
+                                          Upload File
+                                        </Button>
+                                      )
+                                    ) : (
+                                      <>
+                                        {hasPermission('student:view') && (
+                                          <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            icon={<Download className="w-3.5 h-3.5" />}
+                                            onClick={() => handleDownloadDoc(doc.key)}
+                                            disabled={isProcessing}
+                                          >
+                                            View / Download
+                                          </Button>
+                                        )}
+                                        {hasPermission('student:update') && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="secondary"
+                                              icon={<Upload className="w-3.5 h-3.5" />}
+                                              onClick={() => triggerFileInput(doc.key)}
+                                              disabled={isProcessing}
+                                            >
+                                              Replace
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="danger"
+                                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                                              onClick={() => handleDeleteDoc(doc.key)}
+                                              disabled={isProcessing}
+                                            >
+                                              Delete
+                                            </Button>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                 </div>
              </Card>
           </div>

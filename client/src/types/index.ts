@@ -133,6 +133,13 @@ export interface Student {
   address: Address;
   emergencyContact: { name: string; phone: string; relation: string };
   medicalNote?: string;
+  studentPhoto?: string | null;
+  birthCertificateDoc?: string | null;
+  studentAadhaarDoc?: string | null;
+  parentAadhaarDoc?: string | null;
+  transferCertificateDoc?: string | null;
+  previousMarksCardDoc?: string | null;
+  sourceAdmissionId?: string | null;
   status: 'active' | 'inactive' | 'transferred' | 'alumni';
   createdAt: string;
   leaveRequests?: LeaveRequest[];
