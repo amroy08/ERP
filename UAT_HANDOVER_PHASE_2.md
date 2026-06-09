@@ -18,14 +18,15 @@ The following implementation phases have been successfully completed and audited
 * **Phase 2.4.1: Production Build Stabilization**: Cleaned and compiled all server-side and client-side modules to achieve 100% type-checking pass rates.
 * **Phase 2.5: Parent & Student Experience Revamp**: Added active student context, parent child switcher, and role-scoped portal views for parent and student accounts. Strengthened backend IDOR guards for student profile, enrollment history, report card, and homework access.
 * **Phase 2.6: Email Notification System**: Implemented backend email notification infrastructure and event-triggered email logs for admissions, academic updates, fee receipts, and student absences.
+* **Phase 2.7: Admission & Student Document Management**: Revamped the admission form into a guided wizard, added admission and student document upload/download/delete capabilities, automated document copy during admission-to-student conversion, and added a Documents tab to the Student Profile.
 * **Release Readiness Audit**: Fully verified and passed.
 
 ---
 
 ## B. Latest Stable Commit
 * **Target Branch**: `Nupun`
-* **Stable Commit Hash**: `64c2dd8337d81a7d86e7e4b9b873f6b6ed79e1ab`
-* **Commit Message**: `Phase 2.6E: Add fee receipt and attendance absent email triggers`
+* **Stable Commit Hash**: `fd44aa3` (Phase 2.7E-E: Add student profile Documents tab frontend integration)
+* **Previous Stable Commit**: `64c2dd8` (Phase 2.6E: Add fee receipt and attendance absent email triggers)
 * **Build Status**: **SUCCESS / PASSING** (Clean TS checks and static compilation bundles in both server & client packages).
 
 ---
@@ -93,6 +94,9 @@ The following database migrations exist under `server/prisma/migrations/`:
 1. `20260413094218_init` (Core schema setup)
 2. `20260606183230_add_student_enrollment_history` (Historic logs schema)
 3. `20260606184231_add_fee_payment_allocations` (Allocation ledger schema)
+4. `20260608034300_add_email_notification_log` (Email notification audit log)
+5. `20260608162632_add_admission_extended_fields` (Admission wizard extended fields)
+6. `20260609041541_add_student_document_fields` (Student document storage fields and admission traceability)
 
 ### Migration Safeguards
 * **Migrate Deployment**: Always use `npx prisma migrate deploy` in UAT, staging, and production environments.
@@ -206,9 +210,9 @@ The fee module supports two collection methods:
 ---
 
 ## O. Final Release Readiness Statement
-> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.6 EMAIL NOTIFICATIONS INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
 >
-> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, email notification system triggers, and business flow smoke tests. All backend security and duplicate checks pass. TypeScript and production builds are clean across server and client.
+> The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, email notification system triggers, admission wizard, document management, and business flow smoke tests. All backend security and duplicate checks pass. TypeScript and production builds are clean across server and client.
 
 ---
 
@@ -538,4 +542,203 @@ Expected output: `emailLogCount = 0`.
 - **Production SMTP**: Real sending requires configuration of production mailservers.
 
 ### R.10 Final Status
-> **READY FOR UAT / STAGING DEPLOYMENT WITH PHASE 2.6 EMAIL NOTIFICATIONS INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
+
+---
+
+## S. Phase 2.7: Admission and Student Document Management
+
+### S.1 Summary
+
+Phase 2.7 delivers a complete admission and student document management pipeline:
+
+1. **Admission Wizard**: The admission form has been revamped from a single-page form into a guided 6-step wizard with logical grouping, progress indicators, and step validation.
+2. **Admission Document Upload**: During or after admission creation, documents can be uploaded and managed from the Admission Details modal. Documents are stored securely in private server storage.
+3. **Student Document Fields**: The Student model now has dedicated fields for 6 document types, enabling direct document management on student records.
+4. **Document Copy on Conversion**: When an admission is converted to a student, all uploaded admission documents are physically copied into the student's private storage. The original admission documents are preserved.
+5. **Student Profile Documents Tab**: The Student Profile page now includes a Documents tab where administrators can view, upload, download, replace, and delete student documents — whether the student was created directly or converted from an admission.
+
+### S.2 Admission Wizard (Phase 2.7C)
+
+The admission form is now a guided wizard with 6 steps:
+
+| Step | Name | Fields |
+|---|---|---|
+| 1 | **Student Information** | First name, middle name, last name, date of birth, gender, blood group, religion, category, nationality, mother tongue, Aadhaar number |
+| 2 | **Academic Details** | Class applied for, section, academic year, previous school, previous board, last class attended, previous marks, transfer certificate number, admission source |
+| 3 | **Parent Details** | Father name/phone/email/occupation/qualification/income/Aadhaar/office address, Mother name/phone/email/occupation/qualification/income/Aadhaar/office address |
+| 4 | **Guardian & Address** | Guardian relationship/occupation/address, emergency contact name/phone, current address (street/city/state/pincode), permanent address (street/city/state/pincode) |
+| 5 | **Documents** | Upload area for 6 document types (after admission creation) |
+| 6 | **Fee Assignment & Review** | Assign fee structures, set custom amounts, review full application summary |
+
+### S.3 Admission Documents (Phase 2.7D)
+
+#### Supported Document Types
+
+| Document Type Key | Display Name | Description |
+|---|---|---|
+| `studentPhoto` | Student Photo | Recent passport size photo of the student |
+| `birthCertificateDoc` | Birth Certificate | Official government-issued certificate |
+| `studentAadhaarDoc` | Student Aadhaar Card | UIDAI Aadhaar Card of the student |
+| `parentAadhaarDoc` | Parent/Guardian Aadhaar Card | UIDAI Aadhaar Card of primary parent/guardian |
+| `transferCertificateDoc` | Transfer Certificate / LC / TC | School Leaving/Transfer Certificate |
+| `previousMarksCardDoc` | Previous Marksheet | Marks card from the last attended class/school |
+
+#### Behavior
+- Documents can be uploaded **after** admission creation (not during initial form submission).
+- Documents can be uploaded, viewed, downloaded, replaced, and deleted from the **Admission Details modal**.
+- **Documents are not mandatory** — missing documents do not block admission creation, approval, or conversion.
+- **Allowed file types**: PDF, JPG/JPEG, PNG.
+- **Maximum file size**: 5MB per file.
+- Files are stored in `server/private_uploads/admissions/` with unique timestamped filenames.
+
+### S.4 Student Documents (Phase 2.7E)
+
+#### Student Profile Documents Tab
+- The Student Profile page now includes a **Documents** tab alongside Overview, Academic, Attendance, Fees & Finance, and Leaves.
+- The Documents tab displays 6 document cards (same types as admission documents).
+- Each card shows:
+  - Document name and description
+  - Status badge: **Uploaded** (green) or **Missing** (orange)
+  - File name when uploaded
+  - Accepted format and size limits
+- Actions available per document:
+  - **Upload File** — when no document exists
+  - **View / Download** — opens or downloads the document
+  - **Replace** — overwrites with a new file (old file is deleted from disk)
+  - **Delete** — removes the file and clears the database reference
+- For students converted from an admission, a **"Created from Admission"** badge is displayed with the source admission ID.
+
+#### Document Sources
+- **Direct students** (added via Add Student): Documents can be uploaded from the Student Profile Documents tab.
+- **Converted students** (from admission): Documents are automatically copied during conversion. Additional documents can be uploaded or replaced afterward.
+
+### S.5 Security
+
+| Security Measure | Implementation |
+|---|---|
+| **Private storage** | Documents stored in `server/private_uploads/admissions/` and `server/private_uploads/students/` — not exposed via any public static file route |
+| **No public URL** | No `/uploads/` URL serves admission or student documents directly |
+| **Authenticated endpoints only** | All document upload/download/delete routes require valid JWT authentication |
+| **School-scoped access** | Document endpoints verify the student/admission belongs to the authenticated user's school |
+| **Permission-checked access** | Upload/replace/delete require `student:update` or `admission:update` permission; download requires `student:view` or `admission:view` |
+| **Path traversal protection** | Document type keys are validated against a whitelist; arbitrary file paths cannot be injected |
+| **File type validation** | Server-side MIME type and extension checks reject invalid uploads |
+| **File size validation** | Server-side 5MB limit enforced via Multer configuration |
+| **Old file cleanup** | When replacing a document, the old file is deleted from disk before the new file reference is saved |
+
+### S.6 Admission to Student Conversion — Document Copy
+
+When an admission is converted to a student via the "Convert to Student" action:
+
+1. **Physical file copy**: Each admission document file is physically copied from `server/private_uploads/admissions/` to `server/private_uploads/students/` with a new unique filename.
+2. **Original preserved**: The original admission document files are **not** deleted or modified.
+3. **Independent copies**: Student documents are fully independent — deleting or replacing a student document does not affect the source admission document.
+4. **Traceability**: The student record stores `sourceAdmissionId` linking back to the originating admission.
+5. **Optional files**: Missing admission documents are silently skipped — they do not block conversion.
+6. **Orphan cleanup**: If the database transaction fails after file copy, any copied student files are cleaned up (best-effort) to avoid orphaned files on disk.
+7. **Database format**: Only the filename (basename) is stored in the database, matching the format used by the student document upload endpoints.
+
+### S.7 UAT Test Checklist — Document Management
+
+#### Admission Document Tests
+- [ ] Create a new admission using the guided wizard.
+- [ ] After creation, open the Admission Details modal.
+- [ ] Upload a Student Photo (JPG/PNG).
+- [ ] Upload a Birth Certificate (PDF).
+- [ ] Verify uploaded documents show "Uploaded" badge and filename.
+- [ ] View/download an uploaded admission document.
+- [ ] Replace an uploaded admission document with a new file.
+- [ ] Delete an uploaded admission document.
+- [ ] Verify deleted document shows "Missing" badge.
+- [ ] Attempt to upload an invalid file type (e.g., .txt) — verify rejection.
+- [ ] Attempt to upload a file over 5MB — verify rejection.
+
+#### Admission to Student Conversion Tests
+- [ ] Approve an admission that has uploaded documents.
+- [ ] Convert the approved admission to a student.
+- [ ] Open the newly created student's profile.
+- [ ] Navigate to the Documents tab.
+- [ ] Verify all admission documents appear as copied student documents with "Uploaded" badges.
+- [ ] Verify the "Created from Admission" badge is visible with the source admission ID.
+- [ ] View/download a copied student document — verify it opens correctly.
+
+#### Direct Student Document Tests
+- [ ] Add a student directly (not from admission conversion).
+- [ ] Open the student's profile and navigate to the Documents tab.
+- [ ] Verify all 6 document cards show "Missing" badges initially.
+- [ ] Upload a document from the Student Profile Documents tab.
+- [ ] Verify the uploaded document shows "Uploaded" badge and filename.
+- [ ] View/download the uploaded student document.
+- [ ] Replace the uploaded student document with a new file.
+- [ ] Delete a student document — verify it shows "Missing" again.
+
+#### Existing Feature Regression
+- [ ] Verify existing student tabs (Overview, Academic, Attendance, Fees & Finance, Leaves) still work correctly.
+- [ ] Verify Add Student flow is unaffected.
+- [ ] Verify student list/search/filter is unaffected.
+- [ ] Verify admission list/approve/reject flow is unaffected.
+
+### S.8 Not Mandatory / Future Scope
+
+- **Documents are not mandatory**: No document is required for admission creation, approval, conversion, or student enrollment. Mandatory document rules can be configured in a future phase if required.
+- **Separate father/mother Aadhaar fields**: Currently a single `parentAadhaarDoc` field stores one parent/guardian Aadhaar document. Separate fields for father and mother Aadhaar cards can be added later if needed.
+- **Cloud storage**: Documents are currently stored on the local server filesystem. For production deployments requiring distributed storage, cloud object storage (AWS S3, Google Cloud Storage, etc.) can be integrated as a future enhancement.
+- **Document expiry/versioning**: Document version history and expiry tracking are not implemented. These can be added if required.
+- **Bulk document export**: Exporting all documents for a class or batch is not implemented. This can be added as a reporting feature.
+
+### S.9 Files Changed in Phase 2.7
+
+#### Schema & Migration
+| File | Description |
+|---|---|
+| `server/prisma/schema.prisma` | Added extended admission fields (2.7B), student document fields and `sourceAdmissionId` relation (2.7E-B) |
+| `20260608162632_add_admission_extended_fields` | Migration for admission wizard extended fields |
+| `20260609041541_add_student_document_fields` | Migration for student document fields and source admission traceability |
+
+#### Backend
+| File | Description |
+|---|---|
+| `server/src/controllers/admissionDocumentController.ts` | Admission document upload/download/delete controllers |
+| `server/src/controllers/studentDocumentController.ts` | Student document upload/download/delete controllers |
+| `server/src/middleware/uploadMiddleware.ts` | Added admission and student document Multer configurations with file type/size validation |
+| `server/src/routes/admissionRoutes.ts` | Added admission document routes |
+| `server/src/routes/studentRoutes.ts` | Added student document routes |
+| `server/src/services/AdmissionService.ts` | Updated `convertToStudent()` to copy admission documents to student storage with orphan cleanup |
+
+#### Frontend
+| File | Description |
+|---|---|
+| `client/src/features/admissions/AdmissionFormPage.tsx` | Revamped into 6-step guided wizard |
+| `client/src/features/admissions/AdmissionsListPage.tsx` | Added document upload/view/download/delete in Admission Details modal |
+| `client/src/features/admissions/admissionApi.ts` | Admission document API helpers |
+| `client/src/features/students/StudentProfilePage.tsx` | Added Documents tab with 6 document cards |
+| `client/src/features/students/studentApi.ts` | Student document API helpers |
+| `client/src/types/index.ts` | Added student document fields and `sourceAdmissionId` to Student interface |
+
+#### Test Scripts
+| File | Description |
+|---|---|
+| `server/scripts/test-admission-document-upload.ts` | Admission document backend E2E tests (9 tests) |
+| `server/scripts/test-student-document-upload.ts` | Student document backend E2E tests (9 tests) |
+| `server/scripts/test-admission-to-student-document-copy.ts` | Admission-to-student document copy E2E tests |
+
+### S.10 Phase 2.7 Verification Results
+
+| Check | Result |
+|---|---|
+| Server `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Server `npm run build` | ✅ PASS |
+| Client `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Client `npm run build` | ✅ PASS |
+| `test-admission-document-upload.ts` | ✅ PASS — 9/9 tests |
+| `test-student-document-upload.ts` | ✅ PASS — 9/9 tests |
+| `test-admission-to-student-document-copy.ts` | ✅ PASS |
+| `test-extended-fields.ts` (regression) | ✅ PASS |
+| `test-triggers.ts` (regression) | ✅ PASS |
+| `audit-test.ts` (regression) | ✅ PASS |
+| Browser UI — Documents tab renders | ✅ PASS — 6 document cards visible |
+| Commits | `aa48896` → `fd44aa3` — pushed to `origin/Nupun` |
+
+### S.11 Final Status
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
