@@ -125,10 +125,10 @@ async function run() {
 
     // Verify DB field updated
     const updatedStudent1 = await prisma.student.findUnique({ where: { id: student.id } }) as any;
-    if (updatedStudent1?.birthCertificateDoc !== `private_uploads/students/${birthCertFileName}`) {
+    if (updatedStudent1?.birthCertificateDoc !== birthCertFileName) {
       throw new Error(`DB not updated. Found birthCertificateDoc: ${updatedStudent1?.birthCertificateDoc}`);
     }
-    console.log(`Verified: DB record matches uploaded path: ${updatedStudent1?.birthCertificateDoc}`);
+    console.log(`Verified: DB record matches uploaded filename: ${updatedStudent1?.birthCertificateDoc}`);
 
 
     // Test 2: Upload a JPEG file and test overwrite/delete logic

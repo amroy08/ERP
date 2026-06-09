@@ -107,11 +107,11 @@ export const uploadStudentDocument = async (req: AuthRequest, res: Response, nex
 
     // Save path in db
     const oldFilePath = (student as any)[documentType];
-    const newRelativePath = path.relative(process.cwd(), req.file.path);
+    const relativeFileName = path.basename(req.file.path);
 
     await prisma.student.update({
       where: { id: student.id },
-      data: { [documentType]: newRelativePath }
+      data: { [documentType]: relativeFileName }
     });
 
     // Delete old file if present
