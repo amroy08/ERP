@@ -552,6 +552,15 @@ export const getStudentAttendanceReport = async (req: Request, res: Response, ne
             res.status(403).json({ success: false, message: 'Access denied. You can only view your own attendance report.' });
             return;
         }
+    } else if (authUser.role === 'parent') {
+        const parent = await prisma.parent.findUnique({
+            where: { userId: authUser.id },
+            include: { children: { select: { id: true } } }
+        });
+        if (!parent || !parent.children.some(child => child.id === studentId)) {
+            res.status(403).json({ success: false, message: 'Access denied. This student is not linked to your account.' });
+            return;
+        }
     }
 
     const records = await prisma.attendance.findMany({
@@ -2097,6 +2106,36 @@ export const getTimetables = async (req: AuthRequest, res: Response, next: NextF
       if (student) {
         where.AND.push({ classId: student.classId });
         where.AND.push({ sectionId: student.sectionId });
+      }
+    } else if (authUser.role === 'parent') {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: authUser.id },
+        include: { children: { select: { classId: true, sectionId: true } } }
+      });
+      if (!parent || parent.children.length === 0) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+      const linkedClassIds = parent.children.map(c => c.classId);
+      const linkedSectionIds = parent.children.filter(c => c.sectionId).map(c => c.sectionId as string);
+
+      if (classId && !linkedClassIds.includes(classId)) {
+        res.status(403).json({ success: false, message: 'Access denied. Selected class not linked to your children.' });
+        return;
+      }
+      if (sectionId && !linkedSectionIds.includes(sectionId)) {
+        res.status(403).json({ success: false, message: 'Access denied. Selected section not linked to your children.' });
+        return;
+      }
+
+      // If no explicit class or section filters passed, return only linked children timetables
+      if (!classId && !sectionId) {
+        where.AND.push({
+          OR: parent.children.map(child => ({
+            classId: child.classId,
+            sectionId: child.sectionId || undefined
+          }))
+        });
       }
     } else if (authUser.role === 'teacher') {
       // If teacher explicitly selected a class/section, let them view it

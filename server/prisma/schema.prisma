@@ -26,6 +26,7 @@ model User {
   student      Student?
   teacher      Teacher?
   supportTickets SupportTicket[]
+  deviceTokens DeviceToken[]
   school       School?   @relation("UserSchool", fields: [schoolId], references: [id])
 
   @@index([schoolId], map: "users_schoolId_fkey")
@@ -885,4 +886,23 @@ model EmailNotificationLog {
   @@index([recipientEmail])
   @@index([createdAt])
   @@map("email_notification_logs")
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid())
+  userId     String
+  token      String   @unique
+  deviceType String
+  platform   String?
+  appVersion String?
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("device_tokens")
 }
