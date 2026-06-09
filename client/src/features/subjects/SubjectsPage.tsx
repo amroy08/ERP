@@ -23,6 +23,11 @@ export const SubjectsPage: React.FC = () => {
   const [classes, setClasses] = useState<ClassDoc[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
 
+  // Section-wise Teacher Assignment states
+  const [classSections, setClassSections] = useState<any[]>([]);
+  const [isLoadingSections, setIsLoadingSections] = useState(false);
+  const [formAssignments, setFormAssignments] = useState<{ sectionId: string; teacherId: string }[]>([]);
+
   useEffect(() => {
     axiosInstance.get<ApiResponse<ClassDoc[]>>('/classes').then(res => setClasses(res.data.data));
     axiosInstance.get<ApiResponse<Teacher[]>>('/teachers').then(res => setTeachers(res.data.data));
@@ -31,6 +36,29 @@ export const SubjectsPage: React.FC = () => {
   useEffect(() => {
     fetchSubjects();
   }, []);
+
+  // Fetch sections when class changes in modal
+  useEffect(() => {
+    if (newSubject.classId) {
+      setIsLoadingSections(true);
+      axiosInstance.get<ApiResponse<any[]>>(`/sections?classId=${newSubject.classId}`)
+        .then(res => {
+          setClassSections(res.data.data);
+          // Sync and clean assignments to ensure they are valid for the current class's sections
+          setFormAssignments(prev => prev.filter(a => res.data.data.some(s => s.id === a.sectionId)));
+        })
+        .catch(err => {
+          console.error('Failed to load sections:', err);
+          toast.error('Failed to load sections for this class');
+        })
+        .finally(() => {
+          setIsLoadingSections(false);
+        });
+    } else {
+      setClassSections([]);
+      setFormAssignments([]);
+    }
+  }, [newSubject.classId]);
 
   const fetchSubjects = async () => {
     try {
@@ -43,20 +71,31 @@ export const SubjectsPage: React.FC = () => {
     }
   };
 
+  const resetForm = () => {
+    setIsModalOpen(false);
+    setIsEditing(false);
+    setSelectedSubject(null);
+    setNewSubject({ name: '', code: '', isOptional: false, classId: '', teacherId: '' });
+    setFormAssignments([]);
+    setClassSections([]);
+  };
+
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...newSubject,
+        assignments: formAssignments.filter(a => a.teacherId)
+      };
+
       if (isEditing && selectedSubject) {
-        await axiosInstance.put(`/subjects/${selectedSubject.id}`, newSubject);
+        await axiosInstance.put(`/subjects/${selectedSubject.id}`, payload);
         toast.success('Subject updated');
       } else {
-        await axiosInstance.post('/subjects', newSubject);
+        await axiosInstance.post('/subjects', payload);
         toast.success('Subject created successfully');
       }
-      setIsModalOpen(false);
-      setNewSubject({ name: '', code: '', isOptional: false, classId: '', teacherId: '' });
-      setIsEditing(false);
-      setSelectedSubject(null);
+      resetForm();
       fetchSubjects();
     } catch (err) {
       toast.error('Failed to save subject');
@@ -72,6 +111,13 @@ export const SubjectsPage: React.FC = () => {
       classId: subject.class?.id || '',
       teacherId: subject.teacher?.id || ''
     });
+
+    const initialAssignments = (subject.subjectTeachers || []).map(st => ({
+      sectionId: st.sectionId,
+      teacherId: st.teacherId || ''
+    }));
+    setFormAssignments(initialAssignments);
+
     setIsEditing(true);
     setIsModalOpen(true);
   };
@@ -85,6 +131,16 @@ export const SubjectsPage: React.FC = () => {
     } catch {
       toast.error('Failed to delete subject');
     }
+  };
+
+  const handleSectionTeacherChange = (sectionId: string, teacherId: string) => {
+    setFormAssignments(prev => {
+      const filtered = prev.filter(a => a.sectionId !== sectionId);
+      if (teacherId) {
+        return [...filtered, { sectionId, teacherId }];
+      }
+      return filtered;
+    });
   };
 
   const filteredSubjects = subjects.filter(s => 
@@ -182,18 +238,42 @@ export const SubjectsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 border border-slate-200/50 overflow-hidden">
-                          {subject.teacher?.user?.profilePhoto ? (
-                            <img src={subject.teacher.user.profilePhoto} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            subject.teacher?.user?.name?.charAt(0) || '?'
-                          )}
+                    <div className="space-y-2">
+                       {/* Primary Fallback */}
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 border border-slate-200/50 overflow-hidden">
+                             {subject.teacher?.user?.profilePhoto ? (
+                               <img src={subject.teacher.user.profilePhoto} alt="" className="w-full h-full object-cover" />
+                             ) : (
+                               subject.teacher?.user?.name?.charAt(0) || '?'
+                             )}
+                          </div>
+                          <div>
+                             <span className="block text-xs font-black text-slate-800">{subject.teacher?.user?.name || 'Not Staffed'}</span>
+                             <span className="text-[10px] text-slate-400 font-bold leading-none">Primary Fallback</span>
+                          </div>
                        </div>
-                       <div>
-                          <span className="block text-xs font-black text-slate-800">{subject.teacher?.user?.name || 'Not Staffed'}</span>
-                          <span className="text-[10px] text-slate-400 font-bold">Primary Faculty</span>
-                       </div>
+
+                       {/* Section-wise assignments list */}
+                       {subject.subjectTeachers && subject.subjectTeachers.length > 0 && (
+                         <div className="pt-2 border-t border-slate-100 flex flex-col gap-1">
+                           {subject.subjectTeachers.slice(0, 3).map(st => (
+                             <div key={st.id} className="flex items-center gap-2">
+                               <span className="text-[9px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                                 Sec {st.section?.name}
+                               </span>
+                               <span className="text-[10px] font-bold text-slate-600 truncate max-w-[120px]">
+                                 {st.teacher?.user?.name || 'Unassigned'}
+                               </span>
+                             </div>
+                           ))}
+                           {subject.subjectTeachers.length > 3 && (
+                             <span className="text-[9px] text-slate-400 font-bold pl-2">
+                               +{subject.subjectTeachers.length - 3} more sections
+                             </span>
+                           )}
+                         </div>
+                       )}
                     </div>
                   </td>
                   <td className="px-6 py-5">
@@ -253,7 +333,7 @@ export const SubjectsPage: React.FC = () => {
 
       <Modal 
         isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setIsEditing(false); setSelectedSubject(null); setNewSubject({ name: '', code: '', isOptional: false, classId: '', teacherId: '' }); }} 
+        onClose={resetForm} 
         title={isEditing ? "Modify Subject Definition" : "Register New Subject"}
         size="md"
       >
@@ -296,6 +376,58 @@ export const SubjectsPage: React.FC = () => {
                   {teachers.map(t => <option key={t.id} value={t.id}>{t.user?.name}</option>)}
                </select>
             </div>
+
+            {/* Sections Loading Indicator */}
+            {isLoadingSections && (
+              <div className="col-span-1 md:col-span-2 text-center py-4">
+                <span className="text-xs font-bold text-slate-400 animate-pulse">Loading sections...</span>
+              </div>
+            )}
+
+            {/* Empty sections helper text */}
+            {!isLoadingSections && newSubject.classId && classSections.length === 0 && (
+              <div className="col-span-1 md:col-span-2 bg-amber-50/50 border border-amber-100 rounded-xl p-3 text-center">
+                <p className="text-xs text-amber-700 font-bold">No sections found for this class. The primary teacher will be used as fallback.</p>
+              </div>
+            )}
+
+            {/* Section-wise assignments fields */}
+            {!isLoadingSections && classSections.length > 0 && (
+              <div className="col-span-1 md:col-span-2 space-y-3 pt-4 border-t border-slate-100 max-h-60 overflow-y-auto pr-1">
+                <div>
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Section-wise Teacher Assignment</h3>
+                  <p className="text-[11px] text-slate-400 font-medium leading-tight mt-1">
+                    Assign teachers per section. If left blank, the primary assigned faculty will be used as fallback.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {classSections.map(section => {
+                    const assignedTeacherId = formAssignments.find(a => a.sectionId === section.id)?.teacherId || '';
+                    return (
+                      <div key={section.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center font-bold text-sm text-indigo-600 shrink-0">
+                          {section.name}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <select 
+                            value={assignedTeacherId}
+                            onChange={e => handleSectionTeacherChange(section.id, e.target.value)}
+                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-bold transition-all text-slate-700"
+                          >
+                            <option value="">Use Fallback Teacher</option>
+                            {teachers.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.user?.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           
           <div 
@@ -310,8 +442,8 @@ export const SubjectsPage: React.FC = () => {
                newSubject.isOptional ? 'bg-indigo-600' : 'bg-slate-300'
              )}>
                 <div className={clsx(
-                  "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md",
-                  newSubject.isOptional ? 'left-7' : 'left-1'
+                   "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md",
+                   newSubject.isOptional ? 'left-7' : 'left-1'
                 )} />
              </div>
              <div>
@@ -324,7 +456,7 @@ export const SubjectsPage: React.FC = () => {
           </div>
 
           <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
-            <Button variant="secondary" className="px-8 h-12 rounded-xl" onClick={() => { setIsModalOpen(false); setIsEditing(false); setSelectedSubject(null); setNewSubject({ name: '', code: '', isOptional: false, classId: '', teacherId: '' }); }}>Discard</Button>
+            <Button variant="secondary" className="px-8 h-12 rounded-xl" onClick={resetForm}>Discard</Button>
             <Button type="submit" className="px-10 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20">
                {isEditing ? "Update Subject" : "Finalize Registration"}
             </Button>

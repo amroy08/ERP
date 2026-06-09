@@ -266,9 +266,53 @@ export const HomeworkPage: React.FC = () => {
                   >
                      <option value="">Select Subject...</option>
                      {subjects
-                       .filter(s => !form.classId || s.class?.id === form.classId)
+                       .filter(s => {
+                         if (form.classId && s.class?.id !== form.classId) return false;
+                         
+                         // If teacher role, verify teacher assignment
+                         if (user?.role === 'teacher') {
+                           const teacherId = user.teacher?.id;
+                           if (!teacherId) return false;
+                           
+                           // Check section assignment if section is selected
+                           if (form.sectionId) {
+                             const sectionAssignment = s.subjectTeachers?.find(
+                               st => st.sectionId === form.sectionId
+                             );
+                             if (sectionAssignment) {
+                               return sectionAssignment.teacherId === teacherId;
+                             }
+                           }
+                           
+                           // Fallback to class-level teacher check
+                           return s.teacher?.id === teacherId;
+                         }
+                         return true;
+                       })
                        .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                  {form.subjectId && (() => {
+                     const selectedSub = subjects.find(s => s.id === form.subjectId);
+                     if (!selectedSub) return null;
+                     const sectionAssignment = selectedSub.subjectTeachers?.find(
+                       st => st.sectionId === form.sectionId
+                     );
+                     if (sectionAssignment?.teacher?.user?.name) {
+                       return (
+                         <p className="text-[10px] font-bold text-indigo-600 mt-1 pl-1">
+                           Section Teacher: {sectionAssignment.teacher.user.name}
+                         </p>
+                       );
+                     }
+                     if (selectedSub.teacher?.user?.name) {
+                       return (
+                         <p className="text-[10px] font-bold text-slate-500 mt-1 pl-1">
+                           Using Primary Teacher fallback: {selectedSub.teacher.user.name}
+                         </p>
+                       );
+                     }
+                     return <p className="text-[10px] font-bold text-amber-500 mt-1 pl-1">No teacher assigned for this subject</p>;
+                  })()}
                </div>
 
                <div>

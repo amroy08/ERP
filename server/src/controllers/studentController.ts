@@ -618,6 +618,14 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
     const results = { success: 0, failed: 0, errors: [] as string[] };
     const hashedPassword = await bcrypt.hash('Student@123', 10);
 
+    // Pre-fetch all existing admission numbers in the school/system to prevent collisions
+    const existingStudents = await prisma.student.findMany({
+      where: getSchoolScope(req),
+      select: { admissionNumber: true }
+    });
+    const existingAdmissionNumbers = new Set(existingStudents.map(s => s.admissionNumber.toLowerCase()));
+    const generatedInBatch = new Set<string>();
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowNum = i + 2; // +2 because row 1 is headers, data starts at 2
@@ -700,10 +708,34 @@ export const importStudents = async (req: AuthRequest, res: Response, next: Next
         if (gender.startsWith('f')) genderEnum = 'female';
         else if (gender.startsWith('o') || gender.startsWith('t')) genderEnum = 'other';
 
-        // Generate admission number
-        const year = new Date().getFullYear();
-        const seq = Math.floor(1000 + Math.random() * 9000);
-        const admissionNumber = `ADM-${year}-${seq}`;
+        // Resolve or generate admission number
+        let admissionNumber = col(row, 'Admission Number', 'AdmissionNumber', 'admission_number', 'admission_no', 'adm_no', 'admno');
+        if (admissionNumber) {
+          admissionNumber = admissionNumber.trim();
+          // Check if already exists in system or batch
+          if (existingAdmissionNumbers.has(admissionNumber.toLowerCase()) || generatedInBatch.has(admissionNumber.toLowerCase())) {
+            results.errors.push(`Row ${rowNum}: Admission number "${admissionNumber}" is already in use`);
+            results.failed++;
+            continue;
+          }
+        } else {
+          // Generate a unique admission number
+          const year = new Date().getFullYear();
+          let attempts = 0;
+          while (attempts < 100) {
+            const seq = Math.floor(1000 + Math.random() * 9000);
+            const candidate = `ADM-${year}-${seq}`;
+            if (!existingAdmissionNumbers.has(candidate.toLowerCase()) && !generatedInBatch.has(candidate.toLowerCase())) {
+              admissionNumber = candidate;
+              break;
+            }
+            attempts++;
+          }
+          if (!admissionNumber) {
+            admissionNumber = `ADM-${year}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          }
+        }
+        generatedInBatch.add(admissionNumber.toLowerCase());
 
         // Create parent
         const parent = await (prisma as any).parent.create({

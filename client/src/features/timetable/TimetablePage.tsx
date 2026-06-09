@@ -153,7 +153,12 @@ export const TimetablePage: React.FC = () => {
     // Auto-teacher lookup if subjectId changes
     if (field === 'subjectId') {
       const subject = subjects.find(s => s.id === value);
-      if (subject?.teacher?.id) {
+      const sectionAssignment = subject?.subjectTeachers?.find(
+        st => st.sectionId === selectedSectionId
+      );
+      if (sectionAssignment?.teacherId) {
+        list[index].teacherId = sectionAssignment.teacherId;
+      } else if (subject?.teacher?.id) {
         list[index].teacherId = subject.teacher?.id;
       }
     }
@@ -435,15 +440,23 @@ export const TimetablePage: React.FC = () => {
                                         </select>
                                      </div>
                                      <div className="flex-1 min-w-[200px] space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Faculty</label>
-                                        <select 
-                                          value={entry.teacherId} 
-                                          onChange={e => updateEntry(idx, 'teacherId', e.target.value)}
-                                          className="w-full h-10 px-3 py-1 text-xs font-black border border-slate-50 rounded-lg bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                        >
-                                           <option value="">Select</option>
-                                           {teachers.map(t => <option key={t.id} value={t.id}>{t.user?.name || t.user?.fullName || 'Unknown'}</option>)}
-                                        </select>
+                                         <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Faculty</label>
+                                         <select 
+                                           value={entry.teacherId} 
+                                           onChange={e => updateEntry(idx, 'teacherId', e.target.value)}
+                                           className="w-full h-10 px-3 py-1 text-xs font-black border border-slate-50 rounded-lg bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                         >
+                                            <option value="">Select</option>
+                                            {teachers.map(t => <option key={t.id} value={t.id}>{t.user?.name || t.user?.fullName || 'Unknown'}</option>)}
+                                         </select>
+                                         {entry.subjectId && (() => {
+                                            const sub = subjects.find(s => s.id === entry.subjectId);
+                                            const st = sub?.subjectTeachers?.find(x => x.sectionId === selectedSectionId);
+                                            if (st?.teacherId) {
+                                               return <p className="text-[9px] font-bold text-indigo-600 leading-tight">Teacher auto-selected based on selected section assignment.</p>;
+                                            }
+                                            return null;
+                                         })()}
                                      </div>
                                      <div className="w-24 space-y-1.5">
                                         <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Room</label>

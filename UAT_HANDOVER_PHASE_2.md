@@ -210,7 +210,7 @@ The fee module supports two collection methods:
 ---
 
 ## O. Final Release Readiness Statement
-> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, DOCUMENT MANAGEMENT, AND SECTION-WISE SUBJECT TEACHER ASSIGNMENT INCLUDED**
 >
 > The current branch is ready for UAT/staging deployment based on successful build, migration, role login, security scope, fee allocation, parent/student portal revamp, email notification system triggers, admission wizard, document management, and business flow smoke tests. All backend security and duplicate checks pass. TypeScript and production builds are clean across server and client.
 
@@ -542,7 +542,7 @@ Expected output: `emailLogCount = 0`.
 - **Production SMTP**: Real sending requires configuration of production mailservers.
 
 ### R.10 Final Status
-> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, DOCUMENT MANAGEMENT, AND SECTION-WISE SUBJECT TEACHER ASSIGNMENT INCLUDED**
 
 ---
 
@@ -741,4 +741,84 @@ When an admission is converted to a student via the "Convert to Student" action:
 | Commits | `aa48896` → `fd44aa3` — pushed to `origin/Nupun` |
 
 ### S.11 Final Status
-> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, AND DOCUMENT MANAGEMENT INCLUDED**
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, DOCUMENT MANAGEMENT, AND SECTION-WISE SUBJECT TEACHER ASSIGNMENT INCLUDED**
+
+---
+
+## T. Phase 2.8: Section-wise Subject Teacher Assignment
+
+### T.1 Summary
+Earlier, subject-to-teacher assignment was class-level only (one teacher per subject per class). In Phase 2.8, the system was upgraded to support section-wise subject teacher assignments, allowing different teachers to teach the same subject to different sections of the same class.
+- **Example**:
+  - Class 9 - Section A - Mathematics - Teacher A
+  - Class 9 - Section B - Mathematics - Teacher B
+  - Class 9 - Section C - Mathematics - Teacher C
+- **Fallback**: The primary/class-level teacher remains configured as the fallback option. If no section-specific teacher is assigned to a section, the system automatically falls back to the primary/class-level teacher assignment.
+
+### T.2 Backend Support
+- **Junction Model**: Introduced the `SubjectTeacher` model in Prisma to record section-wise subject teacher assignments linking `Subject`, `Section`, and `Teacher`.
+- **Subject APIs**: Updated the create/update endpoints for subjects to support the payload format:
+  ```ts
+  assignments?: Array<{
+    sectionId: string;
+    teacherId?: string | null;
+  }>
+  ```
+- **Syllabus Retrieval**: Updated the `getSubjects` API logic to load and return `subjectTeachers` relation details with nested sections and teacher profile details.
+- **Homework Authorization**: Updated verification checks so that teachers are authorized to assign homework if they are assigned to that subject either section-wise for the target section, or class-wide via the fallback primary teacher.
+- **Teacher Dashboard**: Updated the dashboard statistics counting logic to dynamically scan both class-level and section-wise assignments for the logged-in teacher.
+
+### T.3 Subject UI
+- **Add/Modify Modal**: Form modal on the Curriculum Management/Subjects page dynamically fetches and displays the sections for the selected Class. For each section, a teacher selection dropdown is rendered, defaulting to `"Use Fallback Teacher"`.
+- **List Display**: The subject table lists the primary teacher as the fallback (e.g. `Primary: Teacher Name`), and displays a clean list of section-wise assignments below it (e.g. `Sec A: Teacher A`, `Sec B: Teacher B`).
+
+### T.4 Timetable/Homework Behavior
+- **Timetable Builder**: Selecting a subject for a timetable slot automatically resolves and selects the correct teacher based on the selected class, section, and subject-section teacher assignments. A helper message `Teacher auto-selected based on selected section assignment.` is displayed under the dropdown.
+- **Homework Modal**: Creating homework prompts the user with class and section contexts. Once a subject is selected, it displays either the section-specific assigned teacher or falls back to the class-level primary teacher. Teachers are filtered so they can only assign homework to sections they actually teach.
+
+### T.5 UAT Test Checklist
+- [ ] **Primary Fallback Verification**: Create a subject with a primary teacher only (leaving section-wise assignments blank) and save it. Verify fallback teacher displays.
+- [ ] **Section Assignments Creation**: Create a subject with Section A assigned to Teacher A, and Section B assigned to Teacher B. Save and verify assignments show on the subject list.
+- [ ] **Modify Assignment**: Open the Edit modal, change a section-wise teacher assignment, and save it. Re-open the modal and verify the change persists.
+- [ ] **Timetable Auto-Select (Sec A)**: Open the timetable builder for Class 9 Section A, add the subject, and verify Teacher A is auto-selected.
+- [ ] **Timetable Auto-Select (Sec B)**: Open the timetable builder for Class 9 Section B, add the subject, and verify Teacher B is auto-selected.
+- [ ] **Homework Creation**: Assign homework for Section A and verify it saves successfully under the correct teacher context.
+- [ ] **Teacher Role Authorization**: Log in as a teacher and verify they can only assign homework to sections they are assigned to teach.
+- [ ] **Backward Compatibility**: Verify older subjects without section-wise assignments still render and work correctly.
+
+### T.6 Security/Validation
+- **Unique Constraint**: The junction table enforces a unique constraint on `[subjectId, sectionId]`, blocking duplicate assignments.
+- **Class Match Validation**: Section IDs are validated to ensure they belong to the selected class.
+- **Cross-School Block**: Domain queries verify school boundaries, preventing cross-school edits.
+
+### T.7 Not Mandatory / Future Scope
+- **Optional Use**: Section-wise assignments are optional. Schools can continue assigning one teacher at the class level if desired.
+- **Timetable Conflicts**: Automatic conflict checking for section-wise teachers in timetable grid entries can be expanded.
+- **Teacher Workload Reports**: Future live stats of teacher periods across sections can be added.
+
+### T.8 Files Changed in Phase 2.8
+- `client/src/types/index.ts` (Subject Doc types)
+- `client/src/features/subjects/SubjectsPage.tsx` (Curriculum management UI)
+- `client/src/features/timetable/TimetablePage.tsx` (Timetable auto-select logic)
+- `client/src/features/homework/HomeworkPage.tsx` (Homework dropdown filtering and helpers)
+- `server/src/controllers/studentController.ts` (Collision/deduplication checks on Excel student imports)
+
+### T.9 Phase 2.8 Verification Results
+
+| Check | Result |
+|---|---|
+| Server `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Server `npm run build` | ✅ PASS |
+| Client `npx tsc --noEmit` | ✅ PASS — 0 errors |
+| Client `npm run build` | ✅ PASS |
+| `test-section-subject-teachers.ts` | ✅ PASS |
+| `test-triggers.ts` (regression) | ✅ PASS |
+| `audit-test.ts` (regression) | ✅ PASS |
+| `concurrency-test.ts` (regression) | ✅ PASS |
+| Timetable Auto-Selection Test | ✅ PASS |
+| Homework Dropdown Filtering Test | ✅ PASS |
+| Commits | Pushed to `origin/Nupun` |
+
+### T.10 Final Status
+> **READY FOR UAT / STAGING DEPLOYMENT WITH EMAIL NOTIFICATIONS, ADMISSION WIZARD, DOCUMENT MANAGEMENT, AND SECTION-WISE SUBJECT TEACHER ASSIGNMENT INCLUDED**
+

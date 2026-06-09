@@ -246,6 +246,23 @@ export interface SubjectDoc {
   isActive: boolean;
   class?: { id: string; name: string };
   teacher?: { id: string; fullName: string; profilePhoto?: string; user?: { name: string; profilePhoto?: string } };
+  subjectTeachers?: Array<{
+    id: string;
+    sectionId: string;
+    teacherId: string | null;
+    status?: string;
+    section?: {
+      id: string;
+      name: string;
+    };
+    teacher?: {
+      id: string;
+      user?: {
+        name?: string;
+        email?: string;
+      };
+    } | null;
+  }>;
 }
 
 export interface Address {
