@@ -1,6 +1,7 @@
 import { Badge } from "../../components/common/Badge";
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Phone, Mail, MapPin, BookOpen, GraduationCap, CheckCircle, XCircle, Clock, ArrowRight, Edit3, Save, X, Calculator, IndianRupee, Users, Briefcase, AlertCircle } from 'lucide-react';
+import { User, Phone, Mail, MapPin, BookOpen, GraduationCap, CheckCircle, XCircle, Clock, ArrowRight, Edit3, Save, X, Calculator, IndianRupee, Users, Briefcase, AlertCircle, Upload, Trash2, Loader2, Download } from 'lucide-react';
+import { uploadAdmissionDocument, downloadAdmissionDocument, deleteAdmissionDocument } from './admissionApi';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -17,7 +18,7 @@ interface AdmissionDetailsModalProps {
   admission: any | null;  // Use any since the API schema has evolved
   onUpdate: () => void;
 }
-export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ isOpen, onClose, admission, onUpdate }) => {
+export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ isOpen, onClose, admission: propAdmission, onUpdate }) => {
   const { isRole } = usePermissions();
   const [classes, setClasses] = useState<ClassDoc[]>([]);
   const [sections, setSections] = useState<SectionDoc[]>([]);
@@ -28,6 +29,86 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
   const [enrollmentSuccess, setEnrollmentSuccess] = useState<any>(null);
   const [tempAssignments, setTempAssignments] = useState<{ feeStructureId: string; amount: number }[]>([]);
   const [activeTab, setActiveTab] = useState<'student' | 'parents' | 'addresses' | 'documents' | 'fees'>('student');
+
+  const [localAdmission, setLocalAdmission] = useState<any>(null);
+  const [actionDocType, setActionDocType] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && propAdmission) {
+      setLocalAdmission(propAdmission);
+    }
+  }, [propAdmission, isOpen]);
+
+  const admission = localAdmission || propAdmission;
+
+  const handleUploadDoc = async (key: string, file: File) => {
+    if (!admission?.id) return;
+    
+    // Validate file type
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+    if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(file.type)) {
+      toast.error('Invalid file type. Only PDF, JPG, JPEG, and PNG are allowed.');
+      return;
+    }
+
+    // Validate size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File is too large. Maximum size allowed is 5MB.');
+      return;
+    }
+
+    setActionDocType(key);
+    try {
+      const response = await uploadAdmissionDocument(admission.id, key, file);
+      toast.success(`${key.replace('Doc', '').replace('student', 'Student ').replace('parent', 'Parent ')} uploaded successfully!`);
+      
+      setLocalAdmission((prev: any) => ({
+        ...prev,
+        [key]: response.data.fileName
+      }));
+      onUpdate();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload document');
+    } finally {
+      setActionDocType(null);
+    }
+  };
+
+  const handleDeleteDoc = async (key: string) => {
+    if (!admission?.id) return;
+    if (!window.confirm(`Are you sure you want to delete the ${key.replace('Doc', '').replace('student', 'Student ').replace('parent', 'Parent ')} document?`)) return;
+
+    setActionDocType(key);
+    try {
+      await deleteAdmissionDocument(admission.id, key);
+      toast.success(`${key.replace('Doc', '').replace('student', 'Student ').replace('parent', 'Parent ')} document deleted.`);
+      
+      setLocalAdmission((prev: any) => ({
+        ...prev,
+        [key]: null
+      }));
+      onUpdate();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete document');
+    } finally {
+      setActionDocType(null);
+    }
+  };
+
+  const handleViewDoc = async (key: string) => {
+    if (!admission?.id) return;
+    setActionDocType(key);
+    try {
+      await downloadAdmissionDocument(admission.id, key);
+    } catch (err: any) {
+      toast.error('Failed to view/download document.');
+    } finally {
+      setActionDocType(null);
+    }
+  };
   
   const canProcessAdmissions = isRole(['super_admin', 'admin', 'clerk']);
   
@@ -519,58 +600,222 @@ export const AdmissionDetailsModal: React.FC<AdmissionDetailsModalProps> = ({ is
               </div>
             )}
 
-            {/* Documents Checklist Tab */}
+            {/* Documents Tab */}
             {activeTab === 'documents' && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs font-medium flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-800 text-xs font-medium flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold">Checklist Verification Status</p>
-                    <p className="mt-0.5 opacity-90">Digital document upload links will be operational in the next phase rollout (Phase 2.7D). Please verify paper-based documents physically.</p>
+                    <p className="font-bold">Digital Document Manager</p>
+                    <p className="mt-0.5 opacity-90">Manage candidate and parent digital records safely. Accepted: PDF, JPG, PNG. Max size: 5MB.</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Student Docs */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                       Candidate Documentation
                     </h4>
                     {[
-                      'Student Aadhaar Card',
-                      'Birth Certificate',
-                      'Leaving Certificate / TC / LC',
-                      'Previous Marksheet',
-                      'Passport Size Photo'
-                    ].map((docName) => (
-                      <div key={docName} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-50/50">
-                        <span className="text-xs font-bold text-slate-700">{docName}</span>
-                        <span className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
-                          Pending Upload
-                        </span>
-                      </div>
-                    ))}
+                      { key: 'studentPhoto', label: 'Student Photo', description: 'Recent passport size photo' },
+                      { key: 'birthCertificateDoc', label: 'Birth Certificate', description: 'Official date of birth certificate' },
+                      { key: 'studentAadhaarDoc', label: 'Student Aadhaar Card', description: 'Student\'s Aadhaar card' },
+                      { key: 'transferCertificateDoc', label: 'Leaving Certificate / TC / LC', description: 'Leaving or Transfer certificate' },
+                      { key: 'previousMarksCardDoc', label: 'Previous Marksheet', description: 'Previous class marks card' }
+                    ].map((field) => {
+                      const storedFileName = admission[field.key];
+                      const isUploaded = !!storedFileName;
+                      const isProcessing = actionDocType === field.key;
+                      
+                      return (
+                        <div key={field.key} className="flex flex-col p-4 border border-slate-100 rounded-xl bg-slate-50/50 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <span className="text-xs font-bold text-slate-700 block">{field.label}</span>
+                              <span className="text-[10px] text-slate-400 block">{field.description}</span>
+                            </div>
+                            <div>
+                              {isUploaded ? (
+                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                  Uploaded
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
+                                  Missing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {isUploaded && (
+                            <div className="bg-white border border-slate-100 rounded-lg p-2 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-slate-500 truncate max-w-[200px]">{storedFileName}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            {isUploaded ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isProcessing}
+                                  onClick={() => handleViewDoc(field.key)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? <Loader2 className="w-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                  View
+                                </button>
+                                <label 
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors transition-all select-none ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  Replace
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={isProcessing}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleUploadDoc(field.key, file);
+                                    }}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  disabled={isProcessing}
+                                  onClick={() => handleDeleteDoc(field.key)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? <Loader2 className="w-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                  Delete
+                                </button>
+                              </>
+                            ) : (
+                              <label 
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-700 transition-colors select-none ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                              >
+                                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                Upload File
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  disabled={isProcessing}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadDoc(field.key, file);
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Parent Docs */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                       Parent Documentation
                     </h4>
                     {[
-                      'Father Aadhaar Card',
-                      'Mother Aadhaar Card',
-                      'Guardian ID Proof'
-                    ].map((docName) => (
-                      <div key={docName} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-50/50">
-                        <span className="text-xs font-bold text-slate-700">{docName}</span>
-                        <span className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
-                          Pending Upload
-                        </span>
-                      </div>
-                    ))}
+                      { key: 'parentAadhaarDoc', label: 'Parent/Guardian Aadhaar Card', description: 'Aadhaar identification card' }
+                    ].map((field) => {
+                      const storedFileName = admission[field.key];
+                      const isUploaded = !!storedFileName;
+                      const isProcessing = actionDocType === field.key;
+                      
+                      return (
+                        <div key={field.key} className="flex flex-col p-4 border border-slate-100 rounded-xl bg-slate-50/50 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <span className="text-xs font-bold text-slate-700 block">{field.label}</span>
+                              <span className="text-[10px] text-slate-400 block">{field.description}</span>
+                            </div>
+                            <div>
+                              {isUploaded ? (
+                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                  Uploaded
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200">
+                                  Missing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {isUploaded && (
+                            <div className="bg-white border border-slate-100 rounded-lg p-2 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-slate-500 truncate max-w-[200px]">{storedFileName}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            {isUploaded ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isProcessing}
+                                  onClick={() => handleViewDoc(field.key)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? <Loader2 className="w-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                  View
+                                </button>
+                                <label 
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors transition-all select-none ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  Replace
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={isProcessing}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleUploadDoc(field.key, file);
+                                    }}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  disabled={isProcessing}
+                                  onClick={() => handleDeleteDoc(field.key)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? <Loader2 className="w-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                  Delete
+                                </button>
+                              </>
+                            ) : (
+                              <label 
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-700 transition-colors select-none ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                              >
+                                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                Upload File
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  disabled={isProcessing}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadDoc(field.key, file);
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

@@ -22,8 +22,13 @@ import {
   Briefcase,
   AlertCircle,
   FileCheck2,
-  Users
+  Users,
+  Upload,
+  X,
+  Trash2,
+  Loader2
 } from 'lucide-react';
+import { uploadAdmissionDocument } from './admissionApi';
 
 const aadhaarRegex = /^\d{12}$/;
 const validateAadhaar = (val: string | undefined | null) => {
@@ -154,6 +159,55 @@ export const AdmissionFormPage: React.FC = () => {
   const [feeStructures, setFeeStructureDocs] = useState<FeeStructureDoc[]>([]);
   const isAdminOrClerk = isRole(['super_admin', 'admin', 'clerk']);
 
+  // Document states
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, 'idle' | 'selected' | 'uploading' | 'success' | 'failed'>>({});
+
+  const handleFileChange = (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+    if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(file.type)) {
+      setFileErrors(prev => ({ ...prev, [key]: 'Invalid file type. Only PDF, JPG, JPEG, and PNG are allowed.' }));
+      return;
+    }
+
+    // Validate size (5MB = 5 * 1024 * 1024 bytes)
+    if (file.size > 5 * 1024 * 1024) {
+      setFileErrors(prev => ({ ...prev, [key]: 'File is too large. Maximum size allowed is 5MB.' }));
+      return;
+    }
+
+    // Clear errors, set file and status
+    setFileErrors(prev => ({ ...prev, [key]: '' }));
+    setSelectedFiles(prev => ({ ...prev, [key]: file }));
+    setUploadProgress(prev => ({ ...prev, [key]: 'selected' }));
+  };
+
+  const handleRemoveFile = (key: string) => {
+    setSelectedFiles(prev => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+    setUploadProgress(prev => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+    setFileErrors(prev => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+  };
+
   const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     defaultValues: {
@@ -267,9 +321,47 @@ export const AdmissionFormPage: React.FC = () => {
         payload.permanentAddressPincode = data.addressPincode;
       }
 
-      await axiosInstance.post('/admissions', payload);
-      toast.success('Admission application submitted!');
-      navigate('/admissions');
+      // 1. Submit admission JSON first
+      const res = await axiosInstance.post('/admissions', payload);
+      const createdAdmission = res.data.data;
+      const admissionId = createdAdmission.id;
+
+      // 2. Upload selected documents
+      const fileKeys = Object.keys(selectedFiles);
+      let hasUploadFailures = false;
+      const failedDocs: string[] = [];
+
+      if (fileKeys.length > 0) {
+        // Go back to the document step visually so they can see progress!
+        setCurrentStep(5);
+        
+        for (const key of fileKeys) {
+          const file = selectedFiles[key];
+          if (!file) continue;
+          
+          setUploadProgress(prev => ({ ...prev, [key]: 'uploading' }));
+          try {
+            await uploadAdmissionDocument(admissionId, key, file);
+            setUploadProgress(prev => ({ ...prev, [key]: 'success' }));
+          } catch (uploadErr) {
+            hasUploadFailures = true;
+            failedDocs.push(key);
+            setUploadProgress(prev => ({ ...prev, [key]: 'failed' }));
+          }
+        }
+      }
+
+      if (hasUploadFailures) {
+        toast.error('Admission created, but some documents failed to upload.', {
+          duration: 6000
+        });
+      } else {
+        toast.success('Admission application submitted!');
+      }
+
+      setTimeout(() => {
+        navigate('/admissions');
+      }, 1500);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to submit application');
     } finally {
@@ -766,65 +858,183 @@ export const AdmissionFormPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
-                Documents Submission Checklist
+                Admission Documents Upload
               </h3>
-              <p className="text-slate-500 text-xs mt-0.5">Verify that the following documents are ready for submission. Actual uploads will be supported in the next phase.</p>
+              <p className="text-slate-500 text-xs mt-0.5">Select and attach files for validation. Accepted: PDF, JPG, PNG. Max size: 5MB.</p>
             </div>
             
             <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-800 text-xs font-medium flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Checklist Verification Mode</p>
-                <p className="mt-0.5 opacity-90">Please ensure physical copies or digital scanned folders are compiled by the applicant. This checklist does not upload files to the database, and you can submit the form directly.</p>
+                <p className="font-bold">Important Notice</p>
+                <p className="mt-0.5 opacity-90">Documents will upload after the admission application is created. All uploaded files are stored securely and privately.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Student Docs */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                   Candidate Documentation
                 </h4>
                 {[
-                  'Student Aadhaar Card',
-                  'Birth Certificate',
-                  'Leaving Certificate / TC / LC',
-                  'Previous Marksheet',
-                  'Passport Size Photo'
-                ].map((docName) => (
-                  <div key={docName} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-50/50">
-                    <span className="text-xs font-bold text-slate-700">{docName}</span>
-                    <span className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
-                      Pending Upload
-                    </span>
-                  </div>
-                ))}
+                  { key: 'studentPhoto', label: 'Student Photo', description: 'Recent passport size photograph' },
+                  { key: 'birthCertificateDoc', label: 'Birth Certificate', description: 'Official date of birth certificate' },
+                  { key: 'studentAadhaarDoc', label: 'Student Aadhaar Card', description: 'Student\'s Aadhaar card' },
+                  { key: 'transferCertificateDoc', label: 'Leaving Certificate / TC / LC', description: 'Transfer certificate from last school' },
+                  { key: 'previousMarksCardDoc', label: 'Previous Marksheet', description: 'Previous marks card or report card' }
+                ].map((field) => {
+                  const file = selectedFiles[field.key];
+                  const error = fileErrors[field.key];
+                  const status = uploadProgress[field.key] || 'idle';
+                  return (
+                    <div key={field.key} className="flex flex-col p-4 border border-slate-100 rounded-xl bg-slate-50/50 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-slate-700 block">{field.label}</span>
+                          <span className="text-[10px] text-slate-400 block">{field.description}</span>
+                        </div>
+                        <div>
+                          {status === 'idle' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
+                              Not Selected
+                            </span>
+                          )}
+                          {status === 'selected' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200">
+                              Selected
+                            </span>
+                          )}
+                          {status === 'uploading' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Uploading
+                            </span>
+                          )}
+                          {status === 'success' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              Uploaded
+                            </span>
+                          )}
+                          {status === 'failed' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-red-50 text-red-600 border border-red-200">
+                              Failed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {file ? (
+                        <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-slate-100">
+                          <span className="text-xs font-mono text-slate-600 truncate max-w-[250px]">{file.name}</span>
+                          {status === 'selected' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(field.key)}
+                              className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <Upload className="w-3.5 h-3.5" /> Select File
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleFileChange(field.key, e)}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {error && <p className="text-[10px] text-red-500 font-medium mt-1">{error}</p>}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Parent Docs */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                   Parent & Guardian Documentation
                 </h4>
                 {[
-                  'Father Aadhaar Card',
-                  'Mother Aadhaar Card',
-                  'Guardian ID Proof (Emergency contact)'
-                ].map((docName) => (
-                  <div key={docName} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl bg-slate-50/50">
-                    <span className="text-xs font-bold text-slate-700">{docName}</span>
-                    <span className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
-                      Pending Upload
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  { key: 'parentAadhaarDoc', label: 'Parent/Guardian Aadhaar Card', description: 'Aadhaar identification card' }
+                ].map((field) => {
+                  const file = selectedFiles[field.key];
+                  const error = fileErrors[field.key];
+                  const status = uploadProgress[field.key] || 'idle';
+                  return (
+                    <div key={field.key} className="flex flex-col p-4 border border-slate-100 rounded-xl bg-slate-50/50 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-slate-700 block">{field.label}</span>
+                          <span className="text-[10px] text-slate-400 block">{field.description}</span>
+                        </div>
+                        <div>
+                          {status === 'idle' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
+                              Not Selected
+                            </span>
+                          )}
+                          {status === 'selected' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200">
+                              Selected
+                            </span>
+                          )}
+                          {status === 'uploading' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Uploading
+                            </span>
+                          )}
+                          {status === 'success' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              Uploaded
+                            </span>
+                          )}
+                          {status === 'failed' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-red-50 text-red-600 border border-red-200">
+                              Failed
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-            <div className="text-[10px] text-slate-400 text-center italic mt-4">
-              * Note: File attachments upload features will be available in the Phase 2.7D rollout.
+                      {file ? (
+                        <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-slate-100">
+                          <span className="text-xs font-mono text-slate-600 truncate max-w-[250px]">{file.name}</span>
+                          {status === 'selected' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(field.key)}
+                              className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <Upload className="w-3.5 h-3.5" /> Select File
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleFileChange(field.key, e)}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {error && <p className="text-[10px] text-red-500 font-medium mt-1">{error}</p>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -900,10 +1110,44 @@ export const AdmissionFormPage: React.FC = () => {
               </div>
 
               {/* Document Check alert warning */}
-              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="font-bold">Missing Digital Documents:</span> All required student and parent files are pending upload. Form can be submitted, but files must be provided physically to the Clerk.
-              </div>
+              {(() => {
+                const totalDocsCount = 6;
+                const selectedCount = Object.keys(selectedFiles).length;
+                const missingCount = totalDocsCount - selectedCount;
+                
+                return (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <h4 className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      Selected Digital Documents Summary
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                      <div className="bg-emerald-50 text-emerald-800 p-2.5 rounded-lg border border-emerald-100 flex justify-between">
+                        <span>Selected Documents:</span>
+                        <span className="font-bold">{selectedCount}</span>
+                      </div>
+                      <div className="bg-amber-50 text-amber-800 p-2.5 rounded-lg border border-amber-100 flex justify-between">
+                        <span>Missing Documents:</span>
+                        <span className="font-bold">{missingCount}</span>
+                      </div>
+                    </div>
+                    {selectedCount > 0 && (
+                      <div className="text-[11px] text-slate-600 bg-white p-2.5 rounded-lg border border-slate-100 space-y-1">
+                        <p className="font-bold text-slate-500 mb-1">Selected Files:</p>
+                        {Object.entries(selectedFiles).map(([key, file]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-slate-400 capitalize">{key.replace('Doc', '').replace('student', 'Student ').replace('parent', 'Parent ')}:</span>
+                            <span className="font-mono text-slate-700 truncate max-w-[200px]">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-500 italic">
+                      Note: Documents will be uploaded to the secure server automatically after the admission record is created.
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Fee Assignment Grid */}

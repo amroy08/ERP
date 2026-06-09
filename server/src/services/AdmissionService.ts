@@ -18,11 +18,11 @@ export class AdmissionService {
 
       if (!admission) throw createError('Admission application not found', 404);
       
-      // Guard: only 'approved' admissions can be converted
-      if (admission.status === 'enrolled') {
+      // Guard: only approved or accepted admissions can be converted
+      if (admission.status === 'enrolled' || admission.status === 'converted') {
         throw createError('This admission has already been converted to a student record. Duplicate conversion is not allowed.', 409);
       }
-      if (admission.status !== 'approved') {
+      if (admission.status !== 'approved' && admission.status !== 'accepted') {
         throw createError(`Cannot convert admission with status "${admission.status}". The admission must be approved first.`, 400);
       }
 
@@ -173,7 +173,7 @@ export class AdmissionService {
       // 5. Update Admission Status
       await tx.admission.update({
         where: { id: admissionId },
-        data: { status: 'enrolled' }
+        data: { status: 'converted' }
       });
 
       return {

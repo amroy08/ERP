@@ -892,7 +892,9 @@ export const updateAdmission = async (req: Request, res: Response, next: NextFun
     });
 
     // Trigger email notifications fire-and-forget on status change
-    if (existing.status !== 'approved' && admission.status === 'approved') {
+    const wasApproved = existing.status === 'approved' || existing.status === 'accepted';
+    const isApprovedNow = admission.status === 'approved' || admission.status === 'accepted';
+    if (!wasApproved && isApprovedNow) {
       NotificationService.notifyAdmissionApproved(admission).catch((err) => {
         console.error('[NotificationTrigger] Admission approved email notification failed:', err);
       });
