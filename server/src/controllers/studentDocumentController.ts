@@ -106,7 +106,7 @@ export const uploadStudentDocument = async (req: AuthRequest, res: Response, nex
     }
 
     // Save path in db
-    const oldFilePath = student[documentType];
+    const oldFilePath = (student as any)[documentType];
     const newRelativePath = path.relative(process.cwd(), req.file.path);
 
     await prisma.student.update({
@@ -177,7 +177,7 @@ export const downloadStudentDocument = async (req: AuthRequest, res: Response, n
     }
 
     // Get file reference
-    const relativePath = student[documentType];
+    const relativePath = (student as any)[documentType];
     if (!relativePath) {
       next(createError(`Document '${documentType}' has not been uploaded for this student.`, 404));
       return;
@@ -221,7 +221,7 @@ export const deleteStudentDocument = async (req: AuthRequest, res: Response, nex
       return;
     }
 
-    const relativePath = student[documentType];
+    const relativePath = (student as any)[documentType];
     if (!relativePath) {
       res.json({ success: true, message: 'Document already deleted.' });
       return;

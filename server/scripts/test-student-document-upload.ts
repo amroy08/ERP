@@ -124,7 +124,7 @@ async function run() {
     console.log('Verified: File exists on disk.');
 
     // Verify DB field updated
-    const updatedStudent1 = await prisma.student.findUnique({ where: { id: student.id } });
+    const updatedStudent1 = await prisma.student.findUnique({ where: { id: student.id } }) as any;
     if (updatedStudent1?.birthCertificateDoc !== `private_uploads/students/${birthCertFileName}`) {
       throw new Error(`DB not updated. Found birthCertificateDoc: ${updatedStudent1?.birthCertificateDoc}`);
     }
@@ -323,7 +323,7 @@ async function run() {
     console.log('Verified: File deleted from disk on delete.');
 
     // Verify DB field set to null
-    const updatedStudent2 = await prisma.student.findUnique({ where: { id: student.id } });
+    const updatedStudent2 = await prisma.student.findUnique({ where: { id: student.id } }) as any;
     if (updatedStudent2?.studentPhoto !== null) {
       throw new Error(`DB field studentPhoto not set to null, value is: ${updatedStudent2?.studentPhoto}`);
     }
@@ -345,7 +345,7 @@ async function run() {
     }
     console.log('Verified: Birth certificate file deleted from disk on delete.');
 
-    const updatedStudent3 = await prisma.student.findUnique({ where: { id: student.id } });
+    const updatedStudent3 = await prisma.student.findUnique({ where: { id: student.id } }) as any;
     if (updatedStudent3?.birthCertificateDoc !== null) {
       throw new Error(`DB field birthCertificateDoc not null: ${updatedStudent3?.birthCertificateDoc}`);
     }
