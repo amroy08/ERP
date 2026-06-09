@@ -25,6 +25,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => onChange(tab.id)}
               className={clsx(
                 'px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap',
@@ -42,6 +43,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
         return (
           <button
             key={tab.id}
+            type="button"
             onClick={() => onChange(tab.id)}
             className={clsx(
               'px-6 py-3.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap -mb-px',

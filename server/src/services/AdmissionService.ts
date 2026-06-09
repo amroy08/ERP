@@ -237,6 +237,7 @@ export class AdmissionService {
               studentId: student.id,
               feeStructureId: af.feeStructureId,
               customAmount: af.customAmount,
+              academicYearId: admission.academicYearId,
               schoolId: schoolId || admission.schoolId
             }))
           });
