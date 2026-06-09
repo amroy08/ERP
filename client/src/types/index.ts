@@ -72,6 +72,10 @@ export interface School {
   board?: string;
   currency: string;
   currencySymbol: string;
+  principal?: string;
+  affiliation?: string;
+  tagline?: string;
+  slug?: string;
 }
 
 export interface AcademicYear {

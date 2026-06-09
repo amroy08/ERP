@@ -59,7 +59,23 @@ export const SettingsPage: React.FC = () => {
     if (!school) return;
     setIsSaving(true);
     try {
-      await axiosInstance.put('/school', school);
+      const payload = {
+        name: school.name,
+        email: school.email,
+        phone: school.phone,
+        address: school.address,
+        website: school.website || null,
+        logo: school.logo || null,
+        principal: school.principalName || school.principal || null,
+        affiliation: school.board || school.affiliation || null,
+        tagline: school.tagline || null,
+        slug: school.slug || null,
+        currency: school.currency || null,
+        currencySymbol: school.currencySymbol || null,
+        establishedYear: school.establishedYear || null
+      };
+      const res = await axiosInstance.put<ApiResponse<School>>('/school', payload);
+      setSchool(res.data.data);
       toast.success('School settings saved successfully!');
     } catch (err) {
       console.error('Update failed:', err);

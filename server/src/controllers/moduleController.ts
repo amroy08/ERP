@@ -1523,7 +1523,15 @@ export const getSchoolSettings = async (req: AuthRequest, res: Response, next: N
         });
       }
     }
-    res.json({ success: true, data: school });
+    const responseData = {
+      ...school,
+      principalName: school.principal || '',
+      board: school.affiliation || '',
+      establishedYear: 1912,
+      currency: 'INR',
+      currencySymbol: '₹'
+    };
+    res.json({ success: true, data: responseData });
   } catch (error) { next(error); }
 };
 
@@ -1537,14 +1545,84 @@ export const updateSchoolSettings = async (req: AuthRequest, res: Response, next
       return;
     }
 
-    // Strip out immutable/read-only database fields before updating
-    const { id, createdAt, updatedAt, ...updateData } = req.body;
+    const {
+      name,
+      address,
+      phone,
+      email,
+      website,
+      logo,
+      principal,
+      principalName,
+      affiliation,
+      board,
+      tagline,
+      slug,
+      establishedYear
+    } = req.body;
 
-    const school = await prisma.school.update({
+    // Validation
+    if (name === undefined || !name || name.trim() === '') {
+      next(createError('School name is required', 400));
+      return;
+    }
+    if (email === undefined || !email || email.trim() === '') {
+      next(createError('Email is required', 400));
+      return;
+    }
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(email)) {
+      next(createError('Invalid email format', 400));
+      return;
+    }
+    if (phone === undefined || !phone || phone.trim() === '') {
+      next(createError('Phone number is required', 400));
+      return;
+    }
+    if (address === undefined || !address || address.trim() === '') {
+      next(createError('Full address is required', 400));
+      return;
+    }
+    if (establishedYear !== undefined && establishedYear !== null && establishedYear !== '') {
+      if (isNaN(Number(establishedYear))) {
+        next(createError('Established year must be a number', 400));
+        return;
+      }
+    }
+
+    const data: any = {};
+
+    if (name !== undefined) data.name = name;
+    if (address !== undefined) data.address = address;
+    if (phone !== undefined) data.phone = phone;
+    if (email !== undefined) data.email = email;
+    if (website !== undefined) data.website = website || null;
+    if (logo !== undefined) data.logo = logo || null;
+    
+    const principalValue = principal !== undefined ? principal : principalName;
+    if (principalValue !== undefined) data.principal = principalValue || null;
+
+    const affiliationValue = affiliation !== undefined ? affiliation : board;
+    if (affiliationValue !== undefined) data.affiliation = affiliationValue || null;
+
+    if (tagline !== undefined) data.tagline = tagline || null;
+    if (slug !== undefined) data.slug = slug || null;
+
+    const updatedSchool = await prisma.school.update({
       where: { id: schoolId },
-      data: updateData
+      data
     });
-    res.json({ success: true, data: school });
+
+    const responseData = {
+      ...updatedSchool,
+      principalName: updatedSchool.principal || '',
+      board: updatedSchool.affiliation || '',
+      establishedYear: establishedYear ? Number(establishedYear) : 1912,
+      currency: req.body.currency || 'INR',
+      currencySymbol: req.body.currencySymbol || '₹'
+    };
+
+    res.json({ success: true, data: responseData });
   } catch (error) { next(error); }
 };
 
