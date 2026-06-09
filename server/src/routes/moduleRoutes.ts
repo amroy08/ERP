@@ -15,7 +15,7 @@ import {
   getHomework, createHomework, deleteHomework,
   getTimetables, createTimetable
 } from '../controllers/moduleController';
-import { upload } from '../middleware/uploadMiddleware';
+import { upload, admissionUpload } from '../middleware/uploadMiddleware';
 import {
   getExams, createExam, submitMarks, getReportCard, getExamSubjects, getExamMarks,
   updateExam, deleteExam
@@ -26,6 +26,9 @@ import { PERMISSIONS } from '../config/constants';
 import { validateRequest } from '../middleware/validateMiddleware';
 import { convertAdmissionSchema } from '../validation/schemas';
 import { checkModuleEnabled } from '../middleware/moduleMiddleware';
+import {
+  uploadAdmissionDocument, deleteAdmissionDocument, downloadAdmissionDocument
+} from '../controllers/admissionDocumentController';
 
 const router = Router();
 
@@ -66,6 +69,11 @@ router.get('/admissions/:id', protect, authorize(PERMISSIONS.ADMISSION_VIEW), ge
 router.post('/admissions', protect, authorize(PERMISSIONS.ADMISSION_CREATE), createAdmission);
 router.put('/admissions/:id', protect, authorize(PERMISSIONS.ADMISSION_UPDATE), updateAdmission);
 router.post('/admissions/convert/:id', protect, authorize(PERMISSIONS.ADMISSION_APPROVE), validateRequest(convertAdmissionSchema), convertAdmissionToStudent);
+
+// Admission Documents (private storage — not publicly served)
+router.post('/admissions/:id/documents/:documentType', protect, authorize(PERMISSIONS.ADMISSION_UPDATE), admissionUpload.single('file'), uploadAdmissionDocument);
+router.delete('/admissions/:id/documents/:documentType', protect, authorize(PERMISSIONS.ADMISSION_UPDATE), deleteAdmissionDocument);
+router.get('/admissions/:id/documents/:documentType', protect, authorize(PERMISSIONS.ADMISSION_VIEW), downloadAdmissionDocument);
 
 // Classes
 router.get('/classes', protect, authorize(PERMISSIONS.CLASS_VIEW), getClasses);

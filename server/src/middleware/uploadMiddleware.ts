@@ -44,3 +44,48 @@ export const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB
   }
 });
+
+// ── Admission Document Upload (Private Storage) ──────────────────────────
+// Stored in private_uploads/admissions/ — NOT served via express.static
+
+const admissionUploadDir = path.join(process.cwd(), 'private_uploads', 'admissions');
+if (!fs.existsSync(admissionUploadDir)) {
+  fs.mkdirSync(admissionUploadDir, { recursive: true });
+}
+
+const ALLOWED_ADMISSION_MIMES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png'
+];
+
+const ALLOWED_ADMISSION_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
+
+const admissionStorage = multer.diskStorage({
+  destination: (_req: Request, _file, cb) => {
+    cb(null, admissionUploadDir);
+  },
+  filename: (req: Request, file, cb) => {
+    const docType = req.params.documentType || 'doc';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${docType}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const admissionFileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_ADMISSION_MIMES.includes(file.mimetype) && ALLOWED_ADMISSION_EXTENSIONS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PDF, JPG, JPEG, and PNG files are allowed for admission documents.'));
+  }
+};
+
+export const admissionUpload = multer({
+  storage: admissionStorage,
+  fileFilter: admissionFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});

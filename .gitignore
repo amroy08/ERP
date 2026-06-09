@@ -4,6 +4,7 @@ dist
 *.log
 logs.txt
 server/uploads
+server/private_uploads
 server/scratch
 .DS_Store
 .vscode

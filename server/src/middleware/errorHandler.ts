@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -49,6 +50,21 @@ export const errorHandler = (
   if (err.name === 'TokenExpiredError') {
     statusCode = 401;
     message = 'Session expired. Please log in again.';
+  }
+
+  // 4. Handle Multer Errors (file upload)
+  if (err instanceof multer.MulterError) {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'File is too large. Maximum allowed size is 5MB.';
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      message = 'Unexpected file field. Use field name "file".';
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
+  if (err.message && err.message.includes('Invalid file type')) {
+    statusCode = 400;
   }
 
   if (process.env.NODE_ENV === 'development') {
