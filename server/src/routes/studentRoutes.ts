@@ -5,9 +5,15 @@ import {
   promoteStudent, resetStudentPassword, getStudentActivityLogs, importStudents,
   getStudentEnrollmentHistory
 } from '../controllers/studentController';
+import {
+  uploadStudentDocument,
+  downloadStudentDocument,
+  deleteStudentDocument
+} from '../controllers/studentDocumentController';
 import { protect } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/rbacMiddleware';
 import { PERMISSIONS } from '../config/constants';
+import { studentUpload } from '../middleware/uploadMiddleware';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -22,5 +28,28 @@ router.post('/:id/promote', protect, authorize(PERMISSIONS.STUDENT_UPDATE), prom
 router.post('/:id/reset-password', protect, authorize(PERMISSIONS.STUDENT_UPDATE), resetStudentPassword);
 router.get('/:id/logs', protect, authorize(PERMISSIONS.STUDENT_VIEW), getStudentActivityLogs);
 router.get('/:id/enrollment-history', protect, authorize(PERMISSIONS.STUDENT_VIEW), getStudentEnrollmentHistory);
+
+// Student documents management routes
+router.post(
+  '/:id/documents/:documentType',
+  protect,
+  authorize(PERMISSIONS.STUDENT_UPDATE),
+  studentUpload.single('file'),
+  uploadStudentDocument
+);
+
+router.get(
+  '/:id/documents/:documentType',
+  protect,
+  authorize(PERMISSIONS.STUDENT_VIEW),
+  downloadStudentDocument
+);
+
+router.delete(
+  '/:id/documents/:documentType',
+  protect,
+  authorize(PERMISSIONS.STUDENT_UPDATE),
+  deleteStudentDocument
+);
 
 export default router;
