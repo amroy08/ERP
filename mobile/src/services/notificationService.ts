@@ -58,7 +58,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     const token = tokenData.data;
     if (!token) return null;
 
-    console.log('[Notification Service] Generated Push Token:', token);
+    // Log only a masked prefix of the token to avoid exposing it in logs
+    const maskedToken = token.substring(0, 20) + '...';
+    console.log('[Notification Service] Push token obtained (masked):', maskedToken);
 
     // 3. Register token with backend API
     const deviceType = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';

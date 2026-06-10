@@ -53,10 +53,19 @@ export const registerDevice = async (req: AuthRequest, res: Response, next: Next
       },
     });
 
+    // Do not echo back the raw token — return only safe metadata fields
     res.status(200).json({
       success: true,
       message: 'Device registered successfully.',
-      data: deviceTokenObj,
+      data: {
+        id: deviceTokenObj.id,
+        deviceType: deviceTokenObj.deviceType,
+        platform: deviceTokenObj.platform,
+        appVersion: deviceTokenObj.appVersion,
+        isActive: deviceTokenObj.isActive,
+        lastSeenAt: deviceTokenObj.lastSeenAt,
+        createdAt: deviceTokenObj.createdAt,
+      },
     });
   } catch (error) {
     next(error);
@@ -88,10 +97,16 @@ export const unregisterDevice = async (req: AuthRequest, res: Response, next: Ne
       },
     });
 
+    // Do not echo back the raw token — return only safe metadata fields
     res.status(200).json({
       success: true,
       message: 'Device unregistered successfully.',
-      data: updated,
+      data: {
+        id: updated.id,
+        deviceType: updated.deviceType,
+        isActive: updated.isActive,
+        lastSeenAt: updated.lastSeenAt,
+      },
     });
   } catch (error) {
     next(error);
