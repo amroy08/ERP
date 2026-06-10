@@ -102,7 +102,10 @@ npm run ios
 
 1. Enable **Developer Options** and **USB Debugging** on your phone.
 2. Connect via USB.
-3. Set `EXPO_PUBLIC_API_BASE_URL` to your machine's LAN IP in `.env`.
+3. Set `EXPO_PUBLIC_API_BASE_URL` to your machine's **LAN IP** in `.env`.
+
+   > ⚠️ **`localhost` does NOT work on a physical device.** The device cannot reach your development machine via `localhost`. You must use the actual LAN IP address (e.g. `http://192.168.1.X:5001/api`). Find your machine IP with `ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux).
+
 4. Run:
 
 ```bash

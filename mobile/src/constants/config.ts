@@ -11,7 +11,12 @@
  *   - Internal/Preview Build:  http://<STAGING_SERVER_IP>:5001/api
  *   - Production Build:        https://api.yourschool.com/api   (HTTPS required for App Store)
  *
- * IMPORTANT: Never commit your .env file to the repository.
+ * ⚠️  IMPORTANT: `localhost` does NOT work on a physical device.
+ *     When testing on a real Android/iOS phone, you must use your machine's
+ *     LAN IP address (e.g. 192.168.1.X), NOT localhost or 127.0.0.1.
+ *     The `localhost` fallback below is only safe for iOS Simulator / emulator.
+ *
+ * Never commit your .env file to the repository.
  * Copy .env.example to .env and fill in the correct URL for your environment.
  */
 export const API_BASE_URL =
