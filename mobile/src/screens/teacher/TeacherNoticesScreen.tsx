@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator }
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchTeacherNotices } from '../../api/mobileApi';
 
@@ -46,8 +48,13 @@ export const TeacherNoticesScreen: React.FC = () => {
       >
         <Text style={styles.pageTitle}>School Notices</Text>
 
-        {loading && <ActivityIndicator color={colors.teacher} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.teacher} size="large" />
+            <Text style={styles.loadingText}>Loading notices…</Text>
+          </View>
+        )}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="teacher" />}
 
         {!loading && data.map((notice) => (
           <AppCard
@@ -73,7 +80,7 @@ export const TeacherNoticesScreen: React.FC = () => {
         ))}
 
         {!loading && data.length === 0 && !error && (
-          <AppCard><Text style={styles.emptyText}>No notices at this time.</Text></AppCard>
+          <EmptyState emoji="📢" title="No Notices Available" subtitle="There are no announcements or notices posted for you at this time." />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -82,7 +89,7 @@ export const TeacherNoticesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 20 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
   card: { marginBottom: 10 },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   noticeTitle: { color: colors.white, fontSize: 15, fontWeight: '700', flex: 1 },
@@ -92,6 +99,8 @@ const styles = StyleSheet.create({
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },
   emptyText: { color: colors.mutedText, fontSize: 14 },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
 });
 
 export default TeacherNoticesScreen;

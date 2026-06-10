@@ -11,6 +11,8 @@ import {
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { useAuth } from '../../store/AuthContext';
 import { colors } from '../../constants/colors';
 import { fetchParentDashboard } from '../../api/mobileApi';
@@ -91,9 +93,7 @@ export const ParentHomeScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <AppCard style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </AppCard>
+          <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="parent" />
         )}
 
         {data && !loading && (
@@ -101,7 +101,7 @@ export const ParentHomeScreen: React.FC = () => {
             {/* Children */}
             <Text style={styles.sectionTitle}>My Children</Text>
             {data.children.length === 0 && (
-              <AppCard><Text style={styles.emptyText}>No children linked to this account.</Text></AppCard>
+              <EmptyState emoji="👶" title="No children linked" subtitle="There are no active children associated with this parent account." />
             )}
             {data.children.map((child) => (
               <AppCard key={child.id} style={styles.childCard}>
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginTop: 52,
+    marginTop: 16,
     marginBottom: 24,
   },
   greeting: { color: colors.mutedText, fontSize: 15 },

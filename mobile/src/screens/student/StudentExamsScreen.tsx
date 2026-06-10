@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchStudentExams, fetchStudentResults } from '../../api/mobileApi';
 
@@ -76,13 +78,18 @@ export const StudentExamsScreen: React.FC = () => {
           </Text>
         </View>
 
-        {loading && <ActivityIndicator color={colors.student} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.student} size="large" />
+            <Text style={styles.loadingText}>Loading exams…</Text>
+          </View>
+        )}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />}
 
         {/* Upcoming Exams */}
         {!loading && tab === 'upcoming' && (
           upcomingExams.length === 0 ? (
-            <AppCard><Text style={styles.emptyText}>No upcoming exams scheduled.</Text></AppCard>
+            <EmptyState emoji="📝" title="No Upcoming Exams" subtitle="You have no upcoming exams or test papers scheduled." />
           ) : (
             upcomingExams.map((exam) => {
               const examDate = new Date(exam.date);
@@ -115,7 +122,7 @@ export const StudentExamsScreen: React.FC = () => {
         {/* Results */}
         {!loading && tab === 'results' && (
           results.length === 0 ? (
-            <AppCard><Text style={styles.emptyText}>No results published yet.</Text></AppCard>
+            <EmptyState emoji="📊" title="No Results Yet" subtitle="Exam results or grades have not been published yet." />
           ) : (
             results.map((result) => {
               const pct = result.percentage ?? ((result.marksObtained / result.totalMarks) * 100);
@@ -156,7 +163,7 @@ export const StudentExamsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 16 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   tabRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   tabBtn: {
     flex: 1, textAlign: 'center', color: colors.mutedText, fontSize: 13, fontWeight: '700',
@@ -184,6 +191,8 @@ const styles = StyleSheet.create({
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },
   emptyText: { color: colors.mutedText, fontSize: 14 },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
 });
 
 export default StudentExamsScreen;

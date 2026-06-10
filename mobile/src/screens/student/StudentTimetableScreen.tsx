@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchStudentTimetable } from '../../api/mobileApi';
 
@@ -60,7 +62,7 @@ export const StudentTimetableScreen: React.FC = () => {
         <Text style={styles.pageTitle}>My Timetable</Text>
 
         {loading && <ActivityIndicator color={colors.student} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />}
 
         {!loading && !error && (
           <>
@@ -83,9 +85,7 @@ export const StudentTimetableScreen: React.FC = () => {
             </ScrollView>
 
             {activeDayEntries.length === 0 ? (
-              <AppCard style={{ marginTop: 12 }}>
-                <Text style={styles.emptyText}>No classes on {activeDay}.</Text>
-              </AppCard>
+              <EmptyState emoji="📅" title="No Classes Scheduled" subtitle={`You have no classes scheduled on ${activeDay}.`} />
             ) : (
               activeDayEntries.map((entry, i) => (
                 <AppCard key={i} style={styles.entryCard}>
@@ -115,7 +115,7 @@ export const StudentTimetableScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 16 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dayTabsScroll: { marginBottom: 8 },
   dayTab: {
     color: colors.mutedText, fontSize: 13, fontWeight: '700',

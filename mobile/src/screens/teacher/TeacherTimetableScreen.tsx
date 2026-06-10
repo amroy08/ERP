@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchTeacherTimetable } from '../../api/mobileApi';
 
@@ -59,8 +61,13 @@ export const TeacherTimetableScreen: React.FC = () => {
       >
         <Text style={styles.pageTitle}>My Timetable</Text>
 
-        {loading && <ActivityIndicator color={colors.teacher} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.teacher} size="large" />
+            <Text style={styles.loadingText}>Loading timetable…</Text>
+          </View>
+        )}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="teacher" />}
 
         {!loading && !error && (
           <>
@@ -82,9 +89,7 @@ export const TeacherTimetableScreen: React.FC = () => {
             </ScrollView>
 
             {activeDayEntries.length === 0 ? (
-              <AppCard style={{ marginTop: 12 }}>
-                <Text style={styles.emptyText}>No classes on {activeDay}.</Text>
-              </AppCard>
+              <EmptyState emoji="📅" title="No Classes Scheduled" subtitle={`You have no classes scheduled on ${activeDay}.`} />
             ) : (
               activeDayEntries.map((entry, i) => (
                 <AppCard key={i} style={styles.entryCard}>
@@ -114,7 +119,7 @@ export const TeacherTimetableScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 16 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dayScrollRow: { marginBottom: 8 },
   dayTab: {
     color: colors.mutedText, fontSize: 13, fontWeight: '700',
@@ -139,6 +144,8 @@ const styles = StyleSheet.create({
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },
   emptyText: { color: colors.mutedText, fontSize: 14 },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
 });
 
 export default TeacherTimetableScreen;

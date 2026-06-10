@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import apiClient from '../../api/apiClient';
 
@@ -81,7 +83,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
   };
 
   const submitAttendance = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass || saving) return;
     setSaving(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -122,7 +124,10 @@ export const TeacherAttendanceScreen: React.FC = () => {
         </View>
 
         {studentsLoading ? (
-          <ActivityIndicator color={colors.teacher} style={{ marginTop: 40 }} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.teacher} size="large" />
+            <Text style={styles.loadingText}>Loading students list…</Text>
+          </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.tapHint}>Tap a student to toggle Present → Absent → Late</Text>
@@ -185,8 +190,13 @@ export const TeacherAttendanceScreen: React.FC = () => {
           {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
         </Text>
 
-        {loading && <ActivityIndicator color={colors.teacher} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.teacher} size="large" />
+            <Text style={styles.loadingText}>Loading assigned classes…</Text>
+          </View>
+        )}
+        {error && !loading && <ErrorState error={error} onRetry={() => loadClasses(false)} roleTheme="teacher" />}
 
         {!loading && classes.map((cls) => (
           <AppCard
@@ -213,7 +223,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
         ))}
 
         {!loading && classes.length === 0 && !error && (
-          <AppCard><Text style={styles.emptyText}>No classes assigned for today.</Text></AppCard>
+          <EmptyState emoji="🏫" title="No Assigned Classes" subtitle="You have no assigned classes or sections to mark attendance for today." />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -222,7 +232,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 4 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 4 },
   pageDate: { color: colors.mutedText, fontSize: 13, marginBottom: 16 },
   classCard: { marginBottom: 10 },
   classRow: { flexDirection: 'row', alignItems: 'center' },
@@ -233,7 +243,7 @@ const styles = StyleSheet.create({
   pendingBadge: { backgroundColor: colors.teacher + '22', borderRadius: 8, borderWidth: 1, borderColor: colors.teacher, paddingHorizontal: 10, paddingVertical: 5 },
   pendingBadgeText: { color: colors.teacher, fontSize: 12, fontWeight: '700' },
   // Marking view
-  markingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 52, marginBottom: 16 },
+  markingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 16, marginBottom: 16 },
   backBtn: { color: colors.teacher, fontSize: 15, fontWeight: '700', paddingRight: 4 },
   markingTitle: { color: colors.white, fontSize: 18, fontWeight: '800' },
   markingDate: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
@@ -251,6 +261,8 @@ const styles = StyleSheet.create({
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },
   emptyText: { color: colors.mutedText, fontSize: 14 },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
 });
 
 export default TeacherAttendanceScreen;

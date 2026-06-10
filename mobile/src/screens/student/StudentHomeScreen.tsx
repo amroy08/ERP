@@ -11,6 +11,8 @@ import {
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { useAuth } from '../../store/AuthContext';
 import { colors } from '../../constants/colors';
 import { fetchStudentDashboard } from '../../api/mobileApi';
@@ -122,9 +124,7 @@ export const StudentHomeScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <AppCard style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </AppCard>
+          <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="student" />
         )}
 
         {data && !loading && (
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginTop: 52,
+    marginTop: 16,
     marginBottom: 24,
   },
   greeting: { color: colors.mutedText, fontSize: 15 },

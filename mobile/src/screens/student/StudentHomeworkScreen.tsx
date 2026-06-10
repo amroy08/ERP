@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchStudentHomework } from '../../api/mobileApi';
 
@@ -78,8 +80,7 @@ export const StudentHomeworkScreen: React.FC = () => {
           ))}
         </View>
 
-        {loading && <ActivityIndicator color={colors.student} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />}
 
         {!loading && filtered.map((hw) => {
           const isPending = hw.status === 'pending';
@@ -115,11 +116,11 @@ export const StudentHomeworkScreen: React.FC = () => {
         })}
 
         {!loading && filtered.length === 0 && !error && (
-          <AppCard>
-            <Text style={styles.emptyText}>
-              {filter === 'pending' ? '🎉 No pending homework!' : 'No homework found.'}
-            </Text>
-          </AppCard>
+          <EmptyState
+            emoji="📚"
+            title={filter === 'pending' ? 'No Pending Homework' : 'No Homework Found'}
+            subtitle={filter === 'pending' ? 'You are all caught up on your assignments!' : 'No homework entries match the active filter.'}
+          />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -128,7 +129,7 @@ export const StudentHomeworkScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 12 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 12 },
   pendingAlert: {
     backgroundColor: colors.warning + '18', borderRadius: 12, borderWidth: 1,
     borderColor: colors.warning + '44', padding: 12, marginBottom: 12,

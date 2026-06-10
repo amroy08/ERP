@@ -87,6 +87,7 @@ export const LoginScreen: React.FC = () => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!loading}
             />
 
             <AppInput
@@ -95,6 +96,7 @@ export const LoginScreen: React.FC = () => {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              editable={!loading}
             />
 
             <AppButton
@@ -112,7 +114,7 @@ export const LoginScreen: React.FC = () => {
               {QUICK_LOGINS.map((q) => (
                 <TouchableOpacity
                   key={q.label}
-                  style={[styles.quickChip, { borderColor: q.color }]}
+                  style={[styles.quickChip, { borderColor: q.color, backgroundColor: q.color + '15' }]}
                   onPress={() => handleLogin(q.email, q.password)}
                   disabled={loading}
                   activeOpacity={0.7}

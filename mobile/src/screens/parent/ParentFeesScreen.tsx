@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchParentFees } from '../../api/mobileApi';
 
@@ -64,7 +66,7 @@ export const ParentFeesScreen: React.FC = () => {
         )}
 
         {loading && <ActivityIndicator color={colors.parent} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="parent" />}
 
         {!loading && data.map((fee) => (
           <AppCard key={fee.id} style={styles.feeCard}>
@@ -103,7 +105,7 @@ export const ParentFeesScreen: React.FC = () => {
           </AppCard>
         ))}
         {!loading && data.length === 0 && !error && (
-          <AppCard><Text style={styles.emptyText}>No fee records found.</Text></AppCard>
+          <EmptyState emoji="₹" title="No Dues Found" subtitle="There are no outstanding fee transactions or invoices recorded for your linked children." />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -112,7 +114,7 @@ export const ParentFeesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 16 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dueAlert: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: colors.danger + '15',

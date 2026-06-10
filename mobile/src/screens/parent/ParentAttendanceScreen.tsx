@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchParentAttendance } from '../../api/mobileApi';
 
@@ -62,7 +64,7 @@ export const ParentAttendanceScreen: React.FC = () => {
         <Text style={styles.pageTitle}>Children's Attendance</Text>
 
         {loading && <ActivityIndicator color={colors.parent} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="parent" />}
 
         {!loading && data.map((child, ci) => (
           <View key={ci}>
@@ -101,7 +103,7 @@ export const ParentAttendanceScreen: React.FC = () => {
           </View>
         ))}
         {!loading && data.length === 0 && !error && (
-          <AppCard><Text style={styles.emptyText}>No attendance records found.</Text></AppCard>
+          <EmptyState emoji="📅" title="No Attendance Records" subtitle="There are no attendance logs available for your children at this time." />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -110,7 +112,7 @@ export const ParentAttendanceScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 20 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
   summaryCard: { marginBottom: 12, borderColor: colors.parent + '44', borderWidth: 1 },
   childName: { color: colors.white, fontSize: 16, fontWeight: '700', marginBottom: 12 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around' },

@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, TextInput, View, TextInputProps } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TextInput, View, TextInputProps, TouchableOpacity } from 'react-native';
 import { colors } from '../constants/colors';
 
 interface AppInputProps extends TextInputProps {
@@ -7,16 +7,29 @@ interface AppInputProps extends TextInputProps {
   error?: string;
 }
 
-export const AppInput: React.FC<AppInputProps> = ({ label, error, style, ...props }) => {
+export const AppInput: React.FC<AppInputProps> = ({ label, error, style, secureTextEntry, ...props }) => {
+  const [isSecure, setIsSecure] = useState(!!secureTextEntry);
+  const isPassword = !!secureTextEntry;
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputWrapper, error ? styles.inputWrapperError : null]}>
+      <View style={[styles.inputWrapper, error ? styles.inputWrapperError : null, isPassword ? styles.inputWrapperPassword : null]}>
         <TextInput
           placeholderTextColor={colors.mutedText}
           style={[styles.input, style]}
+          secureTextEntry={isPassword ? isSecure : false}
           {...props}
         />
+        {isPassword && (
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={() => setIsSecure(!isSecure)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.toggleText}>{isSecure ? '👁️ Show' : '🙈 Hide'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -46,10 +59,25 @@ const styles = StyleSheet.create({
   inputWrapperError: {
     borderColor: colors.danger,
   },
+  inputWrapperPassword: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   input: {
     color: colors.white,
     fontSize: 16,
     height: '100%',
+    flex: 1,
+  },
+  toggleButton: {
+    paddingVertical: 10,
+    paddingLeft: 10,
+  },
+  toggleText: {
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: '700',
   },
   errorText: {
     color: colors.danger,

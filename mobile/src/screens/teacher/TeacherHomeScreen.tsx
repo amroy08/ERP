@@ -11,6 +11,8 @@ import {
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { useAuth } from '../../store/AuthContext';
 import { colors } from '../../constants/colors';
 import { fetchTeacherDashboard } from '../../api/mobileApi';
@@ -97,9 +99,7 @@ export const TeacherHomeScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <AppCard style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </AppCard>
+          <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="teacher" />
         )}
 
         {data && !loading && (
@@ -153,9 +153,7 @@ export const TeacherHomeScreen: React.FC = () => {
             {/* Today's Classes */}
             <Text style={styles.sectionTitle}>Today's Classes</Text>
             {data.todayClasses.length === 0 ? (
-              <AppCard>
-                <Text style={styles.emptyText}>🎉 No classes scheduled today!</Text>
-              </AppCard>
+              <EmptyState emoji="🎉" title="No Classes Today" subtitle="You have no classes scheduled for today!" />
             ) : (
               data.todayClasses.map((cls, i) => (
                 <AppCard key={i} style={styles.classCard}>
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginTop: 52,
+    marginTop: 16,
     marginBottom: 20,
   },
   greeting: { color: colors.mutedText, fontSize: 15 },

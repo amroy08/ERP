@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator }
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
 import { fetchParentNotices } from '../../api/mobileApi';
 
@@ -47,7 +49,7 @@ export const ParentNoticesScreen: React.FC = () => {
         <Text style={styles.pageTitle}>School Notices</Text>
 
         {loading && <ActivityIndicator color={colors.parent} style={{ marginTop: 40 }} />}
-        {error && !loading && <AppCard style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></AppCard>}
+        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="parent" />}
 
         {!loading && data.map((notice) => (
           <AppCard
@@ -72,7 +74,7 @@ export const ParentNoticesScreen: React.FC = () => {
           </AppCard>
         ))}
         {!loading && data.length === 0 && !error && (
-          <AppCard><Text style={styles.emptyText}>No notices at this time.</Text></AppCard>
+          <EmptyState emoji="📢" title="No Notices Available" subtitle="There are no announcements or notices posted for you at this time." />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -81,7 +83,7 @@ export const ParentNoticesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 52, marginBottom: 20 },
+  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
   noticeCard: { marginBottom: 10 },
   noticeHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   noticeTitle: { color: colors.white, fontSize: 15, fontWeight: '700', flex: 1 },
