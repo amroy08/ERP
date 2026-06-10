@@ -75,7 +75,58 @@ export const StudentHomeScreen: React.FC = () => {
     setError('');
     try {
       const res = await fetchStudentDashboard();
-      setData(res.data ?? res);
+      const rawData = res.data ?? res;
+
+      const attendancePercent = rawData.attendanceSummary?.percentage ?? 0;
+      const totalPresent = rawData.attendanceSummary?.present ?? 0;
+      const totalDays = rawData.attendanceSummary?.total ?? 0;
+
+      const todayClasses = (rawData.todayTimetable || []).map((entry: any) => ({
+        period: entry.period || '1',
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        subjectName: entry.subject?.name || 'Subject',
+        teacherName: entry.teacher?.user?.name,
+      }));
+
+      const pendingHomework = (rawData.pendingHomework || []).map((hw: any) => ({
+        id: hw.id,
+        title: hw.title,
+        subjectName: hw.subject?.name || 'Subject',
+        dueDate: hw.dueDate,
+        status: hw.status || 'pending',
+      }));
+
+      const recentNotices = (rawData.notices || []).map((notice: any) => ({
+        id: notice.id,
+        title: notice.title,
+        priority: notice.priority,
+        publishDate: notice.publishDate,
+      }));
+
+      const recentResults: any[] = [];
+      if (rawData.latestResult?.results) {
+        for (const r of rawData.latestResult.results) {
+          recentResults.push({
+            id: r.id || Math.random().toString(),
+            examTitle: rawData.latestResult.examName || 'Exam',
+            subjectName: r.subjectName || r.subject?.name || 'Subject',
+            marksObtained: r.marksObtained ?? 0,
+            totalMarks: r.totalMarks ?? 100,
+            grade: r.grade,
+          });
+        }
+      }
+
+      setData({
+        attendancePercent,
+        totalPresent,
+        totalDays,
+        todayClasses,
+        pendingHomework,
+        recentResults,
+        recentNotices,
+      });
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Failed to load dashboard. Pull to retry.');
     } finally {

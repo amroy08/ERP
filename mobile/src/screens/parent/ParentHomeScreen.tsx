@@ -56,7 +56,40 @@ export const ParentHomeScreen: React.FC = () => {
     setError('');
     try {
       const res = await fetchParentDashboard();
-      setData(res.data ?? res);
+      const rawData = res.data ?? res;
+
+      const recentNotices = rawData.children?.[0]?.latestNotices || [];
+      const upcomingExams: any[] = [];
+      if (rawData.children) {
+        for (const child of rawData.children) {
+          if (child.upcomingExams) {
+            for (const exam of child.upcomingExams) {
+              upcomingExams.push({
+                id: exam.id,
+                title: exam.name,
+                date: exam.startDate,
+                className: child.className,
+              });
+            }
+          }
+        }
+      }
+
+      const children = (rawData.children || []).map((child: any) => ({
+        id: child.id,
+        name: child.name,
+        admissionNumber: child.admissionNo,
+        className: child.className,
+        sectionName: child.sectionName,
+        attendancePercent: child.attendanceSummary?.percentage ?? 0,
+        feeDue: child.pendingFees ?? 0,
+      }));
+
+      setData({
+        children,
+        recentNotices,
+        upcomingExams,
+      });
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Failed to load dashboard. Pull to retry.');
     } finally {

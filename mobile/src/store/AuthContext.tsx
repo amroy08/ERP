@@ -56,12 +56,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
         // Validate token by fetching current user
         const meData = await fetchCurrentUser();
-        if (meData?.user) {
-          const restoredUser: UserProfile = meData.user;
+        const meUser = meData?.data?.user ?? meData?.user;
+        const meSchool = meData?.data?.school ?? meData?.school;
+        if (meUser) {
+          const restoredUser: UserProfile = meUser;
           const restoredRole = toMobileRole(restoredUser.role);
           setUser(restoredUser);
           setRole(restoredRole);
-          if (meData.school) setSchool(meData.school);
+          if (meSchool) setSchool(meSchool);
         }
       } catch {
         // Token invalid / expired – clear and show login
@@ -79,10 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const data = await loginUser(email, password);
+      const resData = await loginUser(email, password);
+      const data = resData?.data ?? resData;
 
       // Backend returns: { accessToken, refreshToken, user, school }
-      if (!data.accessToken) throw new Error('No access token returned.');
+      if (!data?.accessToken) throw new Error('No access token returned.');
 
       await saveAccessToken(data.accessToken);
       if (data.refreshToken) await saveRefreshToken(data.refreshToken);

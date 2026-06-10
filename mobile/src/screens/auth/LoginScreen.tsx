@@ -15,9 +15,9 @@ import { useAuth } from '../../store/AuthContext';
 import { colors } from '../../constants/colors';
 
 const QUICK_LOGINS = [
-  { label: 'Parent Demo', email: 'rohit.sharma@gmail.com', password: 'password123', color: colors.parent },
-  { label: 'Student Demo', email: 'arjun.sharma@vidyaschool.edu.in', password: 'password123', color: colors.student },
-  { label: 'Teacher Demo', email: 'amit.patel@vidyaschool.edu.in', password: 'password123', color: colors.teacher },
+  { label: 'Parent Demo', email: 'parent@school.com', password: 'Admin@123', color: colors.parent },
+  { label: 'Student Demo', email: 'student@school.com', password: 'Admin@123', color: colors.student },
+  { label: 'Teacher Demo', email: 'teacher@school.com', password: 'Admin@123', color: colors.teacher },
 ];
 
 export const LoginScreen: React.FC = () => {

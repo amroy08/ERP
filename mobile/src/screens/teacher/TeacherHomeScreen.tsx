@@ -54,7 +54,46 @@ export const TeacherHomeScreen: React.FC = () => {
     setError('');
     try {
       const res = await fetchTeacherDashboard();
-      setData(res.data ?? res);
+      const rawData = res.data ?? res;
+
+      const todayClasses = (rawData.todayTimetable || []).map((entry: any) => ({
+        period: entry.period || '1',
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        className: entry.className,
+        sectionName: entry.sectionName,
+        subjectName: entry.subjectName,
+      }));
+
+      const pendingAttendance = (rawData.pendingAttendanceClasses || []).map((pa: any) => ({
+        classId: pa.classId + '_' + pa.sectionId,
+        className: pa.className,
+        sectionName: pa.sectionName,
+        date: new Date().toISOString(),
+      }));
+
+      const totalStudentsCount = rawData.quickStats?.totalStudents ?? 0;
+      const recentNotices = (rawData.recentNotices || []).map((notice: any) => ({
+        id: notice.id,
+        title: notice.title,
+        priority: notice.priority,
+        publishDate: notice.publishDate,
+      }));
+
+      const upcomingExams = (rawData.upcomingExams || []).map((exam: any) => ({
+        id: exam.id,
+        title: exam.title,
+        date: exam.date,
+        className: exam.className,
+      }));
+
+      setData({
+        todayClasses,
+        pendingAttendance,
+        totalStudentsCount,
+        recentNotices,
+        upcomingExams,
+      });
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Failed to load dashboard. Pull to retry.');
     } finally {
