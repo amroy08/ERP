@@ -28,6 +28,7 @@
 
 import prisma from '../config/prisma';
 import { EmailService, SendEmailResult } from './EmailService';
+import { PushNotificationService } from './PushNotificationService';
 import { FeeService } from './FeeService';
 import {
   testEmailTemplate,
@@ -430,6 +431,23 @@ export class NotificationService {
           )
         );
       }
+
+      // Safe push notification call
+      try {
+        PushNotificationService.sendToUsers(
+          users.map(u => u.id),
+          {
+            title: `New Notice: ${notice.title}`,
+            body: notice.content.substring(0, 100) + (notice.content.length > 100 ? '...' : ''),
+            data: {
+              type: 'notice',
+              entityId: notice.id,
+            },
+          }
+        ).catch(err => console.error('[NotificationService] Notice push notification failed:', err));
+      } catch (pushErr) {
+        console.error('[NotificationService] Error triggering notice push:', pushErr);
+      }
       
       return { success: true, status: 'sent' };
     } catch (error) {
@@ -526,6 +544,36 @@ export class NotificationService {
         );
       }
 
+      // Safe push notification call
+      try {
+        const parentUserIds = recipients.filter(r => r.role === 'parent').map(r => r.userId).filter(Boolean) as string[];
+        const studentUserIds = recipients.filter(r => r.role === 'student').map(r => r.userId).filter(Boolean) as string[];
+
+        if (parentUserIds.length > 0) {
+          PushNotificationService.sendToUsers(parentUserIds, {
+            title: `New Homework Assigned`,
+            body: `New homework has been assigned for your child in ${sub?.name || 'Homework'}.`,
+            data: {
+              type: 'homework',
+              entityId: homework.id,
+            },
+          }).catch(err => console.error('[NotificationService] Homework parent push notification failed:', err));
+        }
+
+        if (studentUserIds.length > 0) {
+          PushNotificationService.sendToUsers(studentUserIds, {
+            title: `New Homework Assigned`,
+            body: `New homework has been assigned for you in ${sub?.name || 'Homework'}.`,
+            data: {
+              type: 'homework',
+              entityId: homework.id,
+            },
+          }).catch(err => console.error('[NotificationService] Homework student push notification failed:', err));
+        }
+      } catch (pushErr) {
+        console.error('[NotificationService] Error triggering homework push:', pushErr);
+      }
+      
       return { success: true, status: 'sent' };
     } catch (error) {
       console.error('[NotificationService] notifyHomeworkAssigned error:', error);
@@ -617,6 +665,36 @@ export class NotificationService {
         );
       }
 
+      // Safe push notification call
+      try {
+        const parentUserIds = recipients.filter(r => r.role === 'parent').map(r => r.userId).filter(Boolean) as string[];
+        const studentUserIds = recipients.filter(r => r.role === 'student').map(r => r.userId).filter(Boolean) as string[];
+
+        if (parentUserIds.length > 0) {
+          PushNotificationService.sendToUsers(parentUserIds, {
+            title: `New Exam Scheduled`,
+            body: `A new exam "${exam.name}" has been scheduled for Class ${cls?.name || 'N/A'}.`,
+            data: {
+              type: 'exam',
+              entityId: exam.id,
+            },
+          }).catch(err => console.error('[NotificationService] Exam parent push notification failed:', err));
+        }
+
+        if (studentUserIds.length > 0) {
+          PushNotificationService.sendToUsers(studentUserIds, {
+            title: `New Exam Scheduled`,
+            body: `A new exam "${exam.name}" has been scheduled for your class.`,
+            data: {
+              type: 'exam',
+              entityId: exam.id,
+            },
+          }).catch(err => console.error('[NotificationService] Exam student push notification failed:', err));
+        }
+      } catch (pushErr) {
+        console.error('[NotificationService] Error triggering exam scheduled push:', pushErr);
+      }
+      
       return { success: true, status: 'sent' };
     } catch (error) {
       console.error('[NotificationService] notifyExamScheduled error:', error);
@@ -801,6 +879,35 @@ export class NotificationService {
             }).catch(err => console.error('[NotificationService] Result email fail for student:', sUser.email, err));
           }
         }
+
+        // Safe push notification call
+        try {
+          if (student.parent?.user?.id) {
+            PushNotificationService.sendToUser(student.parent.user.id, {
+              title: `Exam Result Published`,
+              body: `Result for ${student.fullName} in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
+              data: {
+                type: 'result',
+                entityId: exam.id,
+                studentId: student.id,
+              },
+            }).catch(err => console.error('[NotificationService] Result parent push notification failed:', err));
+          }
+
+          if (student.user?.id) {
+            PushNotificationService.sendToUser(student.user.id, {
+              title: `Exam Result Published`,
+              body: `Your result in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
+              data: {
+                type: 'result',
+                entityId: exam.id,
+                studentId: student.id,
+              },
+            }).catch(err => console.error('[NotificationService] Result student push notification failed:', err));
+          }
+        } catch (pushErr) {
+          console.error('[NotificationService] Error triggering result push:', pushErr);
+        }
       }
 
       return { success: true, status: 'sent' };
@@ -950,6 +1057,35 @@ export class NotificationService {
         }
       }
 
+      // Safe push notification call
+      try {
+        if (student.parent?.user?.id) {
+          PushNotificationService.sendToUser(student.parent.user.id, {
+            title: `Fee Payment Successful`,
+            body: `Receipt ${fullPayment.receiptNumber} generated for amount ₹${fullPayment.amountPaid}. Outstanding balance: ₹${totalOutstanding ?? 0}`,
+            data: {
+              type: 'fee_receipt',
+              entityId: fullPayment.id,
+              studentId: student.id,
+            },
+          }).catch(err => console.error('[NotificationService] Fee parent push notification failed:', err));
+        }
+
+        if (student.user?.id) {
+          PushNotificationService.sendToUser(student.user.id, {
+            title: `Fee Payment Successful`,
+            body: `Receipt ${fullPayment.receiptNumber} generated for amount ₹${fullPayment.amountPaid}.`,
+            data: {
+              type: 'fee_receipt',
+              entityId: fullPayment.id,
+              studentId: student.id,
+            },
+          }).catch(err => console.error('[NotificationService] Fee student push notification failed:', err));
+        }
+      } catch (pushErr) {
+        console.error('[NotificationService] Error triggering fee push:', pushErr);
+      }
+      
       return parentResult || { success: true, status: 'sent' };
     } catch (error) {
       console.error('[NotificationService] notifyFeePaymentReceipt error:', error);
@@ -1044,6 +1180,23 @@ export class NotificationService {
               recipientRole: 'parent',
               metadata
             });
+          }
+
+          // Safe push notification call
+          try {
+            if (student.parent?.user?.id) {
+              PushNotificationService.sendToUser(student.parent.user.id, {
+                title: `Attendance Alert: Absent`,
+                body: `${student.fullName} has been marked absent today (${new Date(record.date).toLocaleDateString()}).`,
+                data: {
+                  type: 'attendance_absent',
+                  entityId: record.id || '',
+                  studentId: student.id,
+                },
+              }).catch(err => console.error('[NotificationService] Attendance parent push notification failed:', err));
+            }
+          } catch (pushErr) {
+            console.error('[NotificationService] Error triggering attendance push:', pushErr);
           }
         } catch (singleError) {
           console.error(`[NotificationService] Failed to process absent attendance alert for student ${record.studentId}:`, singleError);

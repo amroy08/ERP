@@ -7,6 +7,11 @@ import {
   getAccessToken,
 } from '../utils/secureStorage';
 import { loginUser, fetchCurrentUser } from '../api/authApi';
+import {
+  registerForPushNotificationsAsync,
+  unregisterForPushNotificationsAsync,
+  setupNotificationListeners,
+} from '../services/notificationService';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -42,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     null
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [pushToken, setPushToken] = useState<string | null>(null);
 
   // ────────────────────────────────────────────────────────
   // Restore session on cold start
@@ -64,6 +70,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(restoredUser);
           setRole(restoredRole);
           if (meSchool) setSchool(meSchool);
+
+          // Asynchronously register push notifications
+          registerForPushNotificationsAsync().then(token => {
+            if (token) setPushToken(token);
+          });
         }
       } catch {
         // Token invalid / expired – clear and show login
@@ -74,6 +85,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     restoreSession();
   }, []);
+
+  // Setup foreground & response listeners for push notifications when authenticated
+  useEffect(() => {
+    if (user) {
+      const cleanup = setupNotificationListeners();
+      return cleanup;
+    }
+  }, [user]);
 
   // ────────────────────────────────────────────────────────
   // Real login
@@ -102,6 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(loggedInUser);
       setRole(mobileRole);
       if (data.school) setSchool(data.school);
+
+      // Asynchronously register push notifications
+      registerForPushNotificationsAsync().then(token => {
+        if (token) setPushToken(token);
+      });
     } catch (e) {
       setIsLoading(false);
       throw e;
@@ -116,6 +140,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signOut = async () => {
     setIsLoading(true);
     try {
+      if (pushToken) {
+        await unregisterForPushNotificationsAsync(pushToken);
+        setPushToken(null);
+      }
       await clearAuthTokens();
       setUser(null);
       setSchool(null);

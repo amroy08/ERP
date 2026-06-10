@@ -3,7 +3,7 @@ import apiClient from './apiClient';
 // ─── Push Notifications ────────────────────────────────────────────────────
 export const registerPushToken = async (
   token: string,
-  deviceType: 'ios' | 'android',
+  deviceType: 'ios' | 'android' | 'web',
   platform?: string,
   appVersion?: string
 ) => {

@@ -25,8 +25,10 @@ export const registerDevice = async (req: AuthRequest, res: Response, next: Next
     if (!token) {
       return next(createError('Device token is required.', 400));
     }
-    if (deviceType !== 'ios' && deviceType !== 'android') {
-      return next(createError('Invalid deviceType. Must be "ios" or "android".', 400));
+    // Accept 'ios', 'android', and optionally 'web' (for web testing/development metadata).
+    // Note: Native web push notifications require separate Firebase Web SDK / VAPID setup.
+    if (deviceType !== 'ios' && deviceType !== 'android' && deviceType !== 'web') {
+      return next(createError('Invalid deviceType. Must be "ios", "android", or "web".', 400));
     }
 
     // Upsert by token to safely reassign if it belonged to another user previously
