@@ -1,0 +1,102 @@
+================================================================
+  Phase 3.1H: Marks / Gradebook Readiness Audit
+================================================================
+
+--- 1. Exam Data ---
+   Total exams: 2
+   Status "completed": 1
+   Status "scheduled": 1
+   Sample exams (latest 5):
+     - "First Term Examination" | Class: Class 1 | AY: 2025-26 | Status: scheduled
+     - "Quarterly Mathematics Quiz" | Class: Class 1 | AY: 2025-26 | Status: completed
+
+--- 2. Result (Marks) Data ---
+   Total result rows: 2
+   Sample results (latest 3):
+     - Student: Jane Doe | Exam: First Term Examination | Subject: Mathematics | Marks: 78/100 | Grade: B+
+     - Student: Jane Doe | Exam: Quarterly Mathematics Quiz | Subject: Mathematics | Marks: 84/100 | Grade: A
+
+--- 3. SubjectTeacher Assignments ---
+   Total SubjectTeacher rows: 3
+   Active assignments: 3
+
+--- 4. Demo Teacher Profile ---
+   Name/Email: Class Teacher / teacher@school.com
+   SubjectTeacher active assignments: 2
+   Assigned classes: None
+   Class teacher of sections: A
+     SubjectTeacher: subject="Mathematics" section="A" class="Class 1"
+     SubjectTeacher: subject="Mathematics" section="A" class="Class 1"
+   Reachable classIds: [0b82b4fa-1cbe-4e4e-bd40-11a0b1a74fe1]
+
+--- 5. Exam Mapping for Demo Teacher ---
+   Exams reachable by demo teacher (via classId): 2
+     - "Quarterly Mathematics Quiz" | Class: Class 1 | Status: completed
+     - "First Term Examination" | Class: Class 1 | Status: scheduled
+
+--- 6. Students in Demo Teacher's Scope ---
+   Students in assigned sections: 28
+   Section IDs: [30e1dc8a-e932-47aa-8bd9-890186bda2dc, 30e1dc8a-e932-47aa-8bd9-890186bda2dc]
+   ✅ Teacher CAN map assigned subject/class/section to exam: YES
+
+--- 7. Schema Gap Analysis ---
+   Exam.sectionId:        MISSING — Exam only has classId, not sectionId
+   Result.published:      MISSING — No publish/unpublish workflow
+   Result.marksObtained:  PRESENT (Int)
+   Result.maxMarks:       PRESENT (Int, per result row)
+   Result.grade:          PRESENT (String?, nullable)
+   Result.remark:         PRESENT (String?, nullable)
+   Unique constraint:     PRESENT (examId + studentId + subjectId)
+   Separate Marks model:  NOT NEEDED — Result model covers marks storage
+   Schema change needed:  NO (for basic marks entry)
+   Migration needed:      NO
+
+--- 8. Backend API Gap Analysis ---
+   Web admin marks entry:        POST /api/exams/submit-results     ✅ EXISTS
+   Web get exam subjects:        GET  /api/exams/subjects/:examId   ❌ ROUTE UNREGISTERED (controller exists)
+   Web get exam marks:           GET  /api/exams/marks/:eId/:sId    ❌ ROUTE UNREGISTERED (controller exists)
+   Web POST /exams/marks client: POST /api/exams/marks              ❌ WRONG URL in client (should be /submit-results)
+   Mobile student exams:         GET  /api/mobile/student/exams     ✅ EXISTS
+   Mobile student results:       GET  /api/mobile/student/results   ✅ EXISTS
+   Mobile parent results:        GET  /api/mobile/parent/student/:id/results ✅ EXISTS
+   Mobile teacher marks exams:   GET  /api/mobile/teacher/marks/exams           ❌ MISSING
+   Mobile teacher exam subjects: GET  /api/mobile/teacher/marks/exams/:id/subjects ❌ MISSING
+   Mobile teacher exam students: GET  /api/mobile/teacher/marks/exams/:id/students?subjectId= ❌ MISSING
+   Mobile teacher save marks:    POST /api/mobile/teacher/marks/exams/:id/save  ❌ MISSING
+
+--- 9. Pre-existing Web UI Bug (not introduced by us) ---
+   ExamsPage.tsx calls POST /api/exams/marks — route NOT registered
+   ExamsPage.tsx calls GET  /api/exams/subjects/:id — route NOT registered
+   Registered submit route is POST /api/exams/submit-results
+   NOT blocking mobile marks implementation. Noted for future web fix.
+
+--- 10. Recommended Phase 3.1I Backend Endpoints ---
+   GET  /api/mobile/teacher/marks/exams
+        List exams teacher is authorized to mark (SubjectTeacher → section.classId → exam.classId)
+   GET  /api/mobile/teacher/marks/exams/:examId/subjects
+        List subjects teacher is authorized to mark in this exam
+   GET  /api/mobile/teacher/marks/exams/:examId/students?subjectId=
+        Students with existing marks for this exam+subject
+   POST /api/mobile/teacher/marks/exams/:examId/save
+        Body: { subjectId, maxMarks, marks: [{studentId, marksObtained, remark}] }
+        Bulk upsert — reuse ExamService.submitResults pattern
+
+--- 11. Teacher Marks Authorization Strategy ---
+   getTeacherMarksScopeOrThrow(authUser, examId, subjectId):
+   1. Verify role === 'teacher'
+   2. Load teacher profile with subjectTeachers (include section→class) + assignedClasses
+   3. Load exam → get exam.classId and exam.schoolId
+   4. School scope check: teacher.schoolId === exam.schoolId
+   5. Authorization — at least ONE must be true:
+       a. SubjectTeacher: st.subjectId===subjectId AND st.section.class.id===exam.classId
+       b. Subject fallback: subject.teacherId===teacher.id AND subject.classId===exam.classId
+       c. Class assignment: teacher.assignedClasses includes exam.classId
+
+================================================================
+  AUDIT COMPLETE
+  Phase 3.1H: Marks / Gradebook Planning Audit
+  Schema change needed:   NO
+  Migration needed:       NO
+  Missing mobile endpoints: 4
+  Safe to start Phase 3.1I: YES
+================================================================
