@@ -533,7 +533,11 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
       where: { userId: authUser.id },
       include: {
         assignedClasses: true,
-        classTeacherOf: true,
+        classTeacherOf: {
+          include: {
+            class: true,
+          },
+        },
         subjectTeachers: {
           include: {
             subject: true,
@@ -596,7 +600,12 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
 
     // 2. Add class teacher sections and classes
     teacher.classTeacherOf.forEach(sec => {
-      sectionsMap.set(sec.id, { id: sec.id, name: sec.name });
+      if (sec.class) {
+        classesMap.set(sec.class.id, { id: sec.class.id, name: sec.class.name });
+        sectionsMap.set(sec.id, { id: sec.id, name: sec.name, className: sec.class.name });
+      } else {
+        sectionsMap.set(sec.id, { id: sec.id, name: sec.name });
+      }
     });
     teacher.assignedClasses.forEach(cls => {
       classesMap.set(cls.id, { id: cls.id, name: cls.name });

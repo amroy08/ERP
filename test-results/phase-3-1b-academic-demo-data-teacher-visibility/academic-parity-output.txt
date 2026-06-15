@@ -1,0 +1,44 @@
+================================================================
+        MOBILE-WEB ACADEMIC PARITY AUDIT SCRIPTS
+================================================================
+
+--- 1. AUDITING PARENT DEMO DATA (parent@school.com) ---
+Parent Name: John Doe / Mary Doe
+Parent Email: parent@school.com
+linked children count: 1
+
+  Child Name: Jane Doe
+  Admission No: ADM-2025-0001
+  Class: Class 1 (ID: 0b82b4fa-1cbe-4e4e-bd40-11a0b1a74fe1)
+  Section: A (ID: 30e1dc8a-e932-47aa-8bd9-890186bda2dc)
+  child timetable count: 3
+  child homework count: 3
+  child exam count: 1
+  child result/marks count: 2
+
+--- 2. AUDITING STUDENT DEMO DATA (student@school.com) ---
+Student Name: Jane Doe
+Student Email: student@school.com
+class: Class 1
+section: A
+timetable count: 3
+homework count: 3
+exam count: 1
+result/marks count: 2
+attendance count: 6
+
+--- 3. AUDITING TEACHER DEMO DATA (teacher@school.com) ---
+Teacher Name: Class Teacher
+Teacher Email: teacher@school.com
+Employee ID: EMP-TCH-001
+assigned class count: 1
+assigned section count: 1
+assigned subject count: 2
+timetable count: 3
+homework count: 3
+attendance class count: 1
+Teacher Class 1 visible through classTeacherOf mapping: Yes
+
+================================================================
+                        AUDIT COMPLETED
+================================================================

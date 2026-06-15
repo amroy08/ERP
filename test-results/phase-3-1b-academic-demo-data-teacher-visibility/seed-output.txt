@@ -1,0 +1,40 @@
+================================================================
+        SEEDING MOBILE ACADEMIC DEMO DATA
+================================================================
+
+Targeting Student: Jane Doe (ID: 38518d8e-968a-4eaf-aec0-c5878808da1c)
+Class ID: 0b82b4fa-1cbe-4e4e-bd40-11a0b1a74fe1 | Section ID: 30e1dc8a-e932-47aa-8bd9-890186bda2dc
+School ID: 00708885-9890-4775-93f8-335cc3cb2b2f | Academic Year ID: ce1ac1b7-35f3-40be-bed4-358f1fd93815
+Targeting Subject: Mathematics (ID: 8a278bc9-0c6e-435e-b478-eceb1af3a0fc)
+SubjectTeacher mapping already correctly exists.
+Assigning teacher as Class Teacher of Section A...
+
+--- Seeding Timetable ---
+Creating Timetable...
+Adding TimetableEntry: Monday at 09:00
+Adding TimetableEntry: Wednesday at 10:00
+Adding TimetableEntry: Friday at 11:00
+
+--- Seeding Homework ---
+Creating Homework: "Algebra Worksheet 1"
+Creating Homework: "Fractions Assignment"
+Creating Homework: "Geometry Project: Shapes"
+
+--- Seeding Exams ---
+Creating Exam: "Quarterly Mathematics Quiz"
+Creating Exam: "First Term Examination"
+
+--- Seeding Results ---
+Creating Result for Exam: "Quarterly Mathematics Quiz"
+Creating Result for Exam: "First Term Examination"
+
+--- Seeding Attendance ---
+Creating Attendance for date: Sun Jun 14 2026 with status: present
+Creating Attendance for date: Sat Jun 13 2026 with status: present
+Creating Attendance for date: Fri Jun 12 2026 with status: absent
+Creating Attendance for date: Thu Jun 11 2026 with status: present
+Creating Attendance for date: Wed Jun 10 2026 with status: late
+
+================================================================
+                 SEEDING COMPLETED SUCCESSFULLY
+================================================================
