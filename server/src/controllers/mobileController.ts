@@ -1,10 +1,12 @@
 import { Response, NextFunction } from 'express';
 import fs from 'fs';
+import path from 'path';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { createError } from '../middleware/errorHandler';
 import { FeeService } from '../services/FeeService';
 import { ExamService } from '../services/ExamService';
+import { PushNotificationService } from '../services/PushNotificationService';
 
 // ── Helper to calculate attendance stats ──
 const calculateAttendanceSummary = (records: any[]) => {
@@ -1172,6 +1174,124 @@ const getStudentHomeworkOrThrow = async (authUser: any, homeworkId: string) => {
   return { student, homework, schoolId: homework.schoolId };
 };
 
+// ── Teacher Homework Authorization Helper ────────────────────────────────
+/**
+ * Verifies that the authenticated user is a teacher and is authorized
+ * to access the given homework (via assignedById, class teacher, subject teacher,
+ * or direct class assignment). Returns teacher + homework on success.
+ */
+const getTeacherHomeworkOrThrow = async (authUser: any, homeworkId: string) => {
+  if (authUser.role !== 'teacher') {
+    throw createError('Access denied. Role "teacher" required.', 403);
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: authUser.id },
+    include: {
+      classTeacherOf: true,
+      subjectTeachers: true,
+      assignedClasses: true,
+    },
+  });
+
+  if (!teacher) {
+    throw createError('Teacher profile not found.', 404);
+  }
+
+  const homework = await prisma.homework.findUnique({
+    where: { id: homeworkId },
+    include: {
+      class: { select: { id: true, name: true } },
+      section: { select: { id: true, name: true } },
+      subject: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!homework) {
+    throw createError('Homework not found.', 404);
+  }
+
+  // School scope check
+  if (homework.schoolId && teacher.schoolId && homework.schoolId !== teacher.schoolId) {
+    throw createError('Access denied.', 403);
+  }
+
+  // Authorization check — at least ONE of these must be true:
+  let authorized = false;
+
+  // 1. Teacher created / was assigned the homework
+  if (homework.assignedById === teacher.id) {
+    authorized = true;
+  }
+
+  // 2. Teacher is class teacher of the homework's section
+  if (!authorized && homework.sectionId) {
+    authorized = teacher.classTeacherOf.some(sec => sec.id === homework.sectionId);
+  }
+
+  // 3. Teacher is directly assigned to the homework's class
+  if (!authorized) {
+    authorized = teacher.assignedClasses.some(cls => cls.id === homework.classId);
+  }
+
+  // 4. Teacher teaches the homework's subject in the homework's section
+  if (!authorized) {
+    authorized = teacher.subjectTeachers.some(
+      st =>
+        st.subjectId === homework.subjectId &&
+        (!homework.sectionId || st.sectionId === homework.sectionId)
+    );
+  }
+
+  if (!authorized) {
+    throw createError('Access denied. You are not authorized for this homework.', 403);
+  }
+
+  return { teacher, homework };
+};
+
+// ── Teacher Submission Authorization Helper ───────────────────────────────
+/**
+ * Fetches a HomeworkSubmission and verifies the teacher is authorized
+ * for that submission's homework. Returns submission + teacher + homework.
+ */
+const getTeacherHomeworkSubmissionOrThrow = async (authUser: any, submissionId: string) => {
+  if (authUser.role !== 'teacher') {
+    throw createError('Access denied. Role "teacher" required.', 403);
+  }
+
+  const submission = await prisma.homeworkSubmission.findUnique({
+    where: { id: submissionId },
+    include: {
+      homework: {
+        include: {
+          class: { select: { id: true, name: true } },
+          section: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true } },
+        },
+      },
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          admissionNumber: true,
+          rollNumber: true,
+          userId: true,
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw createError('Submission not found.', 404);
+  }
+
+  // Reuse homework auth check
+  const { teacher } = await getTeacherHomeworkOrThrow(authUser, submission.homeworkId);
+
+  return { submission, teacher };
+};
+
 // ── Student Homework Submission Endpoints ─────────────────────────────────
 
 export const getStudentHomeworkSubmission = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -1580,6 +1700,344 @@ export const submitTeacherAttendance = async (req: AuthRequest, res: Response, n
     res.status(200).json({
       success: true,
       message: `Attendance submitted for ${records.length} students.`,
+    });
+  } catch (error) { next(error); }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3.1F — TEACHER HOMEWORK REVIEW BACKEND
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── GET /teacher/homework ─────────────────────────────────────────────────
+// Returns all homework items the teacher is authorized to review.
+
+export const getTeacherHomework = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    if (authUser.role !== 'teacher') return next(createError('Access denied. Role "teacher" required.', 403));
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: authUser.id },
+      include: {
+        classTeacherOf: true,
+        subjectTeachers: true,
+        assignedClasses: true,
+      },
+    });
+    if (!teacher) return next(createError('Teacher profile not found.', 404));
+
+    // Build union of authorized homework:
+    // (a) homework created by this teacher
+    // (b) homework for sections where teacher is class teacher
+    // (c) homework for classes directly assigned to teacher
+    // (d) homework for subject+section combos taught by teacher
+    const classTeacherSectionIds = teacher.classTeacherOf.map(s => s.id);
+    const assignedClassIds = teacher.assignedClasses.map(c => c.id);
+    const subjectTeacherPairs = teacher.subjectTeachers.map(st => ({
+      subjectId: st.subjectId,
+      sectionId: st.sectionId,
+    }));
+
+    const allHomework = await prisma.homework.findMany({
+      where: {
+        schoolId: teacher.schoolId,
+        OR: [
+          { assignedById: teacher.id },
+          { sectionId: { in: classTeacherSectionIds } },
+          { classId: { in: assignedClassIds } },
+          ...subjectTeacherPairs.map(p => ({
+            subjectId: p.subjectId,
+            sectionId: p.sectionId,
+          })),
+        ],
+      },
+      include: {
+        class: { select: { name: true } },
+        section: { select: { name: true } },
+        subject: { select: { name: true } },
+        submissions: {
+          select: { id: true, status: true },
+        },
+      },
+      orderBy: { dueDate: 'desc' },
+    });
+
+    // Deduplicate (union query may overlap)
+    const seenIds = new Set<string>();
+    const uniqueHomework = allHomework.filter(hw => {
+      if (seenIds.has(hw.id)) return false;
+      seenIds.add(hw.id);
+      return true;
+    });
+
+    const result = await Promise.all(
+      uniqueHomework.map(async hw => {
+        const sectionId = hw.sectionId;
+        const totalStudents = sectionId
+          ? await prisma.student.count({ where: { sectionId, status: 'active' } })
+          : await prisma.student.count({ where: { classId: hw.classId, status: 'active' } });
+
+        const submittedCount = hw.submissions.filter(s =>
+          ['submitted', 'late', 'reviewed', 'returned'].includes(s.status)
+        ).length;
+        const reviewedCount = hw.submissions.filter(s => s.status === 'reviewed').length;
+        const returnedCount = hw.submissions.filter(s => s.status === 'returned').length;
+        const lateCount = hw.submissions.filter(s => s.status === 'late').length;
+        const pendingCount = totalStudents - submittedCount;
+
+        return {
+          homeworkId: hw.id,
+          title: hw.title,
+          description: hw.description,
+          className: hw.class.name,
+          sectionName: hw.section?.name ?? null,
+          subjectName: hw.subject.name,
+          dueDate: hw.dueDate,
+          assignedDate: hw.assignedDate,
+          createdAt: hw.createdAt,
+          totalStudents,
+          submittedCount,
+          pendingCount: Math.max(0, pendingCount),
+          reviewedCount,
+          returnedCount,
+          lateCount,
+        };
+      })
+    );
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) { next(error); }
+};
+
+// ── GET /teacher/homework/:homeworkId/submissions ─────────────────────────
+// Returns all student submissions for the given homework.
+
+export const getTeacherHomeworkSubmissions = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const homeworkId = req.params.homeworkId as string;
+
+    const { homework } = await getTeacherHomeworkOrThrow(authUser, homeworkId);
+
+    // Fetch all students in the homework's class/section
+    const sectionFilter = homework.sectionId
+      ? { sectionId: homework.sectionId }
+      : { classId: homework.classId };
+
+    const students = await prisma.student.findMany({
+      where: { ...sectionFilter, status: 'active' },
+      select: {
+        id: true,
+        fullName: true,
+        admissionNumber: true,
+        rollNumber: true,
+      },
+      orderBy: { rollNumber: 'asc' },
+    });
+
+    // Fetch all submissions for this homework
+    const submissions = await prisma.homeworkSubmission.findMany({
+      where: { homeworkId },
+    });
+
+    const submissionMap = new Map<string, typeof submissions[0]>();
+    submissions.forEach(s => submissionMap.set(s.studentId, s));
+
+    const studentList = students.map(student => {
+      const sub = submissionMap.get(student.id);
+      return {
+        studentId: student.id,
+        studentName: student.fullName,
+        admissionNumber: student.admissionNumber,
+        rollNumber: student.rollNumber,
+        submissionId: sub?.id ?? null,
+        status: sub?.status ?? 'pending',
+        submittedAt: sub?.submittedAt ?? null,
+        hasFile: !!(sub?.fileName),
+        hasText: !!(sub?.submissionText),
+        fileName: sub?.fileName ?? null,
+        marks: sub?.marks ?? null,
+        teacherFeedback: sub?.teacherFeedback ?? null,
+        reviewedAt: sub?.reviewedAt ?? null,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        homework: {
+          homeworkId: homework.id,
+          title: homework.title,
+          description: homework.description,
+          className: homework.class.name,
+          sectionName: homework.section?.name ?? null,
+          subjectName: homework.subject.name,
+          dueDate: homework.dueDate,
+        },
+        students: studentList,
+      },
+    });
+  } catch (error) { next(error); }
+};
+
+// ── GET /teacher/homework/submissions/:submissionId ───────────────────────
+// Returns full detail for a single submission.
+
+export const getTeacherSubmissionDetail = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const submissionId = req.params.submissionId as string;
+
+    const { submission } = await getTeacherHomeworkSubmissionOrThrow(authUser, submissionId);
+
+    const hw = submission.homework;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        submissionId: submission.id,
+        homeworkId: hw.id,
+        homeworkTitle: hw.title,
+        className: hw.class.name,
+        sectionName: hw.section?.name ?? null,
+        subjectName: hw.subject.name,
+        dueDate: hw.dueDate,
+        student: {
+          studentId: submission.student.id,
+          studentName: submission.student.fullName,
+          admissionNumber: submission.student.admissionNumber,
+          rollNumber: submission.student.rollNumber,
+        },
+        submissionText: submission.submissionText ?? null,
+        fileName: submission.fileName ?? null,
+        // filePath intentionally NOT included — use the download endpoint
+        mimeType: submission.mimeType ?? null,
+        fileSize: submission.fileSize ?? null,
+        status: submission.status,
+        submittedAt: submission.submittedAt,
+        teacherFeedback: submission.teacherFeedback ?? null,
+        marks: submission.marks ?? null,
+        reviewedAt: submission.reviewedAt ?? null,
+        canReview: ['submitted', 'late'].includes(submission.status),
+        canReturn: submission.status === 'reviewed',
+        canDownload: !!(submission.fileName && submission.filePath),
+      },
+    });
+  } catch (error) { next(error); }
+};
+
+// ── PATCH /teacher/homework/submissions/:submissionId/review ──────────────
+// Teacher adds feedback, marks, and sets status (reviewed | returned).
+
+export const reviewTeacherSubmission = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const submissionId = req.params.submissionId as string;
+    const { status, teacherFeedback, marks } = req.body as {
+      status?: string;
+      teacherFeedback?: string;
+      marks?: number;
+    };
+
+    const { submission, teacher } = await getTeacherHomeworkSubmissionOrThrow(authUser, submissionId);
+
+    // Validate status
+    const allowedStatuses = ['reviewed', 'returned'];
+    if (status && !allowedStatuses.includes(status)) {
+      return next(createError(`Invalid status. Allowed: ${allowedStatuses.join(', ')}.`, 400));
+    }
+
+    // Validate marks
+    if (marks !== undefined && marks !== null) {
+      if (typeof marks !== 'number' || marks < 0 || isNaN(marks)) {
+        return next(createError('Marks must be a non-negative number.', 400));
+      }
+    }
+
+    const updatedSubmission = await prisma.homeworkSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: status ?? submission.status,
+        teacherFeedback: teacherFeedback !== undefined ? teacherFeedback : submission.teacherFeedback,
+        marks: marks !== undefined ? marks : submission.marks,
+        reviewedAt: status ? new Date() : submission.reviewedAt,
+        reviewedById: status ? authUser.id : submission.reviewedById,
+      },
+    });
+
+    // Push notification to student (best-effort, non-blocking)
+    if (status && submission.student.userId) {
+      const notifTitle =
+        status === 'reviewed'
+          ? 'Homework Reviewed'
+          : 'Homework Returned for Resubmission';
+      const notifBody =
+        status === 'reviewed'
+          ? `Your homework "${submission.homework.title}" has been reviewed.`
+          : `Your homework "${submission.homework.title}" was returned. Please resubmit.`;
+      PushNotificationService.sendToUser(submission.student.userId, {
+        title: notifTitle,
+        body: notifBody,
+        data: {
+          type: status === 'reviewed' ? 'homework_reviewed' : 'homework_returned',
+          homeworkId: submission.homeworkId,
+          submissionId: submission.id,
+        },
+      }).catch(() => {
+        // Swallow push errors — non-critical
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        status === 'reviewed'
+          ? 'Submission marked as reviewed.'
+          : status === 'returned'
+          ? 'Submission returned to student for resubmission.'
+          : 'Submission updated.',
+      data: {
+        submissionId: updatedSubmission.id,
+        status: updatedSubmission.status,
+        teacherFeedback: updatedSubmission.teacherFeedback,
+        marks: updatedSubmission.marks,
+        reviewedAt: updatedSubmission.reviewedAt,
+      },
+    });
+  } catch (error) { next(error); }
+};
+
+// ── GET /teacher/homework/submissions/:submissionId/download ──────────────
+// Securely streams the private submission file to the authorized teacher.
+
+export const downloadTeacherSubmissionFile = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const submissionId = req.params.submissionId as string;
+
+    const { submission } = await getTeacherHomeworkSubmissionOrThrow(authUser, submissionId);
+
+    if (!submission.filePath || !submission.fileName) {
+      return next(createError('No file attached to this submission.', 404));
+    }
+
+    // Resolve absolute path and prevent path traversal
+    const privateBase = path.resolve(process.cwd(), 'private_uploads', 'homework-submissions');
+    const requestedPath = path.resolve(submission.filePath);
+
+    if (!requestedPath.startsWith(privateBase)) {
+      return next(createError('Access denied. Invalid file path.', 403));
+    }
+
+    if (!fs.existsSync(requestedPath)) {
+      return next(createError('File not found on server.', 404));
+    }
+
+    // Stream file to teacher with the original filename
+    res.download(requestedPath, submission.fileName, err => {
+      if (err && !res.headersSent) {
+        next(createError('File download failed.', 500));
+      }
     });
   } catch (error) { next(error); }
 };

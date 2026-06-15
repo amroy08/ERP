@@ -26,6 +26,12 @@ import {
   getTeacherAttendanceClasses,
   getTeacherAttendanceStudents,
   submitTeacherAttendance,
+  // Phase 3.1F — Teacher Homework Review
+  getTeacherHomework,
+  getTeacherHomeworkSubmissions,
+  getTeacherSubmissionDetail,
+  reviewTeacherSubmission,
+  downloadTeacherSubmissionFile,
 } from '../controllers/mobileController';
 
 const router = Router();
@@ -64,6 +70,14 @@ router.get('/teacher/notices', getTeacherNotices);
 router.get('/teacher/attendance-classes', getTeacherAttendanceClasses);
 router.get('/teacher/attendance-students', getTeacherAttendanceStudents);
 router.post('/teacher/attendance-submit', submitTeacherAttendance);
+
+// Phase 3.1F — Teacher Homework Review
+// IMPORTANT: specific paths must come before param paths to avoid route conflicts
+router.get('/teacher/homework/submissions/:submissionId/download', downloadTeacherSubmissionFile);
+router.get('/teacher/homework/submissions/:submissionId', getTeacherSubmissionDetail);
+router.patch('/teacher/homework/submissions/:submissionId/review', reviewTeacherSubmission);
+router.get('/teacher/homework/:homeworkId/submissions', getTeacherHomeworkSubmissions);
+router.get('/teacher/homework', getTeacherHomework);
 
 export default router;
 

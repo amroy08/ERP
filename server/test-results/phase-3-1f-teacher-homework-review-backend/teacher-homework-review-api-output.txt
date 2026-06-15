@@ -1,0 +1,70 @@
+
+================================================================
+   TESTING TEACHER HOMEWORK REVIEW BACKEND (PHASE 3.1F)
+================================================================
+
+✅ Logged in as teacher, student, and parent.
+
+--- 1. GET /teacher/homework (Teacher Homework List) ---
+   ✅ GET /teacher/homework: HTTP 200
+   ✅ teacher homework list: no raw filePath in JSON ✓
+   Found 3 homework item(s) visible to teacher.
+   First HW: "Geometry Project: Shapes" (Class 1 A — Mathematics)
+   Stats: total=28 submitted=1 pending=27 reviewed=0
+
+--- 2. GET /teacher/homework/da49d55f-bf35-42db-8d55-2ebbb71ffead/submissions ---
+   ✅ GET homework submissions: HTTP 200
+   ✅ submissions list: no raw filePath in JSON ✓
+   Students in list: 28
+   Student with submission: Jane Doe (status: returned)
+
+--- 3. GET /teacher/homework/submissions/cmqf8bwtq0001s2dygzc0b2ff ---
+   ✅ GET submission detail: HTTP 200
+   ✅ submission detail: no raw filePath in JSON ✓
+   Student: Jane Doe, status: returned, canReview: false, canDownload: false
+   ✅ filePath absent from detail JSON ✓
+
+--- 4. PATCH review (status: reviewed, marks: 9) ---
+   ✅ PATCH mark as reviewed: HTTP 200
+   ✅ Status set to reviewed ✓
+   ✅ Marks saved as 9 ✓
+   ✅ reviewedAt populated: 2026-06-15T13:09:39.175Z
+
+--- 5. PATCH review (status: returned) ---
+   ✅ PATCH return submission: HTTP 200
+   ✅ Status set to returned ✓
+
+--- 6. GET download (expects 200 for file, 404 for text-only) ---
+   ✅ Download: no file on text-only submission (404 as expected)
+
+--- 7. Security: Student → teacher endpoints (must be 403) ---
+   ✅ Student → GET /teacher/homework: BLOCKED (403)
+   ✅ Student → GET homework submissions: BLOCKED (403)
+   ✅ Student → GET submission detail: BLOCKED (403)
+   ✅ Student → PATCH review: BLOCKED (403)
+   ✅ Student → GET download: BLOCKED (403)
+
+--- 8. Security: Parent → teacher endpoints (must be 403) ---
+   ✅ Parent → GET /teacher/homework: BLOCKED (403)
+   ✅ Parent → PATCH review: BLOCKED (403)
+
+--- 9. Security: Unauthenticated request blocked ---
+   ✅ Unauthenticated → GET /teacher/homework: BLOCKED (401)
+
+--- 10. Validation: Negative marks rejected ---
+   ✅ Negative marks rejected (400) ✓
+
+--- 11. Validation: Invalid status rejected ---
+   ✅ Invalid status "approved" rejected (400) ✓
+
+--- 12. Security: IDOR — fabricated homework ID ---
+   ✅ Fabricated homework ID: BLOCKED (404)
+
+--- 13. Security: IDOR — fabricated submission ID ---
+   ✅ Fabricated submission ID: BLOCKED (404)
+
+================================================================
+   RESULTS: 26 passed, 0 failed
+   TEACHER HOMEWORK REVIEW BACKEND TESTS PASSED SUCCESSFULLY
+================================================================
+
