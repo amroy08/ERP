@@ -1,0 +1,40 @@
+================================================================
+        TESTING STUDENT HOMEWORK SUBMISSION BACKEND (PHASE 3.1D)
+================================================================
+
+📌 Target Homework: "Algebra Worksheet 1" (ID: 24cc3ed2-243e-4f12-b24f-4541155fb3ad)
+🧹 Cleaned existing submissions for target homework.
+
+--- 1. Testing Get Initial Submission Status (Empty Case) ---
+✅ GET initial submission: PASS (Result: null)
+
+--- 2. Testing Text-Only Submission (Positive Case) ---
+✅ POST submit text-only: PASS (Message: "Homework submitted successfully.")
+✅ GET text submission status: PASS
+   Status: "late", Text: "This is my text-only homework answer."
+
+--- 3. Testing Text + File Resubmission (Positive Case) ---
+✅ POST resubmit with file: PASS (Message: "Homework resubmitted successfully.")
+✅ GET file submission status: PASS
+   Status: "late", Text: "Resubmitted with a revision text.", File: "algebra_answers.txt"
+
+--- 4. Testing Student Homework List Integration ---
+✅ GET student homework list: PASS
+   hasSubmission: true, submissionStatus: "late", file: "algebra_answers.txt"
+
+--- 5. Testing Parent Child Homework List Integration ---
+✅ GET parent child homework list: PASS
+   hasSubmission: true, submissionStatus: "late", file: "algebra_answers.txt"
+
+--- 6. Testing Security Mismatch Checks (Negative Cases) ---
+✅ Security check - submit to unrelated class homework: BLOCKED (403 Access Denied)
+✅ Security check - submit as parent: BLOCKED (403 Access Denied)
+✅ Security check - submit as teacher: BLOCKED (403 Access Denied)
+
+--- 7. Testing Input & File Validation Checks ---
+✅ File validation - invalid file type rejected: PASS
+✅ Input validation - empty submission rejected: PASS (400 Bad Request)
+
+================================================================
+         HOMEWORK SUBMISSION BACKEND TESTS PASSED SUCCESSFULLY
+================================================================

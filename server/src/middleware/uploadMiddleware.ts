@@ -134,3 +134,50 @@ export const studentUpload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB
   }
 });
+
+// ── Homework Submission Upload (Private Storage) ──────────────────────────
+// Stored in private_uploads/homework-submissions/ — NOT served via express.static
+
+const homeworkSubmissionUploadDir = path.join(process.cwd(), 'private_uploads', 'homework-submissions');
+if (!fs.existsSync(homeworkSubmissionUploadDir)) {
+  fs.mkdirSync(homeworkSubmissionUploadDir, { recursive: true });
+}
+
+const ALLOWED_HOMEWORK_MIMES = [
+  'application/pdf',
+  'application/msword', // doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'image/jpeg',
+  'image/png',
+  'text/plain' // txt
+];
+
+const ALLOWED_HOMEWORK_EXTENSIONS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.txt'];
+
+const homeworkStorage = multer.diskStorage({
+  destination: (_req: Request, _file, cb) => {
+    cb(null, homeworkSubmissionUploadDir);
+  },
+  filename: (req: Request, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `submission-${uniqueSuffix}${ext}`);
+  }
+});
+
+const homeworkFileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_HOMEWORK_MIMES.includes(file.mimetype) || ALLOWED_HOMEWORK_EXTENSIONS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPG, JPEG, PNG, and TXT files are allowed for homework submissions.'));
+  }
+};
+
+export const homeworkSubmissionUpload = multer({
+  storage: homeworkStorage,
+  fileFilter: homeworkFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});

@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import fs from 'fs';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { createError } from '../middleware/errorHandler';
@@ -217,6 +218,9 @@ export const getParentDashboard = async (req: AuthRequest, res: Response, next: 
           classId: child.classId,
           OR: [{ sectionId: child.sectionId }, { sectionId: null }],
           dueDate: { gte: new Date() },
+          submissions: {
+            none: { studentId: child.id },
+          },
         },
       });
 
@@ -510,6 +514,9 @@ export const getStudentDashboard = async (req: AuthRequest, res: Response, next:
         classId: student.classId,
         OR: [{ sectionId: student.sectionId }, { sectionId: null }],
         dueDate: { gte: new Date() },
+        submissions: {
+          none: { studentId: student.id },
+        },
       },
       include: { subject: { select: { name: true } } },
       orderBy: { dueDate: 'asc' },
@@ -889,18 +896,40 @@ export const getParentChildHomework = async (req: AuthRequest, res: Response, ne
         classId: child.classId,
         OR: [{ sectionId: child.sectionId }, { sectionId: null }],
       },
-      include: { subject: { select: { name: true } } },
+      include: {
+        subject: { select: { name: true } },
+        submissions: {
+          where: { studentId: child.id },
+        },
+      },
       orderBy: { dueDate: 'asc' },
       take: 30,
     });
 
     res.status(200).json({
       success: true,
-      data: homework.map(h => ({
-        id: h.id, title: h.title, description: h.description,
-        subjectName: h.subject.name, assignedDate: h.assignedDate, dueDate: h.dueDate,
-        status: h.dueDate < new Date() ? 'submitted' : 'pending',
-      })),
+      data: homework.map(h => {
+        const sub = h.submissions[0];
+        const hasSubmission = !!sub;
+        const isPastDue = h.dueDate < new Date();
+        const submissionStatus = hasSubmission ? sub.status : (isPastDue ? 'overdue' : 'pending');
+
+        return {
+          id: h.id,
+          title: h.title,
+          description: h.description,
+          subjectName: h.subject.name,
+          assignedDate: h.assignedDate,
+          dueDate: h.dueDate,
+          status: hasSubmission ? sub.status : (isPastDue ? 'submitted' : 'pending'),
+          submissionStatus,
+          submittedAt: sub ? sub.submittedAt : null,
+          hasSubmission,
+          fileName: sub ? sub.fileName : null,
+          teacherFeedback: sub ? sub.teacherFeedback : null,
+          marks: sub ? sub.marks : null,
+        };
+      }),
     });
   } catch (error) { next(error); }
 };
@@ -1106,6 +1135,167 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response, next:
   } catch (error) { next(error); }
 };
 
+// ── Student Homework Scoping Helper ───────────────────────────────────────
+const getStudentHomeworkOrThrow = async (authUser: any, homeworkId: string) => {
+  if (authUser.role !== 'student') {
+    throw createError('Access denied. Role "student" required.', 403);
+  }
+
+  const student = await prisma.student.findUnique({
+    where: { userId: authUser.id },
+  });
+
+  if (!student) {
+    throw createError('Student profile not found.', 404);
+  }
+
+  const homework = await prisma.homework.findUnique({
+    where: { id: homeworkId },
+  });
+
+  if (!homework) {
+    throw createError('Homework not found.', 404);
+  }
+
+  if (homework.schoolId && authUser.schoolId && homework.schoolId !== authUser.schoolId) {
+    throw createError('Access denied. School mismatch.', 403);
+  }
+
+  if (homework.classId !== student.classId) {
+    throw createError('Access denied. This homework is not assigned to your class.', 403);
+  }
+
+  if (homework.sectionId && homework.sectionId !== student.sectionId) {
+    throw createError('Access denied. This homework is not assigned to your section.', 403);
+  }
+
+  return { student, homework, schoolId: homework.schoolId };
+};
+
+// ── Student Homework Submission Endpoints ─────────────────────────────────
+
+export const getStudentHomeworkSubmission = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const homeworkId = req.params.homeworkId as string;
+    const authUser = req.user!;
+    const { student } = await getStudentHomeworkOrThrow(authUser, homeworkId);
+
+    const submission = await prisma.homeworkSubmission.findUnique({
+      where: {
+        homeworkId_studentId: { homeworkId, studentId: student.id },
+      },
+    });
+
+    if (!submission) {
+      res.status(200).json({
+        success: true,
+        data: null,
+      });
+      return;
+    }
+
+    const isReviewed = submission.status === 'reviewed' || submission.reviewedAt !== null;
+    const canResubmit = !isReviewed || submission.status === 'returned';
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: submission.id,
+        homeworkId: submission.homeworkId,
+        studentId: submission.studentId,
+        status: submission.status,
+        submissionText: submission.submissionText,
+        fileName: submission.fileName,
+        mimeType: submission.mimeType,
+        fileSize: submission.fileSize,
+        submittedAt: submission.submittedAt,
+        teacherFeedback: submission.teacherFeedback,
+        marks: submission.marks,
+        reviewedAt: submission.reviewedAt,
+        canResubmit,
+      },
+    });
+  } catch (error) { next(error); }
+};
+
+export const submitStudentHomework = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const homeworkId = req.params.homeworkId as string;
+    const authUser = req.user!;
+    const { student, homework, schoolId } = await getStudentHomeworkOrThrow(authUser, homeworkId);
+
+    const submissionText = req.body.submissionText;
+    const file = req.file;
+
+    if (!submissionText && !file) {
+      return next(createError('Either submission text or a file is required.', 400));
+    }
+
+    // Check existing submission
+    const existingSubmission = await prisma.homeworkSubmission.findUnique({
+      where: {
+        homeworkId_studentId: { homeworkId, studentId: student.id },
+      },
+    });
+
+    if (existingSubmission) {
+      const isReviewed = existingSubmission.status === 'reviewed' || existingSubmission.reviewedAt !== null;
+      const canResubmit = !isReviewed || existingSubmission.status === 'returned';
+      if (!canResubmit) {
+        if (file) {
+          try { fs.unlinkSync(file.path); } catch (e) {}
+        }
+        return next(createError('This homework has already been reviewed and cannot be resubmitted.', 400));
+      }
+    }
+
+    const isLate = homework.dueDate < new Date();
+    const status = isLate ? 'late' : 'submitted';
+
+    if (existingSubmission && existingSubmission.filePath && file) {
+      try {
+        if (fs.existsSync(existingSubmission.filePath)) {
+          fs.unlinkSync(existingSubmission.filePath);
+        }
+      } catch (err) {
+        console.error('[MobileController] Error removing old submission file:', err);
+      }
+    }
+
+    const dataToSave = {
+      homeworkId,
+      studentId: student.id,
+      schoolId: schoolId || authUser.schoolId || null,
+      status,
+      submissionText: submissionText || null,
+      fileName: file ? file.originalname : (existingSubmission ? existingSubmission.fileName : null),
+      filePath: file ? file.path : (existingSubmission ? existingSubmission.filePath : null),
+      mimeType: file ? file.mimetype : (existingSubmission ? existingSubmission.mimeType : null),
+      fileSize: file ? file.size : (existingSubmission ? existingSubmission.fileSize : null),
+      submittedAt: new Date(),
+    };
+
+    const submission = await prisma.homeworkSubmission.upsert({
+      where: {
+        homeworkId_studentId: { homeworkId, studentId: student.id },
+      },
+      create: dataToSave,
+      update: dataToSave,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: existingSubmission ? 'Homework resubmitted successfully.' : 'Homework submitted successfully.',
+      data: submission,
+    });
+  } catch (error) {
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    next(error);
+  }
+};
+
 // ── Student Homework Endpoint ─────────────────────────────────────────────
 
 export const getStudentHomework = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -1120,18 +1310,44 @@ export const getStudentHomework = async (req: AuthRequest, res: Response, next: 
         classId: student.classId,
         OR: [{ sectionId: student.sectionId }, { sectionId: null }],
       },
-      include: { subject: { select: { name: true } } },
+      include: {
+        subject: { select: { name: true } },
+        submissions: {
+          where: { studentId: student.id },
+        },
+      },
       orderBy: { dueDate: 'asc' },
       take: 30,
     });
 
     res.status(200).json({
       success: true,
-      data: homework.map(h => ({
-        id: h.id, title: h.title, description: h.description,
-        subjectName: h.subject.name, assignedDate: h.assignedDate, dueDate: h.dueDate,
-        status: h.dueDate < new Date() ? 'submitted' : 'pending',
-      })),
+      data: homework.map(h => {
+        const sub = h.submissions[0];
+        const hasSubmission = !!sub;
+        const isPastDue = h.dueDate < new Date();
+        const submissionStatus = hasSubmission ? sub.status : (isPastDue ? 'overdue' : 'pending');
+        const isReviewed = hasSubmission && (sub.status === 'reviewed' || sub.reviewedAt !== null);
+        const canResubmit = hasSubmission ? (!isReviewed || sub.status === 'returned') : true;
+
+        return {
+          id: h.id,
+          title: h.title,
+          description: h.description,
+          subjectName: h.subject.name,
+          assignedDate: h.assignedDate,
+          dueDate: h.dueDate,
+          status: hasSubmission ? sub.status : (isPastDue ? 'submitted' : 'pending'),
+          submissionStatus,
+          submittedAt: sub ? sub.submittedAt : null,
+          hasSubmission,
+          fileName: sub ? sub.fileName : null,
+          teacherFeedback: sub ? sub.teacherFeedback : null,
+          marks: sub ? sub.marks : null,
+          canSubmit: !hasSubmission || canResubmit,
+          canResubmit,
+        };
+      }),
     });
   } catch (error) { next(error); }
 };

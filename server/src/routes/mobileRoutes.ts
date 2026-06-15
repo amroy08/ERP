@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect } from '../middleware/authMiddleware';
+import { homeworkSubmissionUpload } from '../middleware/uploadMiddleware';
 import {
   registerDevice,
   unregisterDevice,
@@ -17,6 +18,8 @@ import {
   getStudentHomework,
   getStudentExams,
   getStudentResults,
+  getStudentHomeworkSubmission,
+  submitStudentHomework,
   getTeacherDashboard,
   getTeacherTimetable,
   getTeacherNotices,
@@ -51,6 +54,8 @@ router.get('/student/timetable', getStudentTimetable);
 router.get('/student/homework', getStudentHomework);
 router.get('/student/exams', getStudentExams);
 router.get('/student/results', getStudentResults);
+router.get('/student/homework/:homeworkId/submission', getStudentHomeworkSubmission);
+router.post('/student/homework/:homeworkId/submit', homeworkSubmissionUpload.single('file'), submitStudentHomework);
 
 // ── Teacher ───────────────────────────────────────────────────
 router.get('/teacher/dashboard', getTeacherDashboard);
