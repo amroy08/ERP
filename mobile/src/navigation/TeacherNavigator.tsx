@@ -5,6 +5,7 @@ import { colors } from '../constants/colors';
 import TeacherHomeScreen from '../screens/teacher/TeacherHomeScreen';
 import TeacherTimetableScreen from '../screens/teacher/TeacherTimetableScreen';
 import TeacherAttendanceScreen from '../screens/teacher/TeacherAttendanceScreen';
+import TeacherHomeworkScreen from '../screens/teacher/TeacherHomeworkScreen';
 import TeacherNoticesScreen from '../screens/teacher/TeacherNoticesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -55,6 +56,14 @@ export const TeacherNavigator: React.FC = () => (
       }}
     />
     <Tab.Screen
+      name="TeacherHomework"
+      component={TeacherHomeworkScreen}
+      options={{
+        tabBarLabel: 'Homework',
+        tabBarIcon: ({ focused }) => tabBarIcon('📚', focused),
+      }}
+    />
+    <Tab.Screen
       name="TeacherNotices"
       component={TeacherNoticesScreen}
       options={{
@@ -64,5 +73,6 @@ export const TeacherNavigator: React.FC = () => (
     />
   </Tab.Navigator>
 );
+
 
 export default TeacherNavigator;

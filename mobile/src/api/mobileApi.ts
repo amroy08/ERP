@@ -144,8 +144,44 @@ export const fetchTeacherNotices = async () => {
   return response.data;
 };
 
+// ─── Teacher Homework Review ───────────────────────────────────────────────
+export const getTeacherHomework = async () => {
+  const response = await apiClient.get('/mobile/teacher/homework');
+  return response.data;
+};
+
+export const getTeacherHomeworkSubmissions = async (homeworkId: string) => {
+  const response = await apiClient.get(`/mobile/teacher/homework/${homeworkId}/submissions`);
+  return response.data;
+};
+
+export const getTeacherHomeworkSubmissionDetail = async (submissionId: string) => {
+  const response = await apiClient.get(`/mobile/teacher/homework/submissions/${submissionId}`);
+  return response.data;
+};
+
+export const reviewTeacherHomeworkSubmission = async (
+  submissionId: string,
+  payload: {
+    status: 'reviewed' | 'returned';
+    teacherFeedback?: string;
+    marks?: number;
+  }
+) => {
+  const response = await apiClient.patch(`/mobile/teacher/homework/submissions/${submissionId}/review`, payload);
+  return response.data;
+};
+
+export const downloadTeacherHomeworkSubmissionFile = async (submissionId: string) => {
+  const response = await apiClient.get(`/mobile/teacher/homework/submissions/${submissionId}/download`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 // ─── Shared ────────────────────────────────────────────────────────────────
 export const fetchNotices = async () => {
   const response = await apiClient.get('/notices?limit=20');
   return response.data;
 };
+

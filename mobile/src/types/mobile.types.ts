@@ -87,3 +87,56 @@ export interface ExamResultItem {
   percentage?: number;
   status: string;
 }
+
+export type TeacherHomeworkItem = {
+  homeworkId: string;
+  title: string;
+  description?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  subjectName?: string | null;
+  dueDate?: string | null;
+  createdAt?: string | null;
+  totalStudents?: number;
+  submittedCount?: number;
+  pendingCount?: number;
+  reviewedCount?: number;
+  lateCount?: number;
+};
+
+export type TeacherHomeworkSubmissionListItem = {
+  submissionId?: string | null;
+  studentId: string;
+  studentName: string;
+  rollNo?: string | null;
+  admissionNo?: string | null;
+  status: "pending" | "submitted" | "late" | "reviewed" | "returned" | string;
+  submittedAt?: string | null;
+  fileName?: string | null;
+  hasFile?: boolean;
+  hasText?: boolean;
+  marks?: number | null;
+  teacherFeedback?: string | null;
+  reviewedAt?: string | null;
+};
+
+export type TeacherHomeworkSubmissionDetail = {
+  submissionId: string;
+  homeworkId: string;
+  homeworkTitle?: string | null;
+  studentName?: string;
+  studentId?: string;
+  submissionText?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  status?: string;
+  submittedAt?: string | null;
+  teacherFeedback?: string | null;
+  marks?: number | null;
+  reviewedAt?: string | null;
+  canReview?: boolean;
+  canReturn?: boolean;
+  canDownload?: boolean;
+};
+
