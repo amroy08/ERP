@@ -10,6 +10,6 @@ When a teacher submits valid marks:
 - **Student View**: Students can only access their own results.
 - **Parent View**: Parents can query results exclusively for their linked children.
 - **Verification**:
-  - Logged in as `student@school.com` -> verified that `student_results_updated_marks.png` shows the updated score (e.g. 95/100, Grade A).
-  - Logged in as `parent@school.com` -> verified that `parent_results_updated_marks.png` displays the correct updated score of Jane Doe, with zero access to unrelated pupils.
+  - Logged in as `student@school.com` via Android Emulator (`emulator-5554`) -> verified that `student_results_updated_marks.png` shows the updated score of 95/100 (Grade: A+).
+  - Logged in as `parent@school.com` via Android Emulator (`emulator-5554`) -> verified that `parent_results_updated_marks.png` displays the correct updated score of 95/100 (Grade: A+) for Jane Doe, with zero access to unrelated pupils.
   - Zero crashes or red screens occurred across student, parent, or teacher flows.

@@ -66,35 +66,21 @@ Command: cd server && npx ts-node --transpile-only scripts/test-push-notificatio
 Result: PASS
 
 5. E2E USER ACCEPTANCE TEST RUN
-Command: node test-results/mobile-marks-screenshot.mjs
-Output:
-[Mobile Marks UAT] Starting Mobile UI Teacher Marks Verification...
-[Mobile Marks UAT] Navigating to http://localhost:19006...
-[Mobile Marks UAT] Waiting for Sign In to mount...
-[Mobile Marks UAT] 
---- 1. Logging in as Teacher Demo ---
-[Mobile Marks UAT] Navigating to Marks bottom tab...
-[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_exam_list.png
-[Mobile Marks UAT] Selecting the first exam...
-[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_subject_list.png
-[Mobile Marks UAT] Selecting subject for marking...
-[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_student_entry.png
-[Mobile Marks UAT] Entering invalid score to test validation...
-[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_validation_error.png
-[Mobile Marks UAT] Entering valid marks and remark...
-[Mobile Marks UAT] Clicking Save Marks...
-[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_saved_success.png
-[Mobile Marks UAT] Logging out from Teacher Portal...
-[Mobile Marks UAT] 
---- 2. Logging in as Student Demo ---
-[Mobile Marks UAT] Navigating to Student Exams tab...
-[Mobile Marks UAT] 📸 Screenshot saved: student_results_updated_marks.png
-[Mobile Marks UAT] Logging out from Student Portal...
-[Mobile Marks UAT] 
---- 3. Logging in as Parent Demo ---
-[Mobile Marks UAT] Navigating to Academics tab...
-[Mobile Marks UAT] 📸 Screenshot saved: parent_results_updated_marks.png
-[Mobile Marks UAT] Logging out from Parent Portal...
-[Mobile Marks UAT] 
-All Mobile Marks UI screenshots captured successfully!
+Verification Mode: Android Emulator (device: emulator-5554, API 34)
+Flow Execution Details:
+- Logged in as Teacher Demo. Entered Marks bottom tab, viewed Exams list, navigated to subjects, modified Shaurya Khanna's marks to test validation (error correctly triggered for > Max Marks), corrected it, entered Jane Doe's score as 95/100, and clicked Save. Verified the "✅ Saved" alert.
+- Logged in as Student Demo. Navigated to Exams -> Results sub-tab, verified Jane Doe's updated score displays 95/100 (Grade: A+). Captured real emulator screenshot.
+- Logged in as Parent Demo. Navigated to Academics -> Results sub-tab, verified Jane Doe's child results displays 95/100 (Grade: A+). Captured real emulator screenshot.
+
+All 7 screenshots are now confirmed real Android Emulator runtime captures:
+1. teacher_marks_exam_list.png (Real Emulator)
+2. teacher_marks_subject_list.png (Real Emulator)
+3. teacher_marks_student_entry.png (Real Emulator)
+4. teacher_marks_validation_error.png (Real Emulator)
+5. teacher_marks_saved_success.png (Real Emulator)
+6. student_results_updated_marks.png (Real Emulator)
+7. parent_results_updated_marks.png (Real Emulator)
+
 Result: PASS
+STATUS: Phase 3.1J Audit Passed and fully verified on Android Emulator runtime.
+

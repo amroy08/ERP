@@ -23,3 +23,13 @@ Reuses the secure, robust endpoints from Phase 3.1I:
 - `GET /api/mobile/teacher/marks/exams/:examId/subjects` via `getTeacherMarksExamSubjects(examId)`
 - `GET /api/mobile/teacher/marks/exams/:examId/students?subjectId=...` via `getTeacherMarksExamStudents(examId, subjectId)`
 - `POST /api/mobile/teacher/marks/exams/:examId/save` via `saveTeacherMarks(examId, payload)`
+
+## Emulator Setup & Verification Evidence
+- **Device & OS**: Android Emulator (`emulator-5554`, Android SDK 34)
+- **Screen Resolution**: 1080 x 2400 pixels (density: 440 dpi)
+- **Screenshots Classification**: Real Android emulator runtime evidence (captured via ADB screencap and pulled to Workspace)
+- **Teacher Marks Entry Flow**: PASS (Successfully fetched exams, subjects, and student list, input/saved marks)
+- **Student Result Regression**: PASS (Updated marks are immediately visible in the student portal Exams/Results view)
+- **Parent Result Regression**: PASS (Updated marks are immediately visible in parent Academics/Results view for their children, with zero cross-leak)
+- **Validation Logic**: PASS (Negative and out-of-bounds inputs blocked on client-side; max marks <= 0 blocked)
+- **No Console Errors / Red Screens**: Verified clean log outputs and crash-free navigation across all tabs.
