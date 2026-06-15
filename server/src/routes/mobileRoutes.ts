@@ -8,6 +8,10 @@ import {
   getParentAttendance,
   getParentFees,
   getParentNotices,
+  getParentChildTimetable,
+  getParentChildHomework,
+  getParentChildExams,
+  getParentChildResults,
   getStudentDashboard,
   getStudentTimetable,
   getStudentHomework,
@@ -36,6 +40,10 @@ router.get('/parent/student-profile/:studentId', getParentStudentProfile);
 router.get('/parent/attendance', getParentAttendance);
 router.get('/parent/fees', getParentFees);
 router.get('/parent/notices', getParentNotices);
+router.get('/parent/student/:studentId/timetable', getParentChildTimetable);
+router.get('/parent/student/:studentId/homework', getParentChildHomework);
+router.get('/parent/student/:studentId/exams', getParentChildExams);
+router.get('/parent/student/:studentId/results', getParentChildResults);
 
 // ── Student ───────────────────────────────────────────────────
 router.get('/student/dashboard', getStudentDashboard);

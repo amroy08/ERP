@@ -32,3 +32,33 @@ export interface NoticeItem {
   publishDate: string;
   priority: string;
 }
+
+export interface HomeworkItem {
+  id: string;
+  title: string;
+  description?: string;
+  subjectName: string;
+  assignedDate: string;
+  dueDate: string;
+  status: 'pending' | 'submitted' | 'graded';
+}
+
+export interface ExamScheduleItem {
+  id: string;
+  title: string;
+  subjectName: string;
+  date: string;
+  startTime?: string;
+  totalMarks: number;
+}
+
+export interface ExamResultItem {
+  id: string;
+  examTitle: string;
+  subjectName: string;
+  marksObtained: number;
+  totalMarks: number;
+  grade?: string;
+  percentage?: number;
+  status: string;
+}

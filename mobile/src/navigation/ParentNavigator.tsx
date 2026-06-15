@@ -6,6 +6,7 @@ import ParentHomeScreen from '../screens/parent/ParentHomeScreen';
 import ParentFeesScreen from '../screens/parent/ParentFeesScreen';
 import ParentNoticesScreen from '../screens/parent/ParentNoticesScreen';
 import ParentAttendanceScreen from '../screens/parent/ParentAttendanceScreen';
+import ParentAcademicsScreen from '../screens/parent/ParentAcademicsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -44,6 +45,14 @@ export const ParentNavigator: React.FC = () => (
       options={{
         tabBarLabel: 'Attendance',
         tabBarIcon: ({ focused }) => tabBarIcon('📅', focused),
+      }}
+    />
+    <Tab.Screen
+      name="ParentAcademics"
+      component={ParentAcademicsScreen}
+      options={{
+        tabBarLabel: 'Academics',
+        tabBarIcon: ({ focused }) => tabBarIcon('📚', focused),
       }}
     />
     <Tab.Screen

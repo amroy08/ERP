@@ -25,6 +25,10 @@ interface ChildSummary {
   sectionName: string;
   attendancePercent: number;
   feeDue: number;
+  todayPeriodsCount: number;
+  pendingHomeworkCount: number;
+  upcomingExamsCount: number;
+  latestResultSummary?: string | null;
 }
 
 interface ParentDashboardData {
@@ -83,6 +87,10 @@ export const ParentHomeScreen: React.FC = () => {
         sectionName: child.sectionName,
         attendancePercent: child.attendanceSummary?.percentage ?? 0,
         feeDue: child.pendingFees ?? 0,
+        todayPeriodsCount: child.todayPeriodsCount ?? 0,
+        pendingHomeworkCount: child.pendingHomeworkCount ?? 0,
+        upcomingExamsCount: child.upcomingExamsCount ?? 0,
+        latestResultSummary: child.latestResultSummary ?? null,
       }));
 
       setData({
@@ -148,6 +156,15 @@ export const ParentHomeScreen: React.FC = () => {
                       {child.className} – {child.sectionName} · {child.admissionNumber}
                     </Text>
                     <AttendanceBadge percent={child.attendancePercent} />
+                    
+                    {/* Academic Indicators */}
+                    <View style={styles.academicIndicatorsRow}>
+                      <Text style={styles.indicatorItem}>📅  {child.todayPeriodsCount} periods today</Text>
+                      <Text style={styles.indicatorItem}>📚  {child.pendingHomeworkCount} pending</Text>
+                    </View>
+                    {child.latestResultSummary && (
+                      <Text style={styles.resultSummaryText}>📊  {child.latestResultSummary}</Text>
+                    )}
                   </View>
                   {child.feeDue > 0 && (
                     <View style={styles.feeDueBadge}>
@@ -231,6 +248,9 @@ const styles = StyleSheet.create({
   childMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   attendancePill: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 6 },
   attendancePillText: { fontSize: 11, fontWeight: '700' },
+  academicIndicatorsRow: { flexDirection: 'row', gap: 10, marginTop: 8, flexWrap: 'wrap' },
+  indicatorItem: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
+  resultSummaryText: { color: colors.parent, fontSize: 11, fontWeight: '700', marginTop: 4 },
   feeDueBadge: { alignItems: 'center', backgroundColor: colors.danger + '22', borderRadius: 10, padding: 8, borderWidth: 1, borderColor: colors.danger },
   feeDueAmount: { color: colors.danger, fontSize: 14, fontWeight: '800' },
   feeDueLabel: { color: colors.danger, fontSize: 10 },

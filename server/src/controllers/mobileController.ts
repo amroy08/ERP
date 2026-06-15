@@ -211,6 +211,41 @@ export const getParentDashboard = async (req: AuthRequest, res: Response, next: 
         startDate: e.startDate,
       }));
 
+      // A. Count pending homework
+      const pendingHomeworkCount = await prisma.homework.count({
+        where: {
+          classId: child.classId,
+          OR: [{ sectionId: child.sectionId }, { sectionId: null }],
+          dueDate: { gte: new Date() },
+        },
+      });
+
+      // B. Count today's timetable periods
+      const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as any;
+      const todayPeriodsCount = await prisma.timetableEntry.count({
+        where: {
+          timetable: { classId: child.classId, sectionId: child.sectionId || undefined, isActive: true },
+          day: todayDay
+        }
+      });
+
+      // C. Get latest result summary
+      const latestResult = await prisma.result.findFirst({
+        where: { studentId: child.id },
+        include: {
+          exam: { select: { name: true } },
+          subject: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      let latestResultSummary = null;
+      if (latestResult) {
+        const total = latestResult.maxMarks ?? 100;
+        const obtained = latestResult.marksObtained ?? 0;
+        const pct = total > 0 ? Math.round((obtained / total) * 100) : 0;
+        latestResultSummary = `${pct}% in ${latestResult.subject?.name || 'Subject'} (${latestResult.exam?.name || 'Exam'})`;
+      }
+
       childrenData.push({
         id: child.id,
         name: child.fullName,
@@ -221,6 +256,10 @@ export const getParentDashboard = async (req: AuthRequest, res: Response, next: 
         pendingFees: balanceDue,
         recentHomework,
         upcomingExams,
+        todayPeriodsCount,
+        pendingHomeworkCount,
+        upcomingExamsCount: exams.length,
+        latestResultSummary,
         latestNotices: notices.map(n => ({
           id: n.id,
           title: n.title,
@@ -259,6 +298,33 @@ export const getParentDashboard = async (req: AuthRequest, res: Response, next: 
   } catch (error) {
     next(error);
   }
+};
+
+// ── Parent Linked Student Helper ───────────────────────────────────────────
+const getParentLinkedStudentOrThrow = async (authUser: any, studentId: string) => {
+  if (authUser.role !== 'parent') {
+    throw createError('Access denied. Role "parent" required.', 403);
+  }
+
+  const parent = await prisma.parent.findUnique({
+    where: { userId: authUser.id },
+    include: {
+      children: {
+        where: { id: studentId, status: 'active' },
+      },
+    },
+  });
+
+  if (!parent || parent.children.length === 0) {
+    throw createError('Access denied. This student is not linked to your account.', 403);
+  }
+
+  const child = parent.children[0];
+  if (child.schoolId && authUser.schoolId && child.schoolId !== authUser.schoolId) {
+    throw createError('Access denied. School mismatch.', 403);
+  }
+
+  return child;
 };
 
 // ── Parent Student Profile Endpoint ────────────────────────────────────────
@@ -776,6 +842,125 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response, next:
   } catch (error) {
     next(error);
   }
+};
+
+// ── Parent Child Academic Endpoints ────────────────────────────────────────
+
+export const getParentChildTimetable = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const studentId = req.params.studentId as string;
+    const authUser = req.user!;
+    const child = await getParentLinkedStudentOrThrow(authUser, studentId);
+
+    const timetable = await prisma.timetable.findFirst({
+      where: { classId: child.classId, sectionId: child.sectionId || undefined, isActive: true },
+      include: {
+        entries: {
+          include: {
+            subject: { select: { name: true } },
+            teacher: { include: { user: { select: { name: true } } } },
+          },
+          orderBy: { startTime: 'asc' },
+        },
+      },
+    });
+
+    const entries = (timetable?.entries ?? []).map(e => ({
+      dayOfWeek: e.day,
+      period: (e as any).periodNumber?.toString() ?? '1',
+      startTime: e.startTime,
+      endTime: e.endTime,
+      subjectName: e.subject.name,
+      teacherName: e.teacher?.user?.name ?? null,
+    }));
+
+    res.status(200).json({ success: true, data: entries });
+  } catch (error) { next(error); }
+};
+
+export const getParentChildHomework = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const studentId = req.params.studentId as string;
+    const authUser = req.user!;
+    const child = await getParentLinkedStudentOrThrow(authUser, studentId);
+
+    const homework = await prisma.homework.findMany({
+      where: {
+        classId: child.classId,
+        OR: [{ sectionId: child.sectionId }, { sectionId: null }],
+      },
+      include: { subject: { select: { name: true } } },
+      orderBy: { dueDate: 'asc' },
+      take: 30,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: homework.map(h => ({
+        id: h.id, title: h.title, description: h.description,
+        subjectName: h.subject.name, assignedDate: h.assignedDate, dueDate: h.dueDate,
+        status: h.dueDate < new Date() ? 'submitted' : 'pending',
+      })),
+    });
+  } catch (error) { next(error); }
+};
+
+export const getParentChildExams = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const studentId = req.params.studentId as string;
+    const authUser = req.user!;
+    const child = await getParentLinkedStudentOrThrow(authUser, studentId);
+
+    const exams = await prisma.exam.findMany({
+      where: { classId: child.classId, startDate: { gte: new Date() }, status: 'scheduled' },
+      orderBy: { startDate: 'asc' },
+      take: 20,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: exams.map(e => ({
+        id: e.id, title: e.name, date: e.startDate,
+        startTime: null, totalMarks: (e as any).totalMarks ?? 100, subjectName: e.name,
+      })),
+    });
+  } catch (error) { next(error); }
+};
+
+export const getParentChildResults = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const studentId = req.params.studentId as string;
+    const authUser = req.user!;
+    const child = await getParentLinkedStudentOrThrow(authUser, studentId);
+
+    const results = await prisma.result.findMany({
+      where: { studentId: child.id },
+      include: {
+        exam: { select: { name: true } },
+        subject: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: results.map((r: any) => {
+        const total = r.maxMarks ?? 100;
+        const obtained = r.marksObtained ?? 0;
+        return {
+          id: r.id,
+          examTitle: r.exam?.name ?? 'Exam',
+          subjectName: r.subject?.name ?? 'Subject',
+          marksObtained: obtained,
+          totalMarks: total,
+          grade: r.grade ?? null,
+          percentage: total > 0 ? Math.round((obtained / total) * 100) : 0,
+          status: 'published',
+        };
+      }),
+    });
+  } catch (error) { next(error); }
 };
 
 // ── Parent Attendance Endpoint ────────────────────────────────────────────

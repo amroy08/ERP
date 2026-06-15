@@ -1,0 +1,26 @@
+================================================================
+        TESTING PARENT ACADEMIC DATA PARITY & SECURITY
+================================================================
+
+--- 1. Authenticating as Parent (parent@school.com) ---
+✅ Logged in successfully.
+✅ GET /api/mobile/parent/dashboard: SUCCESS
+   Linked child found: Jane Doe (Student ID: 38518d8e-968a-4eaf-aec0-c5878808da1c)
+   Academic Summary - Periods today: 1, Pending homework: 2, Exams: 1, Latest Result: 78% in Mathematics (First Term Examination)
+
+--- 2. Testing Access to Linked Child Academic Data (Positive Cases) ---
+✅ GET /parent/student/:id/timetable: PASS (Entries count: 3)
+✅ GET /parent/student/:id/homework: PASS (Items count: 3)
+✅ GET /parent/student/:id/exams: PASS (Upcoming count: 1)
+✅ GET /parent/student/:id/results: PASS (Cards count: 2)
+
+--- 3. Testing Security Isolation (Negative IDOR Cases) ---
+   Attempting to access data of unlinked student: Reyansh68 Kulkarni (ID: 9484158e-51ae-4b3d-b1e6-bb00c4888d59)
+✅ IDOR check - /parent/student/:unlinkedId/timetable: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/homework: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/exams: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/results: BLOCKED (403 Access Denied)
+
+================================================================
+         PARENT ACADEMIC DATA PARITY TESTS PASSED SUCCESSFULLY
+================================================================

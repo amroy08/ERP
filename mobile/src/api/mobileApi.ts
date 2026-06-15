@@ -29,6 +29,26 @@ export const fetchParentStudentProfile = async (studentId: string) => {
   return response.data;
 };
 
+export const getParentChildTimetable = async (studentId: string) => {
+  const response = await apiClient.get(`/mobile/parent/student/${studentId}/timetable`);
+  return response.data;
+};
+
+export const getParentChildHomework = async (studentId: string) => {
+  const response = await apiClient.get(`/mobile/parent/student/${studentId}/homework`);
+  return response.data;
+};
+
+export const getParentChildExams = async (studentId: string) => {
+  const response = await apiClient.get(`/mobile/parent/student/${studentId}/exams`);
+  return response.data;
+};
+
+export const getParentChildResults = async (studentId: string) => {
+  const response = await apiClient.get(`/mobile/parent/student/${studentId}/results`);
+  return response.data;
+};
+
 export const fetchParentAttendance = async (studentId?: string) => {
   const url = studentId
     ? `/mobile/parent/attendance?studentId=${studentId}`
