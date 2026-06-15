@@ -9,3 +9,9 @@ server/scratch
 .DS_Store
 .vscode
 .idea
+
+# Dev-session audit/debug artefacts (adb screencap, uiautomator dump, request logs)
+test-screen.png
+window_dump.xml
+server/request-log.txt
+server/audit_output.txt
