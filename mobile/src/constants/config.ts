@@ -19,9 +19,5 @@
  * Never commit your .env file to the repository.
  * Copy .env.example to .env and fill in the correct URL for your environment.
  */
-import { Platform } from 'react-native';
-
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ||
-  (Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api');
-
+  process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5001/api';

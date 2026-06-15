@@ -17,7 +17,6 @@
     },
     "android": {
       "package": "com.schoolerp.mobile",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -48,9 +47,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "7c812de9-563e-4dd7-9435-3d331ed6e58a"
+        "projectId": "YOUR_EAS_PROJECT_ID"
       }
-    },
-    "owner": "amroy08"
+    }
   }
 }
