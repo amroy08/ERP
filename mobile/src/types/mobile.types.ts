@@ -40,8 +40,33 @@ export interface HomeworkItem {
   subjectName: string;
   assignedDate: string;
   dueDate: string;
-  status: 'pending' | 'submitted' | 'graded';
+  status: string;
+  submissionStatus?: string | null;
+  submittedAt?: string | null;
+  hasSubmission?: boolean;
+  fileName?: string | null;
+  teacherFeedback?: string | null;
+  marks?: number | null;
+  canSubmit?: boolean;
+  canResubmit?: boolean;
 }
+
+export type StudentHomeworkSubmission = {
+  id?: string;
+  homeworkId: string;
+  studentId?: string;
+  status?: string;
+  submissionText?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  submittedAt?: string | null;
+  teacherFeedback?: string | null;
+  marks?: number | null;
+  reviewedAt?: string | null;
+  canResubmit?: boolean;
+};
+
 
 export interface ExamScheduleItem {
   id: string;

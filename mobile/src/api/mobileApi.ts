@@ -93,6 +93,41 @@ export const fetchStudentResults = async () => {
   return response.data;
 };
 
+export const getStudentHomeworkSubmission = async (homeworkId: string) => {
+  const response = await apiClient.get(`/mobile/student/homework/${homeworkId}/submission`);
+  return response.data;
+};
+
+export const submitStudentHomework = async (
+  homeworkId: string,
+  payload: {
+    submissionText?: string;
+    file?: {
+      uri: string;
+      name: string;
+      type: string;
+    };
+  }
+) => {
+  const formData = new FormData();
+  if (payload.submissionText) {
+    formData.append('submissionText', payload.submissionText);
+  }
+  if (payload.file) {
+    formData.append('file', {
+      uri: payload.file.uri,
+      name: payload.file.name,
+      type: payload.file.type,
+    } as any);
+  }
+  const response = await apiClient.post(`/mobile/student/homework/${homeworkId}/submit`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
 // ─── Teacher ───────────────────────────────────────────────────────────────
 export const fetchTeacherDashboard = async () => {
   const response = await apiClient.get('/mobile/teacher/dashboard');
