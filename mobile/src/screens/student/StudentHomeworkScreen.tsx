@@ -129,7 +129,7 @@ export const StudentHomeworkScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 12 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 12 },
   pendingAlert: {
     backgroundColor: colors.warning + '18', borderRadius: 12, borderWidth: 1,
     borderColor: colors.warning + '44', padding: 12, marginBottom: 12,
@@ -139,17 +139,17 @@ const styles = StyleSheet.create({
   filterPill: {
     color: colors.mutedText, fontSize: 12, fontWeight: '700',
     paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.borderSoft, overflow: 'hidden',
+    borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
   },
   filterPillActive: { backgroundColor: colors.student + '22', borderColor: colors.student, color: colors.student },
   hwCard: { marginBottom: 8 },
   hwHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  hwTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  hwTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   hwSub: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   dueText: { color: colors.mutedText, fontSize: 12 },
-  descText: { color: colors.border, fontSize: 14, lineHeight: 20, marginTop: 8 },
+  descText: { color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 8 },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },
   emptyText: { color: colors.mutedText, fontSize: 14 },

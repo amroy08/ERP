@@ -19,7 +19,7 @@ export const ParentNavigator: React.FC = () => (
       headerShown: false,
       tabBarStyle: {
         backgroundColor: colors.surface,
-        borderTopColor: colors.borderSoft,
+        borderTopColor: colors.border,
         borderTopWidth: 1,
         paddingBottom: 8,
         paddingTop: 6,

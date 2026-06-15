@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 14,
     marginBottom: 6,
     fontWeight: '600',
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   input: {
-    color: colors.white,
+    color: colors.text,
     fontSize: 16,
     height: '100%',
     flex: 1,

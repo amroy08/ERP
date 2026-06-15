@@ -112,9 +112,9 @@ export const ParentAttendanceScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
   summaryCard: { marginBottom: 12, borderColor: colors.parent + '44', borderWidth: 1 },
-  childName: { color: colors.white, fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  childName: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   statItem: { alignItems: 'center' },
   statVal: { fontSize: 22, fontWeight: '800' },
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   recordCard: { marginBottom: 6, paddingVertical: 10 },
   recordRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   recordEmoji: { fontSize: 18 },
-  recordDate: { color: colors.white, fontSize: 14, flex: 1 },
+  recordDate: { color: colors.text, fontSize: 14, flex: 1 },
   recordStatus: { fontSize: 13, fontWeight: '700' },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },

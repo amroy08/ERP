@@ -232,11 +232,11 @@ export const TeacherAttendanceScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 4 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 4 },
   pageDate: { color: colors.mutedText, fontSize: 13, marginBottom: 16 },
   classCard: { marginBottom: 10 },
   classRow: { flexDirection: 'row', alignItems: 'center' },
-  className: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  className: { color: colors.text, fontSize: 16, fontWeight: '700' },
   classMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   doneBadge: { backgroundColor: colors.success + '22', borderRadius: 8, borderWidth: 1, borderColor: colors.success, paddingHorizontal: 10, paddingVertical: 5 },
   doneBadgeText: { color: colors.success, fontSize: 12, fontWeight: '700' },
@@ -245,13 +245,13 @@ const styles = StyleSheet.create({
   // Marking view
   markingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 16, marginBottom: 16 },
   backBtn: { color: colors.teacher, fontSize: 15, fontWeight: '700', paddingRight: 4 },
-  markingTitle: { color: colors.white, fontSize: 18, fontWeight: '800' },
+  markingTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   markingDate: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   tapHint: { color: colors.mutedText, fontSize: 12, marginBottom: 12, fontStyle: 'italic' },
   studentCard: { marginBottom: 6 },
   studentRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   statusCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  studentName: { color: colors.white, fontSize: 15, fontWeight: '600' },
+  studentName: { color: colors.text, fontSize: 15, fontWeight: '600' },
   studentAdm: { color: colors.mutedText, fontSize: 11, marginTop: 1 },
   statusLabel: { fontSize: 12, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', gap: 8, marginVertical: 16 },

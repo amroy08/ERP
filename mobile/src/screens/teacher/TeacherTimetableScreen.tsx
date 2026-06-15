@@ -36,11 +36,19 @@ export const TeacherTimetableScreen: React.FC = () => {
     setError('');
     try {
       const res = await fetchTeacherTimetable();
-      const entries: TimetableEntry[] = res.data ?? res ?? [];
       const grouped: Record<string, TimetableEntry[]> = {};
-      entries.forEach((e) => {
-        if (!grouped[e.dayOfWeek]) grouped[e.dayOfWeek] = [];
-        grouped[e.dayOfWeek].push(e);
+      const rawDays = res.data?.days ?? res?.days ?? [];
+      rawDays.forEach((d: any) => {
+        const dayName = d.day;
+        grouped[dayName] = (d.periods || []).map((p: any) => ({
+          dayOfWeek: dayName,
+          period: p.period || '1',
+          startTime: p.startTime,
+          endTime: p.endTime,
+          subjectName: p.subjectName,
+          className: p.className,
+          sectionName: p.sectionName,
+        }));
       });
       setData(grouped);
     } catch (e: any) {
@@ -119,12 +127,12 @@ export const TeacherTimetableScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dayScrollRow: { marginBottom: 8 },
   dayTab: {
     color: colors.mutedText, fontSize: 13, fontWeight: '700',
     paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.borderSoft,
+    borderRadius: 20, borderWidth: 1, borderColor: colors.border,
     marginRight: 8, overflow: 'hidden',
   },
   dayTabActive: { backgroundColor: colors.teacher + '22', borderColor: colors.teacher, color: colors.teacher },
@@ -132,14 +140,14 @@ const styles = StyleSheet.create({
   entryRow: { flexDirection: 'row', alignItems: 'stretch', gap: 14 },
   timeBlock: { alignItems: 'center', width: 50 },
   timeText: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  timeLine: { flex: 1, width: 1, backgroundColor: colors.borderSoft, marginVertical: 4 },
+  timeLine: { flex: 1, width: 1, backgroundColor: colors.border, marginVertical: 4 },
   classBlock: { flex: 1, justifyContent: 'center' },
   periodPill: {
     backgroundColor: colors.teacher + '22', borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginBottom: 4,
   },
   periodText: { color: colors.teacher, fontSize: 10, fontWeight: '700' },
-  subjectName: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  subjectName: { color: colors.text, fontSize: 16, fontWeight: '700' },
   classMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },

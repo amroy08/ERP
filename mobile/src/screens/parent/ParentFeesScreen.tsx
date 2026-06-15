@@ -114,7 +114,7 @@ export const ParentFeesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dueAlert: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: colors.danger + '15',
@@ -126,14 +126,14 @@ const styles = StyleSheet.create({
   dueAlertAmount: { color: colors.danger, fontSize: 24, fontWeight: '800' },
   feeCard: { marginBottom: 12 },
   feeHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
-  studentName: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  studentName: { color: colors.text, fontSize: 15, fontWeight: '700' },
   feeName: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  amountRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: 12 },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
   amountItem: { alignItems: 'center' },
   amountLabel: { color: colors.mutedText, fontSize: 11 },
-  amountValue: { color: colors.white, fontSize: 15, fontWeight: '700', marginTop: 2 },
+  amountValue: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 2 },
   dueDateText: { color: colors.mutedText, fontSize: 12, marginTop: 10 },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },

@@ -4,15 +4,21 @@ import { Platform } from 'react-native';
 import { registerPushToken, unregisterPushToken } from '../api/mobileApi';
 
 // Setup foreground notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Setup foreground notification handler safely (catching Expo Go SDK 53+ deprecation errors)
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (err: any) {
+  console.warn('[Notification Service] Failed to initialize notification handler (likely running in Expo Go):', err.message);
+}
+
 
 /**
  * Configure push notification behavior and register token.
@@ -110,24 +116,33 @@ export async function unregisterForPushNotificationsAsync(token: string): Promis
 export function setupNotificationListeners(): () => void {
   if (Platform.OS === 'web') return () => {};
 
-  // Listener for response/click in foreground or background
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-    const data = response.notification.request.content.data;
-    console.log('[Notification Service] Notification clicked:', {
-      actionIdentifier: response.actionIdentifier,
-      data,
+  try {
+    // Listener for response/click in foreground or background
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      console.log('[Notification Service] Notification clicked:', {
+        actionIdentifier: response.actionIdentifier,
+        data,
+      });
+      // Placeholder routing deep-linking logic
+      // Example: if (data.type === 'homework') navigate('Homework', { id: data.entityId });
     });
-    // Placeholder routing deep-linking logic
-    // Example: if (data.type === 'homework') navigate('Homework', { id: data.entityId });
-  });
 
-  // Listener for received notification in foreground
-  const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
-    console.log('[Notification Service] Notification received in foreground:', notification.request.content);
-  });
+    // Listener for received notification in foreground
+    const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('[Notification Service] Notification received in foreground:', notification.request.content);
+    });
 
-  return () => {
-    responseSubscription.remove();
-    receivedSubscription.remove();
-  };
+    return () => {
+      try {
+        responseSubscription.remove();
+        receivedSubscription.remove();
+      } catch (removeErr: any) {
+        console.warn('[Notification Service] Failed to remove notification listeners:', removeErr.message);
+      }
+    };
+  } catch (err: any) {
+    console.warn('[Notification Service] Failed to set up notification listeners (likely running in Expo Go):', err.message);
+    return () => {};
+  }
 }

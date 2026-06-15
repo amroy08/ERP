@@ -30,12 +30,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginVertical: 4,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 });
 export default AppCard;

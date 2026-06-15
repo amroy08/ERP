@@ -115,12 +115,12 @@ export const StudentTimetableScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
   dayTabsScroll: { marginBottom: 8 },
   dayTab: {
     color: colors.mutedText, fontSize: 13, fontWeight: '700',
     paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.borderSoft,
+    borderRadius: 20, borderWidth: 1, borderColor: colors.border,
     marginRight: 8, overflow: 'hidden',
   },
   dayTabActive: { backgroundColor: colors.student + '22', borderColor: colors.student, color: colors.student },
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   entryRow: { flexDirection: 'row', alignItems: 'stretch', gap: 14 },
   timeBlock: { alignItems: 'center', width: 48 },
   startTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  timeLine: { flex: 1, width: 1, backgroundColor: colors.borderSoft, marginVertical: 4 },
+  timeLine: { flex: 1, width: 1, backgroundColor: colors.border, marginVertical: 4 },
   endTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
   subjectBlock: { flex: 1, justifyContent: 'center' },
   periodPill: {
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginBottom: 4,
   },
   periodText: { color: colors.student, fontSize: 10, fontWeight: '700' },
-  subjectName: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  subjectName: { color: colors.text, fontSize: 16, fontWeight: '700' },
   teacherName: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },

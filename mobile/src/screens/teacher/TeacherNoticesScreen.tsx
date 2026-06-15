@@ -89,12 +89,12 @@ export const TeacherNoticesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 20 },
   card: { marginBottom: 10 },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
-  noticeTitle: { color: colors.white, fontSize: 15, fontWeight: '700', flex: 1 },
+  noticeTitle: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 },
   noticeMeta: { color: colors.mutedText, fontSize: 11, marginTop: 3 },
-  content: { color: colors.border, fontSize: 14, lineHeight: 22, marginTop: 10, marginBottom: 4 },
+  content: { color: colors.text, fontSize: 14, lineHeight: 22, marginTop: 10, marginBottom: 4 },
   tapHint: { color: colors.mutedText, fontSize: 11, marginTop: 6, fontStyle: 'italic' },
   errorCard: { marginVertical: 16 },
   errorText: { color: colors.danger, fontSize: 14 },

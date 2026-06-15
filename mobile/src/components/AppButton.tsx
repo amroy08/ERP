@@ -25,7 +25,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     if (disabled) return colors.surfaceSoft;
     switch (variant) {
       case 'primary': return colors.primary;
-      case 'secondary': return colors.surfaceSoft;
+      case 'secondary': return colors.surface;
       case 'parent': return colors.parent;
       case 'student': return colors.student;
       case 'teacher': return colors.teacher;
@@ -34,17 +34,52 @@ export const AppButton: React.FC<AppButtonProps> = ({
     }
   };
 
+  const getTextColor = () => {
+    if (disabled) return colors.mutedText;
+    if (variant === 'secondary') return colors.text;
+    return colors.white;
+  };
+
+  const getBorderStyle = () => {
+    if (variant === 'secondary') {
+      return {
+        borderWidth: 1,
+        borderColor: colors.border,
+      };
+    }
+    return {};
+  };
+
+  const getShadowStyle = () => {
+    if (disabled || variant === 'secondary') {
+      return { elevation: 0, shadowOpacity: 0 };
+    }
+    return {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+      elevation: 2,
+    };
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
       disabled={disabled || loading}
-      style={[styles.button, { backgroundColor: getBackgroundColor() }, style]}
+      style={[
+        styles.button,
+        { backgroundColor: getBackgroundColor() },
+        getBorderStyle(),
+        getShadowStyle(),
+        style
+      ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={colors.white} />
+        <ActivityIndicator size="small" color={getTextColor()} />
       ) : (
-        <Text style={[styles.text, textStyle]}>{title}</Text>
+        <Text style={[styles.text, { color: getTextColor() }, textStyle]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -58,16 +93,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   text: {
-    color: colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
 export default AppButton;

@@ -13,7 +13,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({ children, safe
 
   return (
     <Container style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       {children}
     </Container>
   );
