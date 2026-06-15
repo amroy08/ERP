@@ -1,0 +1,175 @@
+================================================================================
+PHASE 3.1K REGRESSION TEST RESULTS LOG
+================================================================================
+Audit Date: 2026-06-15
+
+--------------------------------------------------------------------------------
+1. Server Typecheck & Build
+--------------------------------------------------------------------------------
+Command: cd server && npx tsc --noEmit
+Result: SUCCESS (Exit code 0, no errors)
+
+Command: cd server && npm run build
+Result: SUCCESS
+Output:
+> school-erp-server@1.0.0 build
+> tsc
+
+--------------------------------------------------------------------------------
+2. Mobile Typecheck
+--------------------------------------------------------------------------------
+Command: cd mobile && npx tsc --noEmit
+Result: SUCCESS (Exit code 0, no errors)
+
+--------------------------------------------------------------------------------
+3. Client (Web) Typecheck & Build
+--------------------------------------------------------------------------------
+Command: cd client && npx tsc --noEmit
+Result: SUCCESS (Exit code 0, no errors)
+
+Command: cd client && npm run build
+Result: SUCCESS (built in 263ms)
+
+--------------------------------------------------------------------------------
+4. Backend Integration Tests (ts-node)
+--------------------------------------------------------------------------------
+
+A. test-teacher-marks-entry.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-teacher-marks-entry.ts
+Output:
+✅ Logged in as teacher, student, and parent.
+--- 1. GET /teacher/marks/exams (List Reachable Exams) ---
+   ✅ List reachable exams: HTTP 200
+--- 2. GET /teacher/marks/exams/.../subjects (List Exam Subjects) ---
+   ✅ List exam subjects: HTTP 200
+--- 3. GET /teacher/marks/exams/.../students (List Students) ---
+   ✅ List students for marking: HTTP 200
+--- 4. POST /teacher/marks/exams/.../save (Save Marks) ---
+   ✅ Save valid student marks: HTTP 200
+--- 5. Verify Student Result (getStudentResults) ---
+   ✅ GET /student/results: HTTP 200
+   ✅ Student verified saved marks: 88/100 (Grade: A)
+--- 6. Verify Parent Result (getParentChildResults) ---
+   ✅ GET /parent/student/:id/results: HTTP 200
+   ✅ Parent verified child marks: 88/100 (Grade: A)
+--- 7. Update Marks (Verify Upsert Constraint) ---
+   ✅ Update student marks: HTTP 200
+   ✅ No duplicate result rows created. Row successfully upserted ✓
+--- 8. Security & Validation Testing ---
+   ✅ Reject negative marks: HTTP 400
+   ✅ Reject marks > maxMarks: HTTP 400
+   ✅ Student calling teacher marks exams: HTTP 403
+   ✅ Parent calling teacher marks exams: HTTP 403
+   ✅ Unauthenticated request blocked: HTTP 401
+   ✅ Reject fabricated examId: HTTP 404
+================================================================
+   TESTS COMPLETE: 16 passed, 0 failed
+================================================================
+
+
+B. test-teacher-homework-review.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-teacher-homework-review.ts
+Output:
+✅ Logged in as teacher, student, and parent.
+--- 1. GET /teacher/homework (Teacher Homework List) ---
+   ✅ GET /teacher/homework: HTTP 200
+   ✅ teacher homework list: no raw filePath in JSON ✓
+--- 2. GET /teacher/homework/.../submissions ---
+   ✅ GET homework submissions: HTTP 200
+   ✅ submissions list: no raw filePath in JSON ✓
+--- 3. GET /teacher/homework/submissions/... ---
+   ✅ GET submission detail: HTTP 200
+   ✅ submission detail: no raw filePath in JSON ✓
+--- 4. PATCH review (status: reviewed, marks: 9) ---
+   ✅ PATCH mark as reviewed: HTTP 200
+   ✅ Status set to reviewed ✓
+   ✅ Marks saved as 9 ✓
+--- 5. PATCH review (status: returned) ---
+   ✅ PATCH return submission: HTTP 200
+   ✅ Status set to returned ✓
+--- 6. GET download (expects 200 for file, 404 for text-only) ---
+   ✅ Download: no file on text-only submission (404 as expected)
+--- 7. Security: Student → teacher endpoints (must be 403) ---
+   ✅ Student → GET /teacher/homework: BLOCKED (403)
+--- 8. Security: Parent → teacher endpoints (must be 403) ---
+   ✅ Parent → GET /teacher/homework: BLOCKED (403)
+--- 9. Security: Unauthenticated request blocked ---
+   ✅ Unauthenticated → GET /teacher/homework: BLOCKED (401)
+--- 10. Validation: Negative marks rejected ---
+   ✅ Negative marks rejected (400) ✓
+--- 11. Validation: Invalid status rejected ---
+   ✅ Invalid status "approved" rejected (400) ✓
+--- 12. Security: IDOR — fabricated homework ID ---
+   ✅ Fabricated homework ID: BLOCKED (404)
+--- 13. Security: IDOR — fabricated submission ID ---
+   ✅ Fabricated submission ID: BLOCKED (404)
+================================================================
+   RESULTS: 26 passed, 0 failed
+   TEACHER HOMEWORK REVIEW BACKEND TESTS PASSED SUCCESSFULLY
+================================================================
+
+
+C. test-student-homework-submission.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-student-homework-submission.ts
+Output:
+✅ GET initial submission: PASS (Result: null)
+✅ POST submit text-only: PASS (Message: "Homework submitted successfully.")
+✅ GET text submission status: PASS
+✅ POST resubmit with file: PASS (Message: "Homework resubmitted successfully.")
+✅ GET file submission status: PASS
+✅ GET student homework list: PASS
+✅ GET parent child homework list: PASS
+✅ Security check - submit to unrelated class homework: BLOCKED (403 Access Denied)
+✅ Security check - submit as parent: BLOCKED (403 Access Denied)
+✅ Security check - submit as teacher: BLOCKED (403 Access Denied)
+✅ File validation - invalid file type rejected: PASS
+✅ Input validation - empty submission rejected: PASS (400 Bad Request)
+================================================================
+         HOMEWORK SUBMISSION BACKEND TESTS PASSED SUCCESSFULLY
+================================================================
+
+
+D. test-parent-academic-parity.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-parent-academic-parity.ts
+Output:
+✅ Logged in successfully.
+✅ GET /api/mobile/parent/dashboard: SUCCESS
+✅ GET /parent/student/:id/timetable: PASS (Entries count: 3)
+✅ GET /parent/student/:id/homework: PASS (Items count: 3)
+✅ GET /parent/student/:id/exams: PASS (Upcoming count: 1)
+✅ GET /parent/student/:id/results: PASS (Cards count: 2)
+✅ IDOR check - /parent/student/:unlinkedId/timetable: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/homework: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/exams: BLOCKED (403 Access Denied)
+✅ IDOR check - /parent/student/:unlinkedId/results: BLOCKED (403 Access Denied)
+================================================================
+         PARENT ACADEMIC DATA PARITY TESTS PASSED SUCCESSFULLY
+================================================================
+
+
+E. test-mobile-api-foundation.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-mobile-api-foundation.ts
+Output:
+✅ Teacher Dashboard loaded. Teacher: Alice Smith
+✅ Teacher Timetable loaded. Number of days mapped: 7
+✅ Parent successfully viewed attendance for their own child.
+✅ Access denied successfully to unrelated student attendance (403). Security OK.
+✅ Access denied successfully to unrelated class timetable (403). Security OK.
+🎉 All Mobile API Foundation Scoping & Verification Tests PASSED successfully!
+
+
+F. test-push-notifications.ts
+----------------------------------------------------------------
+Command: npx ts-node --transpile-only scripts/test-push-notifications.ts
+Output:
+✅ NotificationService push integration executed without breaking.
+🎉 All Push Notification Foundation Tests PASSED successfully!
+
+================================================================================
+STATUS: ALL TESTS AND COMPILATIONS PASSED SUCCESSFULLY.
+================================================================================
