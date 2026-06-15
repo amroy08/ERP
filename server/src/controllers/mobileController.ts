@@ -2041,3 +2041,507 @@ export const downloadTeacherSubmissionFile = async (req: AuthRequest, res: Respo
     });
   } catch (error) { next(error); }
 };
+
+// ── Teacher Marks Scope Authorization Helper ──────────────────────────────
+/**
+ * Verifies that the user is a teacher and is assigned to the exam's class,
+ * section, or subject. Returns allowed sections, subjects, and exam info.
+ */
+const getTeacherMarksScopeOrThrow = async (
+  authUser: any,
+  examId: string,
+  subjectId?: string
+) => {
+  if (authUser.role !== 'teacher') {
+    throw createError('Access denied. Role "teacher" required.', 403);
+  }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: authUser.id },
+    include: {
+      classTeacherOf: true,
+      subjectTeachers: {
+        include: {
+          section: { include: { class: true } },
+          subject: true,
+        },
+      },
+      assignedClasses: true,
+    },
+  });
+
+  if (!teacher) {
+    throw createError('Teacher profile not found.', 404);
+  }
+
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    include: {
+      class: true,
+    },
+  });
+
+  if (!exam) {
+    throw createError('Exam not found.', 404);
+  }
+
+  // School scope check
+  if (exam.schoolId && teacher.schoolId && exam.schoolId !== teacher.schoolId) {
+    throw createError('Access denied. School mismatch.', 403);
+  }
+
+  const directSubjects = await prisma.subject.findMany({
+    where: { teacherId: teacher.id, classId: exam.classId },
+  });
+
+  const timetableEntries = await prisma.timetableEntry.findMany({
+    where: { teacherId: teacher.id, timetable: { classId: exam.classId } },
+  });
+
+  const allowedSectionIds = new Set<string>();
+  const allowedSubjectIds = new Set<string>();
+
+  // 1. From SubjectTeacher
+  for (const st of teacher.subjectTeachers) {
+    if (st.section.classId === exam.classId && st.status === 'active') {
+      allowedSectionIds.add(st.sectionId);
+      allowedSubjectIds.add(st.subjectId);
+    }
+  }
+
+  // 2. From direct Subject assignments (associated to exam's class)
+  for (const sub of directSubjects) {
+    allowedSubjectIds.add(sub.id);
+  }
+
+  // 3. From classTeacherOf (associated to exam's class)
+  for (const sec of teacher.classTeacherOf) {
+    if (sec.classId === exam.classId) {
+      allowedSectionIds.add(sec.id);
+    }
+  }
+
+  // 4. From assignedClasses
+  for (const cls of teacher.assignedClasses) {
+    if (cls.id === exam.classId) {
+      const classSections = await prisma.section.findMany({
+        where: { classId: exam.classId }
+      });
+      classSections.forEach(sec => allowedSectionIds.add(sec.id));
+    }
+  }
+
+  // 5. From timetable entries
+  for (const entry of timetableEntries) {
+    allowedSubjectIds.add(entry.subjectId);
+  }
+
+  // Fallback default: if directly assigned to class or class teacher, populate sections
+  if (allowedSectionIds.size === 0) {
+    const isDirectlyAssignedClass = teacher.assignedClasses.some(c => c.id === exam.classId);
+    const isClassTeacherInExamClass = teacher.classTeacherOf.some(sec => sec.classId === exam.classId);
+    if (isDirectlyAssignedClass || isClassTeacherInExamClass) {
+      const classSections = await prisma.section.findMany({
+        where: { classId: exam.classId }
+      });
+      classSections.forEach(sec => allowedSectionIds.add(sec.id));
+    }
+  }
+
+  // If no sections or subjects are reachable for this exam's class, access is denied
+  if (allowedSectionIds.size === 0 && allowedSubjectIds.size === 0) {
+    throw createError('Access denied. You are not authorized for this exam\'s class.', 403);
+  }
+
+  // Check subject-level authorization if subjectId is provided
+  if (subjectId) {
+    if (!allowedSubjectIds.has(subjectId)) {
+      throw createError('Access denied. You are not authorized to mark this subject.', 403);
+    }
+  }
+
+  return {
+    teacher,
+    exam,
+    allowedSectionIds: Array.from(allowedSectionIds),
+    allowedSubjectIds: Array.from(allowedSubjectIds),
+    schoolId: teacher.schoolId || exam.schoolId
+  };
+};
+
+// Grade/percentage helper
+const calculateGrade = (marksObtained: number, maxMarks: number): string => {
+  const percentage = (marksObtained / maxMarks) * 100;
+  if (percentage >= 90) return 'A+';
+  if (percentage >= 80) return 'A';
+  if (percentage >= 70) return 'B+';
+  if (percentage >= 60) return 'B';
+  if (percentage >= 50) return 'C';
+  return 'Needs Improvement';
+};
+
+// ── GET /teacher/marks/exams ───────────────────────────────────────────────
+export const getTeacherMarksExams = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    if (authUser.role !== 'teacher') {
+      return next(createError('Access denied. Role "teacher" required.', 403));
+    }
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: authUser.id },
+      include: {
+        subjectTeachers: {
+          where: { status: 'active' },
+          include: { section: true }
+        },
+        assignedClasses: true,
+        classTeacherOf: true
+      }
+    });
+
+    if (!teacher) {
+      return next(createError('Teacher profile not found.', 404));
+    }
+
+    const reachableClassIds = new Set<string>();
+    teacher.subjectTeachers.forEach(st => {
+      if (st.section.classId) reachableClassIds.add(st.section.classId);
+    });
+    teacher.assignedClasses.forEach(c => reachableClassIds.add(c.id));
+    teacher.classTeacherOf.forEach(sec => {
+      if (sec.classId) reachableClassIds.add(sec.classId);
+    });
+
+    const exams = await prisma.exam.findMany({
+      where: {
+        schoolId: teacher.schoolId,
+        classId: { in: Array.from(reachableClassIds) }
+      },
+      include: {
+        class: {
+          include: {
+            sections: true,
+            subjects: true,
+          }
+        }
+      },
+      orderBy: { startDate: 'desc' }
+    });
+
+    const data = await Promise.all(exams.map(async (exam) => {
+      const stSectionIds = teacher.subjectTeachers
+        .filter(st => st.section.classId === exam.classId)
+        .map(st => st.sectionId);
+      const ctSectionIds = teacher.classTeacherOf
+        .filter(sec => sec.classId === exam.classId)
+        .map(sec => sec.id);
+      const combinedSectionIds = Array.from(new Set([...stSectionIds, ...ctSectionIds]));
+
+      const isDirectlyAssignedClass = teacher.assignedClasses.some(c => c.id === exam.classId);
+
+      const targetSectionIds = isDirectlyAssignedClass 
+        ? exam.class.sections.map(s => s.id)
+        : combinedSectionIds;
+
+      const totalStudents = await prisma.student.count({
+        where: {
+          sectionId: { in: targetSectionIds },
+          status: 'active'
+        }
+      });
+
+      const marksEnteredCount = await prisma.result.count({
+        where: {
+          examId: exam.id,
+          student: {
+            sectionId: { in: targetSectionIds }
+          }
+        }
+      });
+
+      // Gather names of sections teacher teaches in this class
+      const teacherSectionsInClass = exam.class.sections.filter(sec =>
+        targetSectionIds.includes(sec.id)
+      );
+      const sectionName = teacherSectionsInClass.map(sec => sec.name).join(', ') || 'All';
+      const sectionId = teacherSectionsInClass.length === 1 ? teacherSectionsInClass[0].id : undefined;
+
+      return {
+        examId: exam.id,
+        examName: exam.name,
+        classId: exam.classId,
+        className: exam.class.name,
+        sectionId: sectionId || null,
+        sectionName,
+        examDate: `${exam.startDate.toISOString().split('T')[0]} to ${exam.endDate.toISOString().split('T')[0]}`,
+        status: exam.status,
+        totalSubjects: exam.class.subjects.length,
+        marksEnteredCount,
+        totalStudents,
+        publishedStatus: exam.status
+      };
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
+// ── GET /teacher/marks/exams/:examId/subjects ───────────────────────────────
+export const getTeacherMarksExamSubjects = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const examId = req.params.examId as string;
+
+    const { teacher, exam, allowedSubjectIds, allowedSectionIds } = await getTeacherMarksScopeOrThrow(authUser, examId);
+
+    const subjects = await prisma.subject.findMany({
+      where: {
+        id: { in: allowedSubjectIds },
+        classId: exam.classId,
+        isActive: true
+      },
+      include: {
+        class: true
+      }
+    });
+
+    const data = await Promise.all(subjects.map(async (subject) => {
+      const stSections = teacher.subjectTeachers
+        .filter(st => st.subjectId === subject.id && st.section.classId === exam.classId)
+        .map(st => st.sectionId);
+
+      const targetSectionIds = stSections.length > 0 ? stSections : allowedSectionIds;
+
+      const totalStudents = await prisma.student.count({
+        where: {
+          sectionId: { in: targetSectionIds },
+          status: 'active'
+        }
+      });
+
+      const results = await prisma.result.findMany({
+        where: {
+          examId: exam.id,
+          subjectId: subject.id,
+          student: {
+            sectionId: { in: targetSectionIds }
+          }
+        }
+      });
+
+      const firstResult = results[0];
+      const maxMarks = firstResult ? firstResult.maxMarks : 100;
+
+      const sectionNames = stSections.length > 0
+        ? teacher.subjectTeachers
+            .filter(st => st.subjectId === subject.id && st.section.classId === exam.classId)
+            .map(st => st.section.name)
+            .join(', ')
+        : exam.class.name;
+
+      return {
+        subjectId: subject.id,
+        subjectName: subject.name,
+        className: exam.class.name,
+        sectionName: sectionNames || 'All',
+        maxMarks,
+        marksEnteredCount: results.length,
+        totalStudents
+      };
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
+// ── GET /teacher/marks/exams/:examId/students?subjectId=... ─────────────────
+export const getTeacherMarksExamStudents = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const examId = req.params.examId as string;
+    const subjectId = req.query.subjectId as string;
+
+    if (!subjectId) {
+      return next(createError('subjectId query parameter is required.', 400));
+    }
+
+    const { teacher, exam, allowedSectionIds } = await getTeacherMarksScopeOrThrow(authUser, examId, subjectId);
+
+    const stSections = teacher.subjectTeachers
+      .filter(st => st.subjectId === subjectId && st.section.classId === exam.classId && st.status === 'active')
+      .map(st => st.sectionId);
+
+    const targetSectionIds = stSections.length > 0 ? stSections : allowedSectionIds;
+
+    const students = await prisma.student.findMany({
+      where: {
+        sectionId: { in: targetSectionIds },
+        status: 'active'
+      },
+      include: {
+        section: true,
+        results: {
+          where: {
+            examId: exam.id,
+            subjectId
+          }
+        }
+      },
+      orderBy: [
+        { rollNumber: 'asc' },
+        { fullName: 'asc' }
+      ]
+    });
+
+    const existingResult = await prisma.result.findFirst({
+      where: {
+        examId: exam.id,
+        subjectId,
+        student: {
+          sectionId: { in: targetSectionIds }
+        }
+      }
+    });
+    const maxMarks = existingResult ? existingResult.maxMarks : 100;
+
+    const mappedStudents = students.map(student => {
+      const result = student.results[0];
+      return {
+        studentId: student.id,
+        studentName: student.fullName,
+        rollNo: student.rollNumber || '',
+        admissionNo: student.admissionNumber || '',
+        existingResultId: result?.id || null,
+        marksObtained: result ? result.marksObtained : null,
+        grade: result?.grade || null,
+        remarks: result?.remark || null,
+        status: result ? 'entered' : 'pending'
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        examId: exam.id,
+        subjectId,
+        maxMarks,
+        students: mappedStudents
+      }
+    });
+  } catch (error) { next(error); }
+};
+
+// ── POST /teacher/marks/exams/:examId/save ──────────────────────────────
+export const saveTeacherMarks = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authUser = req.user!;
+    const examId = req.params.examId as string;
+    const { subjectId, maxMarks, marks } = req.body;
+
+    if (!subjectId) {
+      return next(createError('subjectId is required.', 400));
+    }
+    if (maxMarks === undefined || maxMarks === null || isNaN(parseInt(maxMarks, 10)) || parseInt(maxMarks, 10) <= 0) {
+      return next(createError('maxMarks must be a positive integer.', 400));
+    }
+    if (!Array.isArray(marks) || marks.length === 0) {
+      return next(createError('marks must be a non-empty array.', 400));
+    }
+
+    const { exam, allowedSectionIds } = await getTeacherMarksScopeOrThrow(authUser, examId, subjectId);
+
+    const parsedMaxMarks = parseInt(maxMarks, 10);
+    const studentIds = marks.map((m: any) => m.studentId);
+
+    const students = await prisma.student.findMany({
+      where: {
+        id: { in: studentIds },
+        sectionId: { in: allowedSectionIds },
+        status: 'active'
+      }
+    });
+
+    if (students.length !== studentIds.length) {
+      return next(createError('Access denied. One or more students are not in your assigned sections/class.', 403));
+    }
+
+    // Pre-validate marks values
+    for (const m of marks) {
+      if (m.marksObtained === undefined || m.marksObtained === null) {
+        return next(createError(`marksObtained is required for student ${m.studentId}`, 400));
+      }
+      const obtained = parseInt(m.marksObtained, 10);
+      if (isNaN(obtained) || obtained < 0) {
+        return next(createError('Marks obtained cannot be negative.', 400));
+      }
+      if (obtained > parsedMaxMarks) {
+        return next(createError(`Marks obtained (${obtained}) cannot exceed maximum marks (${parsedMaxMarks}).`, 400));
+      }
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    const results = await prisma.$transaction(async (tx) => {
+      const upserts = [];
+      for (const m of marks) {
+        const marksObtained = parseInt(m.marksObtained, 10);
+        const remark = m.remarks || m.remark || '';
+        const grade = calculateGrade(marksObtained, parsedMaxMarks);
+
+        const existing = await tx.result.findUnique({
+          where: {
+            examId_studentId_subjectId: {
+              examId,
+              studentId: m.studentId,
+              subjectId
+            }
+          }
+        });
+
+        if (existing) {
+          updatedCount++;
+        } else {
+          createdCount++;
+        }
+
+        const res = await tx.result.upsert({
+          where: {
+            examId_studentId_subjectId: {
+              examId,
+              studentId: m.studentId,
+              subjectId
+            }
+          },
+          update: {
+            marksObtained,
+            maxMarks: parsedMaxMarks,
+            grade,
+            remark
+          },
+          create: {
+            examId,
+            studentId: m.studentId,
+            subjectId,
+            marksObtained,
+            maxMarks: parsedMaxMarks,
+            grade,
+            remark,
+            schoolId: exam.schoolId
+          }
+        });
+        upserts.push(res);
+      }
+      return upserts;
+    });
+
+    res.json({
+      success: true,
+      savedCount: results.length,
+      createdCount,
+      updatedCount,
+      message: `Successfully saved marks for ${results.length} students.`
+    });
+  } catch (error) { next(error); }
+};

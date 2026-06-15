@@ -1,0 +1,50 @@
+
+================================================================
+   TESTING TEACHER MARKS ENTRY BACKEND (PHASE 3.1I)
+================================================================
+
+✅ Logged in as teacher, student, and parent.
+
+--- 1. GET /teacher/marks/exams (List Reachable Exams) ---
+   ✅ List reachable exams: HTTP 200
+   Reachable exams found: 2
+   Selected Exam: "First Term Examination" | Class: Class 1
+
+--- 2. GET /teacher/marks/exams/b8db656a-f28a-43ef-9c8b-4dec12ea302b/subjects (List Exam Subjects) ---
+   ✅ List exam subjects: HTTP 200
+   Reachable subjects for exam: 1
+   Selected Subject: "Mathematics" (Max Marks Default: 100)
+
+--- 3. GET /teacher/marks/exams/b8db656a-f28a-43ef-9c8b-4dec12ea302b/students?subjectId=8a278bc9-0c6e-435e-b478-eceb1af3a0fc (List Students) ---
+   ✅ List students for marking: HTTP 200
+   Students in marking list: 28
+   Selected Student: "Jane Doe" (matches student@school.com) | Current Marks: 95
+
+--- 4. POST /teacher/marks/exams/b8db656a-f28a-43ef-9c8b-4dec12ea302b/save (Save Marks) ---
+   ✅ Save valid student marks: HTTP 200
+   Response: {"success":true,"savedCount":1,"createdCount":0,"updatedCount":1,"message":"Successfully saved marks for 1 students."}
+
+--- 5. Verify Student Result (getStudentResults) ---
+   ✅ GET /student/results: HTTP 200
+   ✅ Student verified saved marks: 88/100 (Grade: A)
+
+--- 6. Verify Parent Result (getParentChildResults) ---
+   ✅ GET /parent/student/:id/results: HTTP 200
+   ✅ Parent verified child marks: 88/100 (Grade: A)
+
+--- 7. Update Marks (Verify Upsert Constraint) ---
+   ✅ Update student marks: HTTP 200
+   ✅ No duplicate result rows created. Row successfully upserted ✓
+
+--- 8. Security & Validation Testing ---
+   ✅ Reject negative marks: HTTP 400
+   ✅ Reject marks > maxMarks: HTTP 400
+   ✅ Student calling teacher marks exams: HTTP 403
+   ✅ Parent calling teacher marks exams: HTTP 403
+   ✅ Unauthenticated request blocked: HTTP 401
+   ✅ Reject fabricated examId: HTTP 404
+
+================================================================
+   TESTS COMPLETE: 16 passed, 0 failed
+================================================================
+

@@ -32,6 +32,11 @@ import {
   getTeacherSubmissionDetail,
   reviewTeacherSubmission,
   downloadTeacherSubmissionFile,
+  // Phase 3.1I — Teacher Marks Entry
+  getTeacherMarksExams,
+  getTeacherMarksExamSubjects,
+  getTeacherMarksExamStudents,
+  saveTeacherMarks,
 } from '../controllers/mobileController';
 
 const router = Router();
@@ -78,6 +83,12 @@ router.get('/teacher/homework/submissions/:submissionId', getTeacherSubmissionDe
 router.patch('/teacher/homework/submissions/:submissionId/review', reviewTeacherSubmission);
 router.get('/teacher/homework/:homeworkId/submissions', getTeacherHomeworkSubmissions);
 router.get('/teacher/homework', getTeacherHomework);
+
+// Phase 3.1I — Teacher Marks Entry
+router.get('/teacher/marks/exams', getTeacherMarksExams);
+router.get('/teacher/marks/exams/:examId/subjects', getTeacherMarksExamSubjects);
+router.get('/teacher/marks/exams/:examId/students', getTeacherMarksExamStudents);
+router.post('/teacher/marks/exams/:examId/save', saveTeacherMarks);
 
 export default router;
 
