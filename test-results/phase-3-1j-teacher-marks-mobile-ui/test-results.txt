@@ -1,0 +1,100 @@
+================================================================
+   PHASE 3.1J: TEACHER MARKS MOBILE UI VERIFICATION & REGRESSION
+================================================================
+
+1. MOBILE TYPECHECK
+Command: cd mobile && npx tsc --noEmit
+Result: SUCCESS (No compilation or type definition errors found)
+
+2. SERVER TYPECHECK
+Command: cd server && npx tsc --noEmit
+Result: SUCCESS (No compiler errors)
+
+3. CLIENT TYPECHECK & SANITY BUILD
+Command: cd client && npx tsc --noEmit && npm run build
+Result: SUCCESS
+Build output:
+dist/assets/index-DHMwdFaK.js                  224.38 kB │ gzip: 68.05 kB
+dist/assets/PieChart-DQjgk0Cm.js               290.33 kB │ gzip: 85.00 kB
+✓ built in 252ms
+
+4. SERVER INTEGRATION TESTS
+A. Teacher Marks Entry Backend Test
+Command: cd server && npx ts-node --transpile-only scripts/test-teacher-marks-entry.ts
+Output:
+--- 1. GET /teacher/marks/exams (List Reachable Exams) ---
+   ✅ List reachable exams: HTTP 200
+--- 2. GET /teacher/marks/exams/:examId/subjects ---
+   ✅ List exam subjects: HTTP 200
+--- 3. GET /teacher/marks/exams/:examId/students?subjectId=... ---
+   ✅ List students for marking: HTTP 200
+--- 4. POST /teacher/marks/exams/:examId/save ---
+   ✅ Save valid student marks: HTTP 200
+--- 5. Verify Student Result ---
+   ✅ Student verified saved marks: 88/100 (Grade: A)
+--- 6. Verify Parent Result ---
+   ✅ Parent verified child marks: 88/100 (Grade: A)
+--- 7. Update Marks (Verify Upsert) ---
+   ✅ Row successfully upserted ✓
+--- 8. Security & Validation Testing ---
+   ✅ Reject negative marks: HTTP 400
+   ✅ Reject marks > maxMarks: HTTP 400
+   ✅ Student calling teacher marks exams: HTTP 403
+   ✅ Parent calling teacher marks exams: HTTP 403
+   ✅ Unauthenticated request blocked: HTTP 401
+   ✅ Reject fabricated examId: HTTP 404
+Result: 16 passed, 0 failed (PASS)
+
+B. Teacher Homework Review Test
+Command: cd server && npx ts-node --transpile-only scripts/test-teacher-homework-review.ts
+Result: 26 passed, 0 failed (PASS)
+
+C. Student Homework Submission Test
+Command: cd server && npx ts-node --transpile-only scripts/test-student-homework-submission.ts
+Result: PASS
+
+D. Parent Academic Parity Test
+Command: cd server && npx ts-node --transpile-only scripts/test-parent-academic-parity.ts
+Result: PASS
+
+E. Mobile API Foundation Test
+Command: cd server && npx ts-node --transpile-only scripts/test-mobile-api-foundation.ts
+Result: PASS
+
+F. Push Notification Test
+Command: cd server && npx ts-node --transpile-only scripts/test-push-notifications.ts
+Result: PASS
+
+5. E2E USER ACCEPTANCE TEST RUN
+Command: node test-results/mobile-marks-screenshot.mjs
+Output:
+[Mobile Marks UAT] Starting Mobile UI Teacher Marks Verification...
+[Mobile Marks UAT] Navigating to http://localhost:19006...
+[Mobile Marks UAT] Waiting for Sign In to mount...
+[Mobile Marks UAT] 
+--- 1. Logging in as Teacher Demo ---
+[Mobile Marks UAT] Navigating to Marks bottom tab...
+[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_exam_list.png
+[Mobile Marks UAT] Selecting the first exam...
+[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_subject_list.png
+[Mobile Marks UAT] Selecting subject for marking...
+[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_student_entry.png
+[Mobile Marks UAT] Entering invalid score to test validation...
+[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_validation_error.png
+[Mobile Marks UAT] Entering valid marks and remark...
+[Mobile Marks UAT] Clicking Save Marks...
+[Mobile Marks UAT] 📸 Screenshot saved: teacher_marks_saved_success.png
+[Mobile Marks UAT] Logging out from Teacher Portal...
+[Mobile Marks UAT] 
+--- 2. Logging in as Student Demo ---
+[Mobile Marks UAT] Navigating to Student Exams tab...
+[Mobile Marks UAT] 📸 Screenshot saved: student_results_updated_marks.png
+[Mobile Marks UAT] Logging out from Student Portal...
+[Mobile Marks UAT] 
+--- 3. Logging in as Parent Demo ---
+[Mobile Marks UAT] Navigating to Academics tab...
+[Mobile Marks UAT] 📸 Screenshot saved: parent_results_updated_marks.png
+[Mobile Marks UAT] Logging out from Parent Portal...
+[Mobile Marks UAT] 
+All Mobile Marks UI screenshots captured successfully!
+Result: PASS

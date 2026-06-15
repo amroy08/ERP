@@ -6,7 +6,7 @@ import TeacherHomeScreen from '../screens/teacher/TeacherHomeScreen';
 import TeacherTimetableScreen from '../screens/teacher/TeacherTimetableScreen';
 import TeacherAttendanceScreen from '../screens/teacher/TeacherAttendanceScreen';
 import TeacherHomeworkScreen from '../screens/teacher/TeacherHomeworkScreen';
-import TeacherNoticesScreen from '../screens/teacher/TeacherNoticesScreen';
+import TeacherMarksScreen from '../screens/teacher/TeacherMarksScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -64,15 +64,14 @@ export const TeacherNavigator: React.FC = () => (
       }}
     />
     <Tab.Screen
-      name="TeacherNotices"
-      component={TeacherNoticesScreen}
+      name="TeacherMarks"
+      component={TeacherMarksScreen}
       options={{
-        tabBarLabel: 'Notices',
-        tabBarIcon: ({ focused }) => tabBarIcon('📢', focused),
+        tabBarLabel: 'Marks',
+        tabBarIcon: ({ focused }) => tabBarIcon('📝', focused),
       }}
     />
   </Tab.Navigator>
 );
-
 
 export default TeacherNavigator;

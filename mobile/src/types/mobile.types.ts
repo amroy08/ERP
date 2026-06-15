@@ -140,3 +140,52 @@ export type TeacherHomeworkSubmissionDetail = {
   canDownload?: boolean;
 };
 
+// ─── Teacher Marks Entry ───────────────────────────────────────────────────
+export type TeacherMarksExam = {
+  examId: string;
+  examName: string;
+  classId?: string;
+  className?: string;
+  sectionId?: string | null;
+  sectionName?: string | null;
+  examDate?: string | null;
+  status?: string;
+  totalSubjects?: number;
+  marksEnteredCount?: number;
+  totalStudents?: number;
+  publishedStatus?: string | null;
+};
+
+export type TeacherMarksSubject = {
+  subjectId: string;
+  subjectName: string;
+  className?: string;
+  sectionName?: string | null;
+  maxMarks?: number;
+  marksEnteredCount?: number;
+  totalStudents?: number;
+};
+
+export type TeacherMarksStudent = {
+  studentId: string;
+  studentName: string;
+  rollNo?: string | null;
+  admissionNo?: string | null;
+  existingResultId?: string | null;
+  marksObtained?: number | null;
+  maxMarks?: number | null;
+  grade?: string | null;
+  remarks?: string | null;
+  status?: string | null;
+};
+
+export type SaveMarksPayload = {
+  subjectId: string;
+  maxMarks: number;
+  marks: Array<{
+    studentId: string;
+    marksObtained: number;
+    remarks?: string;
+  }>;
+};
+

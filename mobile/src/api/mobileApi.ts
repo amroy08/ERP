@@ -179,6 +179,38 @@ export const downloadTeacherHomeworkSubmissionFile = async (submissionId: string
   return response.data;
 };
 
+// ─── Teacher Marks Entry ───────────────────────────────────────────────────
+export const getTeacherMarksExams = async () => {
+  const response = await apiClient.get('/mobile/teacher/marks/exams');
+  return response.data;
+};
+
+export const getTeacherMarksExamSubjects = async (examId: string) => {
+  const response = await apiClient.get(`/mobile/teacher/marks/exams/${examId}/subjects`);
+  return response.data;
+};
+
+export const getTeacherMarksExamStudents = async (examId: string, subjectId: string) => {
+  const response = await apiClient.get(`/mobile/teacher/marks/exams/${examId}/students?subjectId=${subjectId}`);
+  return response.data;
+};
+
+export const saveTeacherMarks = async (
+  examId: string,
+  payload: {
+    subjectId: string;
+    maxMarks: number;
+    marks: Array<{
+      studentId: string;
+      marksObtained: number;
+      remarks?: string;
+    }>;
+  }
+) => {
+  const response = await apiClient.post(`/mobile/teacher/marks/exams/${examId}/save`, payload);
+  return response.data;
+};
+
 // ─── Shared ────────────────────────────────────────────────────────────────
 export const fetchNotices = async () => {
   const response = await apiClient.get('/notices?limit=20');
