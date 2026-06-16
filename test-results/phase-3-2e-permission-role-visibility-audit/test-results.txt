@@ -1,0 +1,133 @@
+═══════════════════════════════════════════════════════════════
+ Phase 3.2E: Role Visibility & IDOR Permission Audit
+═══════════════════════════════════════════════════════════════
+
+── Login all roles ─────────────────────────────────────────────
+  ✅ [L1] Admin login
+  ✅ [L2] Teacher login
+  ✅ [L3] Student login
+  ✅ [L4] Parent login
+
+── Discovering test IDs ────────────────────────────────────────
+  ℹ️  Exam: First Term Examination (b8db656a-f28a-43ef-9c8b-4dec12ea302b)
+  ✅ [D1] Exam list reachable by admin
+  ℹ️  Homework: Geometry Project: Shapes (da49d55f-bf35-42db-8d55-2ebbb71ffead)
+  ✅ [D2] Homework list reachable by admin
+  ℹ️  Student 1: Aanya148 Dutta (d64e0122-d47e-4464-baa4-8b73cf8e1543)
+  ℹ️  Student 2: Aanya220 Dutta (3c95a8ed-84c9-4075-808b-8366fbc337cb)
+  ✅ [D3] Student list reachable by admin
+  ℹ️  Logged-in student ID: a1420443-a1e3-4863-a775-4ea691605265
+  ℹ️  Parent linked child ID: 
+  ℹ️  Unlinked student ID (for IDOR): d64e0122-d47e-4464-baa4-8b73cf8e1543
+  ℹ️  Submission ID: cmqf8bwtq0001s2dygzc0b2ff
+
+── A. Homework List Role Access ────────────────────────────────
+  ✅ [A1] Admin GET /homework → 200
+  ✅ [A2] Teacher GET /homework → 200
+  ✅ [A3] Student GET web /homework → 200 (scoped to own class)
+  ℹ️  Student sees 0 homework items (should be own class only)
+  ✅ [A3b] Student homework list is scoped array
+  ✅ [A4] Parent GET web /homework → 200 (scoped to linked child class)
+  ℹ️  Parent sees 3 homework items (should be linked child class only)
+  ✅ [A5] Unauthenticated GET /homework → 401
+
+── B. Homework Submissions Role Access ─────────────────────────
+  ✅ [B1] Admin GET homework submissions → 200
+  ✅ [B2] Teacher GET homework submissions → 200 or 403
+  ✅ [B3] Student GET homework submissions → 403
+  ✅ [B4] Parent GET homework submissions → 403
+
+── C. Homework Review/Return Role Access ───────────────────────
+  ✅ [C1] Student PATCH submission/review → 403
+  ✅ [C2] Parent PATCH submission/review → 403
+  ✅ [C3] Admin PATCH submission/review → 200
+  ✅ [C4] Invalid status → 400
+  ✅ [C5] Negative marks → 400
+
+── D. Exam Schedule Role Access ────────────────────────────────
+  ✅ [D4] Admin GET /exams → 200
+  ✅ [D5] Teacher GET /exams → 200
+  ✅ [D6] Student GET /exams → 200 (scoped)
+  ✅ [D7] Student exam list auto-filtered (no admin data leak)
+  ✅ [D8] Parent GET /exams → 200 (scoped)
+
+── E. Gradebook Role Access ────────────────────────────────────
+  ✅ [E1] Admin GET gradebook → 200
+  ✅ [E2] Teacher GET gradebook → 200 or 403
+  ✅ [E3] Student GET gradebook → 403
+  ✅ [E4] Parent GET gradebook → 403
+
+── F. Marks Save Role Access ───────────────────────────────────
+  ✅ [F1] Student POST marks/save → 403
+  ✅ [F2] Parent POST marks/save → 403
+  ✅ [F3] Marks above max → 400 or rejected
+  ✅ [F4] Admin POST marks/save (student in exam class) → 200
+
+── G. Results IDOR Checks ──────────────────────────────────────
+  ✅ [G1] Student GET own results → 200
+  ✅ [G2] Student GET other student results → 403
+  ✅ [G6] Admin GET any student results → 200
+
+── H. Report Card IDOR Checks ──────────────────────────────────
+  ✅ [H1] Student GET own report card → 200
+  ✅ [H2] Student GET other report card → 403
+
+── I. Mobile Student Role Enforcement ──────────────────────────
+  ✅ [I1] Teacher GET /mobile/student/dashboard → 403
+  ✅ [I2] Teacher GET /mobile/student/homework → 403
+  ✅ [I3] Parent GET /mobile/student/dashboard → 403
+  ✅ [I4] Student GET /mobile/student/dashboard → 200
+
+── J. Mobile Parent IDOR Checks ────────────────────────────────
+  ✅ [J1] Student GET /mobile/parent/dashboard → 403
+  ✅ [J2] Teacher GET /mobile/parent/dashboard → 403
+
+── K. Mobile Teacher Role Enforcement ──────────────────────────
+  ✅ [K1] Student GET /mobile/teacher/dashboard → 403
+  ✅ [K2] Student GET /mobile/teacher/homework → 403
+  ✅ [K3] Student GET /mobile/teacher/marks → 403
+  ✅ [K4] Parent GET /mobile/teacher/dashboard → 403
+  ✅ [K5] Parent GET /mobile/teacher/marks → 403
+  ✅ [K6] Teacher GET /mobile/teacher/dashboard → 200
+  ✅ [K7] Teacher GET /mobile/teacher/homework → 200
+  ✅ [K8] Teacher GET /mobile/teacher/marks → 200
+  ℹ️  Teacher sees 3 exam(s) in marks list
+  ✅ [K9] Teacher marks exam list is an array
+
+── L. Attendance Role Access ───────────────────────────────────
+  ✅ [L5] Admin GET /attendance → 200
+  ✅ [L6] Teacher GET /attendance → 200
+  ✅ [L7] Student GET /attendance → 200 (scoped to self)
+  ℹ️  Student sees 0 attendance records (own only)
+  ✅ [L8] Parent GET /attendance → 200 (scoped to linked child)
+  ℹ️  Parent sees 32 attendance records (linked child only)
+
+── M. File Download Security ───────────────────────────────────
+  ✅ [M1] Student GET submission download (web) → 403
+  ✅ [M2] Parent GET submission download (web) → 403
+  ✅ [M3] Admin GET submission download → 200 or 404
+  ✅ [M4] Submission detail does not expose raw private filePath
+
+── N. Clerk Role Restrictions ──────────────────────────────────
+  ✅ [N1] Clerk does NOT have exam:marks_entry
+  ✅ [N2] Clerk does NOT have homework:create
+  ✅ [N3] Clerk does NOT have timetable:manage
+  ✅ [N4] Clerk does NOT have settings:update
+  ✅ [N5] Clerk DOES have exam:view
+  ✅ [N6] Clerk DOES have attendance:mark
+
+── O. Unauthenticated Access Blocked ───────────────────────────
+  ✅ [O] GET /exams without auth → 401
+  ✅ [O] GET /homework without auth → 401
+  ✅ [O] GET /attendance without auth → 401
+  ✅ [O] GET /students without auth → 401
+  ✅ [O] GET /mobile/student/dashboard without auth → 401
+  ✅ [O] GET /mobile/teacher/dashboard without auth → 401
+  ✅ [O] GET /mobile/parent/dashboard without auth → 401
+
+═══════════════════════════════════════════════════════════════
+ Results: 76/76 passed, 0 failed
+
+ ✅ Phase 3.2E: Role Visibility & IDOR Audit — ALL CHECKS PASS
+═══════════════════════════════════════════════════════════════
+
