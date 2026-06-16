@@ -1,0 +1,80 @@
+
+═══════════════════════════════════════════════════════════════
+ Phase 3.2C: Web Exam / Marks Parity Test
+═══════════════════════════════════════════════════════════════
+
+  ✅ [Auth] Admin login
+  ✅ [Auth] Student login
+  ℹ️  Parent login: no parent in DB (acceptable)
+
+── A. Existing Exam API (regression) ─────────────────────────
+  ✅ [A1] GET /exams 200
+  ✅ [A2] Admin sees exams
+  ℹ️  Exam: First Term Examination (b8db656a-f28a-43ef-9c8b-4dec12ea302b)
+
+── B. GET /exams/:examId/gradebook ───────────────────────────
+  ✅ [B1] Admin GET gradebook 200
+  ✅ [B2] Gradebook has subjects array
+  ✅ [B3] Gradebook has examName
+  ✅ [B4] Gradebook has totalStudents
+  ✅ [B5] Subject has marksEnteredCount
+  ✅ [B6] Subject has pendingMarksCount
+  ✅ [B7] Subject has maxMarks
+  ✅ [B8] Subject.entered + pending = total
+  ✅ [B9] Student GET gradebook → 403
+
+── C. GET /exams/:examId/subjects/:subjectId/marks ───────────
+  ✅ [C1] Admin GET enriched marks 200
+  ✅ [C2] Returns array
+  ✅ [C3] Row has studentName
+  ✅ [C4] Row has admissionNo
+  ✅ [C5] Row has rollNumber
+  ✅ [C6] Row has status (entered/pending)
+  ✅ [C7] Row has maxMarks
+  ✅ [C8] Entered row has percentage
+  ✅ [C9] Entered row has grade
+  ✅ [C10] Student GET enriched marks → 403
+
+── D. POST /exams/:examId/subjects/:subjectId/marks/save ─────
+  ✅ [D1] Admin save mark 200
+  ✅ [D2] Response has percentage
+  ✅ [D3] Response has grade
+  ✅ [D4] Mark persisted (marksObtained=75)
+  ✅ [D5] Grade persisted
+  ✅ [D6] Second save (upsert) 200
+  ✅ [D7] Updated mark shows 80 (no duplicate)
+  ✅ [D8] Negative marks → 400
+  ✅ [D9] Marks > maxMarks → 400
+  ✅ [D10] Student POST save marks → 403
+  ✅ [D11] Fabricated examId → 404
+
+── E. GET /exams/results/student/:studentId ──────────────────
+  ✅ [E1] Admin GET student results 200
+  ✅ [E2] Admin sees enriched results
+  ✅ [E3] Result has exam.name
+  ✅ [E4] Result has subject.name
+  ✅ [E5] Result has percentage
+  ℹ️  Student GET other student result: 403 (403 if different student)
+
+── F. GET /exams/results/parent/:studentId ───────────────────
+  ✅ [F1] Admin GET parent results 200
+  ✅ [F2] Student GET parent endpoint → 403
+
+── G. GET /exams/report/:studentId (regression) ──────────────
+  ✅ [G1] GET /exams/report/:studentId 200
+  ✅ [G2] Report card is array
+
+── H. POST /exams/marks (bulk) regression ─────────────────────
+  ✅ [H1] POST /exams/marks (bulk) 200
+  ✅ [H2] Bulk save reflected in enriched endpoint
+
+── I. Mobile-to-web sync verification ────────────────────────
+  ✅ [I1] Web gradebook reflects DB results
+  ✅ [I2] Entered marks are visible in enriched view
+  ℹ️  Entered marks visible in web: 3
+
+═══════════════════════════════════════════════════════════════
+ Results: 47/47 passed, 0 failed
+ ✅ Phase 3.2C: Web Exam Marks Parity — ALL TESTS PASS
+═══════════════════════════════════════════════════════════════
+

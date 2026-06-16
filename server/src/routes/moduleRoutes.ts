@@ -17,10 +17,6 @@ import {
   getTimetables, createTimetable
 } from '../controllers/moduleController';
 import { upload, admissionUpload } from '../middleware/uploadMiddleware';
-import {
-  getExams, createExam, submitMarks, getReportCard, getExamSubjects, getExamMarks,
-  updateExam, deleteExam
-} from '../controllers/examController';
 import { protect } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/rbacMiddleware';
 import { PERMISSIONS } from '../config/constants';
@@ -125,16 +121,5 @@ router.get('/homework/:homeworkId/submissions', protect, checkModuleEnabled('hom
 router.get('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_VIEW), getTimetables);
 router.post('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_MANAGE), createTimetable);
 
-
-
-// Exams
-router.get('/exams', protect, authorize(PERMISSIONS.EXAM_VIEW), getExams);
-router.post('/exams', protect, authorize(PERMISSIONS.EXAM_CREATE), createExam);
-router.put('/exams/:id', protect, authorize(PERMISSIONS.EXAM_CREATE), updateExam);
-router.delete('/exams/:id', protect, authorize(PERMISSIONS.EXAM_CREATE), deleteExam);
-router.post('/exams/marks', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY), submitMarks);
-router.get('/exams/marks/:examId/:subjectId', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY, PERMISSIONS.EXAM_VIEW), getExamMarks);
-router.get('/exams/subjects/:examId', protect, authorize(PERMISSIONS.EXAM_MARKS_ENTRY, PERMISSIONS.EXAM_VIEW), getExamSubjects);
-router.get('/exams/report/:studentId', protect, authorize(PERMISSIONS.EXAM_VIEW), getReportCard);
 
 export default router;
