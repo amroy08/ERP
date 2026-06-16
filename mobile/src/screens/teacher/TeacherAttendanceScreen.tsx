@@ -52,7 +52,8 @@ export const TeacherAttendanceScreen: React.FC = () => {
     setSelectedClass(cls);
     setStudentsLoading(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const res = await apiClient.get(
         `/mobile/teacher/attendance-students?classId=${cls.classId}&date=${today}`
       );
@@ -86,7 +87,8 @@ export const TeacherAttendanceScreen: React.FC = () => {
     if (!selectedClass || saving) return;
     setSaving(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       await apiClient.post('/mobile/teacher/attendance-submit', {
         classId: selectedClass.classId,
         date: today,

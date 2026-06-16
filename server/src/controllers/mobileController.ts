@@ -18,6 +18,16 @@ const calculateAttendanceSummary = (records: any[]) => {
   return { total, present, absent, late, percentage };
 };
 
+// Helper to normalize dates to UTC midnight day ranges
+function parseDateToUtcDayRange(dateInput: string) {
+  const dateStr = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
+  const start = new Date(`${dateStr}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { dateStr, start, end };
+}
+
+
 // ── Device Registration Endpoints ──────────────────────────────────────────
 
 export const registerDevice = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -648,8 +658,8 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
       orderBy: { startTime: 'asc' },
     });
 
-    const todayTimetable = timetableEntries.map(entry => ({
-      period: entry.day,
+    const todayTimetable = timetableEntries.map((entry, idx) => ({
+      period: String(idx + 1),
       startTime: entry.startTime,
       endTime: entry.endTime,
       className: entry.timetable.class.name,
@@ -691,15 +701,13 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
     const assignedSubjects = Array.from(subjectsMap.values());
 
     // 3. Process Pending Attendance
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const localDateStr = new Date().toLocaleDateString('en-CA');
+    const { start, end } = parseDateToUtcDayRange(localDateStr);
 
     // Get sections where attendance has been marked today
     const attendanceToday = await prisma.attendance.findMany({
       where: {
-        date: { gte: todayStart, lte: todayEnd },
+        date: { gte: start, lt: end },
         schoolId: teacher.schoolId,
       },
       select: {
@@ -822,7 +830,7 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response, next:
       const dayList = groupedDaysMap.get(entry.day);
       if (dayList) {
         dayList.push({
-          period: entry.day,
+          period: '1',
           startTime: entry.startTime,
           endTime: entry.endTime,
           className: entry.timetable.class.name,
@@ -836,9 +844,13 @@ export const getTeacherTimetable = async (req: AuthRequest, res: Response, next:
       const sortedPeriods = (groupedDaysMap.get(day) || []).sort((a, b) =>
         a.startTime.localeCompare(b.startTime)
       );
+      const mappedPeriods = sortedPeriods.map((p, idx) => ({
+        ...p,
+        period: String(idx + 1),
+      }));
       return {
         day,
-        periods: sortedPeriods,
+        periods: mappedPeriods,
       };
     });
 
@@ -874,14 +886,23 @@ export const getParentChildTimetable = async (req: AuthRequest, res: Response, n
       },
     });
 
-    const entries = (timetable?.entries ?? []).map(e => ({
-      dayOfWeek: e.day,
-      period: (e as any).periodNumber?.toString() ?? '1',
-      startTime: e.startTime,
-      endTime: e.endTime,
-      subjectName: e.subject.name,
-      teacherName: e.teacher?.user?.name ?? null,
-    }));
+    const entriesByDay: Record<string, any[]> = {};
+    (timetable?.entries ?? []).forEach(e => {
+      if (!entriesByDay[e.day]) entriesByDay[e.day] = [];
+      entriesByDay[e.day].push(e);
+    });
+
+    const entries = Object.keys(entriesByDay).flatMap(day => {
+      const sorted = entriesByDay[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return sorted.map((e, index) => ({
+        dayOfWeek: e.day,
+        period: String(index + 1),
+        startTime: e.startTime,
+        endTime: e.endTime,
+        subjectName: e.subject.name,
+        teacherName: e.teacher?.user?.name ?? null,
+      }));
+    });
 
     res.status(200).json({ success: true, data: entries });
   } catch (error) { next(error); }
@@ -1124,14 +1145,23 @@ export const getStudentTimetable = async (req: AuthRequest, res: Response, next:
       },
     });
 
-    const entries = (timetable?.entries ?? []).map(e => ({
-      dayOfWeek: e.day,
-      period: (e as any).periodNumber?.toString() ?? '1',
-      startTime: e.startTime,
-      endTime: e.endTime,
-      subjectName: e.subject.name,
-      teacherName: e.teacher?.user?.name ?? null,
-    }));
+    const entriesByDay: Record<string, any[]> = {};
+    (timetable?.entries ?? []).forEach(e => {
+      if (!entriesByDay[e.day]) entriesByDay[e.day] = [];
+      entriesByDay[e.day].push(e);
+    });
+
+    const entries = Object.keys(entriesByDay).flatMap(day => {
+      const sorted = entriesByDay[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return sorted.map((e, index) => ({
+        dayOfWeek: e.day,
+        period: String(index + 1),
+        startTime: e.startTime,
+        endTime: e.endTime,
+        subjectName: e.subject.name,
+        teacherName: e.teacher?.user?.name ?? null,
+      }));
+    });
 
     res.status(200).json({ success: true, data: entries });
   } catch (error) { next(error); }
@@ -1603,10 +1633,10 @@ export const getTeacherAttendanceClasses = async (req: AuthRequest, res: Respons
       }
     }
 
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const localDateStr = new Date().toLocaleDateString('en-CA');
+    const { start, end } = parseDateToUtcDayRange(localDateStr);
     const markedToday = await prisma.attendance.findMany({
-      where: { date: { gte: todayStart, lte: todayEnd }, schoolId: teacher.schoolId },
+      where: { date: { gte: start, lt: end }, schoolId: teacher.schoolId },
       select: { student: { select: { sectionId: true } } },
     });
     const markedSectionIds = new Set(markedToday.map(a => a.student?.sectionId).filter(Boolean));
@@ -1641,10 +1671,9 @@ export const getTeacherAttendanceStudents = async (req: AuthRequest, res: Respon
 
     const existingMap = new Map<string, string>();
     if (date) {
-      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+      const { start, end } = parseDateToUtcDayRange(date);
       const existing = await prisma.attendance.findMany({
-        where: { studentId: { in: students.map(s => s.id) }, date: { gte: dayStart, lte: dayEnd } },
+        where: { studentId: { in: students.map(s => s.id) }, date: { gte: start, lt: end } },
         select: { studentId: true, status: true },
       });
       existing.forEach(a => existingMap.set(a.studentId, a.status));
@@ -1679,15 +1708,14 @@ export const submitTeacherAttendance = async (req: AuthRequest, res: Response, n
       return next(createError('classId, date, and records are required.', 400));
     }
 
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(12, 0, 0, 0);
+    const { start } = parseDateToUtcDayRange(date);
 
     const ops = records.map(r =>
       prisma.attendance.upsert({
-        where: { date_studentId: { date: attendanceDate, studentId: r.studentId } },
+        where: { date_studentId: { date: start, studentId: r.studentId } },
         create: {
           studentId: r.studentId,
-          date: attendanceDate,
+          date: start,
           status: r.status,
           schoolId: authUser.schoolId ?? null,
         },

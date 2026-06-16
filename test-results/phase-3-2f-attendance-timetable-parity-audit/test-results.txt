@@ -1,0 +1,87 @@
+Phase 3.2F: Attendance + Timetable Web-Mobile Parity Audit
+==========================================================
+Branch:          Nupun
+Audit Date:      2026-06-16
+Baseline Commit: 5321ef56fb490fd7bbb185185e501d839e7ac04c
+
+================================================================
+AUTOMATED TEST RESULTS
+================================================================
+
+Script: server/scripts/test-attendance-timetable-parity.ts
+Result: 28/28 assertions PASS
+
+  [PASS] parseDateToUtcDayRange - bare date returns UTC midnight start
+  [PASS] parseDateToUtcDayRange - ISO string strips time component
+  [PASS] parseDateToUtcDayRange - start is midnight UTC
+  [PASS] parseDateToUtcDayRange - end is 23:59:59.999 UTC
+  [PASS] parseDateToUtcDayRange - range spans exactly 86399999ms
+  [PASS] Attendance query - UTC range covers records at 00:00 UTC
+  [PASS] Attendance query - UTC range covers records at 12:00 UTC
+  [PASS] Attendance query - UTC range covers records at 23:59 UTC
+  [PASS] Attendance query - UTC range excludes next-day records
+  [PASS] Attendance query - UTC range excludes prev-day records
+  [PASS] Teacher local date - toLocaleDateString en-CA returns YYYY-MM-DD
+  [PASS] Teacher local date - does not use toISOString (UTC risk)
+  [PASS] Timetable - student endpoint sorts by startTime
+  [PASS] Timetable - student period 1 label correct
+  [PASS] Timetable - student period 2 label correct
+  [PASS] Timetable - student period 3 label correct
+  [PASS] Timetable - teacher endpoint sorts by startTime
+  [PASS] Timetable - teacher period 1 label correct
+  [PASS] Timetable - teacher period 2 label correct
+  [PASS] Timetable - teacher period 3 label correct
+  [PASS] Timetable - parent endpoint sorts by startTime
+  [PASS] Timetable - parent period 1 label correct
+  [PASS] Timetable - parent period 2 label correct
+  [PASS] Timetable - parent period 3 label correct
+  [PASS] Role isolation - student cannot read teacher attendance
+  [PASS] Role isolation - parent cannot read teacher attendance
+  [PASS] Cross-school isolation - schoolId always from JWT
+  [PASS] Attendance POST - stores UTC midnight date (not toISOString)
+
+Script: server/scripts/test-role-visibility-permission-audit.ts
+Result: 76/76 assertions PASS
+
+================================================================
+BUILD VERIFICATION
+================================================================
+
+  server/   tsc --noEmit    PASS (0 type errors)
+  client/   tsc --noEmit    PASS (0 type errors)
+  mobile/   tsc --noEmit    PASS (0 type errors)
+
+================================================================
+PARITY BUGS FOUND AND FIXED
+================================================================
+
+BUG-1: Attendance date/timezone mismatch
+  File:  server/src/controllers/mobileController.ts
+  Fix:   parseDateToUtcDayRange() helper, applied to all 4 attendance endpoints
+  Lines: 22-28 (helper), 705, 1637, 1674, 1711 (usages)
+  Test:  28/28 PASS
+
+BUG-2: Mobile teacher "today" UTC/local mismatch
+  File:  mobile/src/screens/teacher/TeacherAttendanceScreen.tsx
+  Fix:   toLocaleDateString('en-CA') instead of toISOString().split('T')[0]
+  Lines: 124, 192
+  Test:  28/28 PASS
+
+BUG-3: Timetable period numbering inconsistency
+  File:  server/src/controllers/mobileController.ts
+  Fix:   Sort by startTime, assign Period ${idx+1} labels for student/parent/teacher
+  Lines: approx 1050-1100 (timetable endpoints)
+  Test:  28/28 PASS
+
+================================================================
+OVERALL RESULT
+================================================================
+
+Phase 3.2F: Attendance + Timetable Web-Mobile Parity  →  PASS ✅
+
+  Bugs confirmed:  3
+  Bugs fixed:      3
+  Regressions:     0
+  Scope violations: 0 (no schema changes, no migrations, no APK build)
+
+================================================================
