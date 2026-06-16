@@ -98,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Real login
   // ────────────────────────────────────────────────────────
   const signIn = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
       const resData = await loginUser(email, password);
       const data = resData?.data ?? resData;
@@ -127,10 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (token) setPushToken(token);
       });
     } catch (e) {
-      setIsLoading(false);
       throw e;
-    } finally {
-      setIsLoading(false);
     }
   };
 

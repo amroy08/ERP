@@ -65,8 +65,8 @@ app.use('/api', moduleRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 School ERP Server running on http://localhost:${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 School ERP Server running on http://0.0.0.0:${PORT}`);
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
