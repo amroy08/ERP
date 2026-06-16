@@ -3,3 +3,10 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Local-only audit/debug helper scripts — not for commit
+scripts/check-parents.ts
+scripts/check-recent-logins.ts
+scripts/create-parent-users.ts
+scripts/capture-web-screenshots.js
+scripts/run-academic-sync-screenshots.js
