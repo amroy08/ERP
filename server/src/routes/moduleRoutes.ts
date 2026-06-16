@@ -13,6 +13,7 @@ import {
   getAcademicYears, createAcademicYear, updateAcademicYear,
   getSections, getSection, createSection, updateSection, deleteSection,
   getHomework, createHomework, deleteHomework,
+  getHomeworkSubmissions, getHomeworkSubmissionDetail, reviewHomeworkSubmission, downloadHomeworkSubmissionFile,
   getTimetables, createTimetable
 } from '../controllers/moduleController';
 import { upload, admissionUpload } from '../middleware/uploadMiddleware';
@@ -113,6 +114,12 @@ router.delete('/sections/:id', protect, authorize(PERMISSIONS.CLASS_DELETE), del
 router.get('/homework', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), getHomework);
 router.post('/homework', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_CREATE), createHomework);
 router.delete('/homework/:id', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_CREATE), deleteHomework);
+
+// Homework Submission Review (Web Console) — IMPORTANT: specific paths before param paths
+router.get('/homework/submissions/:submissionId/download', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), downloadHomeworkSubmissionFile);
+router.get('/homework/submissions/:submissionId', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), getHomeworkSubmissionDetail);
+router.patch('/homework/submissions/:submissionId/review', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), reviewHomeworkSubmission);
+router.get('/homework/:homeworkId/submissions', protect, checkModuleEnabled('homework'), authorize(PERMISSIONS.HOMEWORK_VIEW), getHomeworkSubmissions);
 
 // Timetable
 router.get('/timetables', protect, checkModuleEnabled('timetable'), authorize(PERMISSIONS.TIMETABLE_VIEW), getTimetables);
