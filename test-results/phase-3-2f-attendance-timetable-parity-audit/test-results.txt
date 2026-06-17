@@ -89,3 +89,34 @@ Phase 3.2F: Attendance + Timetable Web-Mobile Parity  →  PASS ✅
   Scope violations: 0 (no schema changes, no migrations, no APK build)
 
 ================================================================
+
+================================================================
+EVIDENCE CORRECTION AUDIT (2026-06-17)
+================================================================
+
+Reason: 3 timetable mobile screenshots were generated stand-ins
+        (image quota exhausted during Phase 3.2F post-audit run).
+
+Action: Replaced all 3 screenshots with real Android emulator captures.
+
+Screenshots replaced:
+  screenshots/timetable_mobile_teacher_reflected.png  [REAL CAPTURE 08:21 IST]
+  screenshots/timetable_mobile_student_reflected.png  [REAL CAPTURE 08:30 IST]
+  screenshots/timetable_mobile_parent_reflected.png   [REAL CAPTURE 08:33 IST]
+
+Visual confirmation from screenshots:
+  Teacher:  "My Timetable" Wed-tab active  → Period 1 / Mathematics / Class 1-A / 10:00-10:45
+  Student:  "My Timetable" Wed-tab active  → Period 1 / Mathematics / Class Teacher / 10:00-10:45
+  Parent:   "Academics"    Wed-tab active  → Period 1 / Mathematics / Class Teacher / 10:00-10:45
+
+Period numbering: "Period 1" in all 3 screenshots (NOT "Period Wednesday")
+Day-name leak:    None observed in any screenshot
+
+Re-run automated tests:
+  server/scripts/test-attendance-timetable-parity.ts:  30/30 PASS
+  mobile tsc --noEmit:                                 EXIT 0
+
+Evidence Correction Result: PASS
+All stand-in screenshots replaced with real runtime device captures.
+
+================================================================
