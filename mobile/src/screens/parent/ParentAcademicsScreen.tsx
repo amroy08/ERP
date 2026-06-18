@@ -8,11 +8,14 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { colors } from '../../constants/colors';
+import { spacing, radii } from '../../constants/layout';
+import { typography } from '../../constants/typography';
 import {
   fetchParentDashboard,
   getParentChildTimetable,
@@ -25,6 +28,10 @@ import {
   ExamScheduleItem,
   ExamResultItem,
 } from '../../types/mobile.types';
+import { ParentScreenHeader } from '../../components/parent/ParentScreenHeader';
+import { ChildContextHeader } from '../../components/dashboard/ChildContextHeader';
+import { TodayScheduleCard } from '../../components/dashboard/TodayScheduleCard';
+import { StatusBadge } from '../../components/StatusBadge';
 
 interface ChildSummary {
   id: string;
@@ -60,7 +67,15 @@ const getGradeColor = (grade?: string) => {
   return colors.danger;
 };
 
+const homeworkStatusBadgeType = (s: string): 'success' | 'danger' | 'warning' | 'info' => {
+  if (s === 'pending') return 'warning';
+  if (s === 'submitted') return 'info';
+  if (s === 'graded' || s === 'reviewed') return 'success';
+  return 'info';
+};
+
 export const ParentAcademicsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('timetable');
@@ -181,43 +196,28 @@ export const ParentAcademicsScreen: React.FC = () => {
 
   return (
     <ScreenContainer>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.parent} />
-        }
-      >
-        <Text style={styles.pageTitle}>Academics</Text>
+      <ParentScreenHeader
+        title="Academics"
+        subtitle={selectedChild ? `Viewing academics for ${selectedChild.name}` : undefined}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      />
 
-        {/* Child Selector Switcher (Horizontal scroll of children pills if > 1) */}
-        {children.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childSwitcherScroll}>
-            {children.map((child) => (
-              <TouchableOpacity
-                key={child.id}
-                onPress={() => setSelectedChildId(child.id)}
-                activeOpacity={0.8}
-                style={[
-                  styles.childPill,
-                  selectedChildId === child.id && styles.childPillActive,
-                ]}
-              >
-                <Text style={[styles.childPillText, selectedChildId === child.id && styles.childPillTextActive]}>
-                  👶  {child.name.split(' ')[0]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+      {/* Child Context Switcher (Horizon switch header) */}
+      {children.length > 1 && selectedChildId && (
+        <ChildContextHeader
+          childrenList={children.map((c) => ({
+            id: c.id,
+            name: c.name,
+            className: c.className,
+            sectionName: c.sectionName,
+          }))}
+          selectedChildId={selectedChildId}
+          onChildSelect={(id) => setSelectedChildId(id)}
+        />
+      )}
 
-        {/* Selected Child Subtitle */}
-        {selectedChild && (
-          <Text style={styles.childSubtitle}>
-            Viewing details for: <Text style={{ fontWeight: '700', color: colors.text }}>{selectedChild.name}</Text> ({selectedChild.className} - {selectedChild.sectionName})
-          </Text>
-        )}
-
-        {/* Sub-tab Selectors (Timetable, Homework, Exams, Results) */}
+      {/* Sub-tab Selectors (Timetable, Homework, Exams, Results) */}
+      <View style={styles.tabBarWrapper}>
         <View style={styles.tabBar}>
           {(['timetable', 'homework', 'exams', 'results'] as const).map((tab) => (
             <TouchableOpacity
@@ -235,7 +235,15 @@ export const ParentAcademicsScreen: React.FC = () => {
             </TouchableOpacity>
           ))}
         </View>
+      </View>
 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.parent} />
+        }
+        contentContainerStyle={styles.scrollContent}
+      >
         {loading && (
           <View style={styles.centered}>
             <ActivityIndicator color={colors.parent} size="large" />
@@ -244,7 +252,9 @@ export const ParentAcademicsScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <ErrorState error={error} onRetry={onRefresh} roleTheme="parent" />
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={error} onRetry={onRefresh} roleTheme="parent" />
+          </View>
         )}
 
         {subLoading && !loading && (
@@ -265,43 +275,41 @@ export const ParentAcademicsScreen: React.FC = () => {
                   <>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayTabsScroll}>
                       {timetableDays.map((day) => (
-                        <Text
+                        <TouchableOpacity
                           key={day}
                           onPress={() => setActiveTimetableDay(day)}
-                          style={[
-                            styles.dayTab,
-                            activeTimetableDay === day && styles.dayTabActive,
-                            day === getTodayDayName() && { borderColor: colors.parent + '55' },
-                          ]}
+                          activeOpacity={0.8}
                         >
-                          {day.slice(0, 3)}
-                          {day === getTodayDayName() ? ' •' : ''}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.dayTab,
+                              activeTimetableDay === day && styles.dayTabActive,
+                              day === getTodayDayName() && { borderColor: colors.parent + '55' },
+                            ]}
+                          >
+                            {day.slice(0, 3)}
+                            {day === getTodayDayName() ? ' •' : ''}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                     </ScrollView>
 
-                    {activeDayEntries.length === 0 ? (
-                      <EmptyState emoji="📅" title="No Classes Scheduled" subtitle={`No academic classes scheduled on ${activeTimetableDay}.`} />
-                    ) : (
-                      activeDayEntries.map((entry, i) => (
-                        <AppCard key={i} style={styles.card}>
-                          <View style={styles.timetableRow}>
-                            <View style={styles.timeBlock}>
-                              <Text style={styles.startTime}>{entry.startTime}</Text>
-                              <View style={styles.timeLine} />
-                              <Text style={styles.endTime}>{entry.endTime}</Text>
-                            </View>
-                            <View style={styles.subjectBlock}>
-                              <View style={styles.periodPill}>
-                                <Text style={styles.periodText}>Period {entry.period}</Text>
-                              </View>
-                              <Text style={styles.subjectName}>{entry.subjectName}</Text>
-                              {entry.teacherName && <Text style={styles.teacherName}>{entry.teacherName}</Text>}
-                            </View>
-                          </View>
-                        </AppCard>
-                      ))
-                    )}
+                    <View style={styles.timetableList}>
+                      {activeDayEntries.length === 0 ? (
+                        <EmptyState emoji="📅" title="No Classes Scheduled" subtitle={`No academic classes scheduled on ${activeTimetableDay}.`} />
+                      ) : (
+                        activeDayEntries.map((entry, i) => (
+                          <TodayScheduleCard
+                            key={i}
+                            period={entry.period}
+                            subjectName={entry.subjectName}
+                            timeRange={`${entry.startTime} - ${entry.endTime}`}
+                            subText={entry.teacherName}
+                            roleColor={colors.parent}
+                          />
+                        ))
+                      )}
+                    </View>
                   </>
                 ) : (
                   <EmptyState emoji="📅" title="No Timetable Released" subtitle="No active timetable exists for this child's class and section." />
@@ -321,13 +329,17 @@ export const ParentAcademicsScreen: React.FC = () => {
                 {/* Homework Filter Pills */}
                 <View style={styles.filterRow}>
                   {(['all', 'pending', 'submitted'] as const).map((f) => (
-                    <Text
+                    <TouchableOpacity
                       key={f}
                       onPress={() => setHomeworkFilter(f)}
-                      style={[styles.filterPill, homeworkFilter === f && styles.filterPillActive]}
+                      activeOpacity={0.8}
                     >
-                      {f.charAt(0).toUpperCase() + f.slice(1)}
-                    </Text>
+                      <Text
+                        style={[styles.filterPill, homeworkFilter === f && styles.filterPillActive]}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
 
@@ -344,7 +356,7 @@ export const ParentAcademicsScreen: React.FC = () => {
                     return (
                       <AppCard
                         key={hw.id}
-                        style={[styles.card, isDueClose ? { borderColor: colors.warning + '55', borderWidth: 1 } : undefined]}
+                        style={[styles.hwCard, isDueClose ? { borderColor: colors.warning + '55', borderWidth: 1 } : undefined]}
                         onPress={() => setExpandedHomeworkId(expandedHomeworkId === hw.id ? null : hw.id)}
                       >
                         <View style={styles.hwHeader}>
@@ -352,20 +364,33 @@ export const ParentAcademicsScreen: React.FC = () => {
                             <Text style={styles.hwTitle}>{hw.title}</Text>
                             <Text style={styles.hwSub}>{hw.subjectName}</Text>
                           </View>
-                          <View style={[styles.statusBadge, {
-                            backgroundColor: (hw.status === 'pending' ? colors.warning : colors.success) + '22',
-                            borderColor: hw.status === 'pending' ? colors.warning : colors.success,
-                          }]}>
-                            <Text style={[styles.statusText, { color: hw.status === 'pending' ? colors.warning : colors.success }]}>
-                              {hw.status}
-                            </Text>
-                          </View>
+                          <StatusBadge label={hw.status.toUpperCase()} type={homeworkStatusBadgeType(hw.status)} />
                         </View>
-                        <Text style={styles.dueText}>
-                          Due: {new Date(hw.dueDate).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
-                        </Text>
-                        {expandedHomeworkId === hw.id && hw.description && (
-                          <Text style={styles.descText}>{hw.description}</Text>
+                        <View style={styles.hwMetaRow}>
+                          <Text style={[styles.dueText, isDueClose ? { color: colors.warning } : undefined]}>
+                            📅 Due: {new Date(hw.dueDate).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                          </Text>
+                          {hw.marks !== undefined && hw.marks !== null && (
+                            <Text style={styles.hwScoreText}>
+                              💯 Marks: {hw.marks}
+                            </Text>
+                          )}
+                        </View>
+                        {expandedHomeworkId === hw.id && (
+                          <View style={styles.expandedDetails}>
+                            {hw.description ? (
+                              <View style={styles.detailBlock}>
+                                <Text style={styles.detailLabel}>Description</Text>
+                                <Text style={styles.detailValue}>{hw.description}</Text>
+                              </View>
+                            ) : null}
+                            {hw.teacherFeedback ? (
+                              <View style={[styles.detailBlock, styles.feedbackBlock]}>
+                                <Text style={styles.feedbackLabel}>Teacher's Feedback</Text>
+                                <Text style={styles.feedbackValue}>"{hw.teacherFeedback}"</Text>
+                              </View>
+                            ) : null}
+                          </View>
                         )}
                       </AppCard>
                     );
@@ -384,24 +409,32 @@ export const ParentAcademicsScreen: React.FC = () => {
                     const examDate = new Date(exam.date);
                     const daysLeft = Math.ceil((examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     return (
-                      <AppCard key={exam.id} style={[styles.card, daysLeft <= 3 ? { borderColor: colors.danger + '55', borderWidth: 1 } : undefined]}>
+                      <AppCard
+                        key={exam.id}
+                        style={[
+                          styles.examCard,
+                          daysLeft > 0 && daysLeft <= 3 ? { borderColor: colors.danger + '55', borderWidth: 1.5 } : undefined
+                        ]}
+                      >
                         <View style={styles.rowBetween}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.examTitle}>{exam.title}</Text>
                             <Text style={styles.examSub}>{exam.subjectName}</Text>
-                            {exam.startTime && <Text style={styles.examMeta}>🕐 {exam.startTime}</Text>}
+                            <View style={styles.examMetaRow}>
+                              <Text style={styles.examMetaText}>🕐 {exam.startTime || 'TBD'}</Text>
+                              <Text style={styles.examMetaText}>🎯 Total: {exam.totalMarks} Marks</Text>
+                            </View>
                           </View>
-                          <View style={styles.dateBlock}>
-                            <Text style={styles.dateDay}>{examDate.getDate()}</Text>
-                            <Text style={styles.dateMonth}>{examDate.toLocaleDateString('en-IN', { month: 'short' })}</Text>
+                          <View style={[styles.dateBlock, daysLeft > 0 && daysLeft <= 3 ? styles.dateBlockUrgent : undefined]}>
+                            <Text style={[styles.dateDay, daysLeft > 0 && daysLeft <= 3 ? { color: colors.danger } : undefined]}>{examDate.getDate()}</Text>
+                            <Text style={styles.dateMonth}>{examDate.toLocaleDateString('en-IN', { month: 'short' }).toUpperCase()}</Text>
                             {daysLeft > 0 && (
-                              <Text style={[styles.daysLeft, { color: daysLeft <= 3 ? colors.danger : colors.mutedText }]}>
+                              <Text style={[styles.daysLeftText, { color: daysLeft <= 3 ? colors.danger : colors.mutedText }]}>
                                 {daysLeft}d left
                               </Text>
                             )}
                           </View>
                         </View>
-                        <Text style={styles.marksTotal}>Total Marks: {exam.totalMarks}</Text>
                       </AppCard>
                     );
                   })
@@ -418,29 +451,34 @@ export const ParentAcademicsScreen: React.FC = () => {
                   resultsData.map((result) => {
                     const pct = result.percentage ?? ((result.marksObtained / result.totalMarks) * 100);
                     return (
-                      <AppCard key={result.id} style={styles.card}>
+                      <AppCard key={result.id} style={styles.resultCard}>
                         <View style={styles.rowBetween}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.examTitle}>{result.examTitle}</Text>
-                            <Text style={styles.examSub}>{result.subjectName}</Text>
+                            <Text style={styles.resultExamTitle}>{result.examTitle}</Text>
+                            <Text style={styles.resultSubjectName}>{result.subjectName}</Text>
                           </View>
                           {result.grade && (
-                            <View style={[styles.gradeBadge, { borderColor: getGradeColor(result.grade) + '88', backgroundColor: getGradeColor(result.grade) + '18' }]}>
+                            <View style={[styles.gradeBox, { borderColor: getGradeColor(result.grade) + '50', backgroundColor: getGradeColor(result.grade) + '10' }]}>
                               <Text style={[styles.gradeText, { color: getGradeColor(result.grade) }]}>{result.grade}</Text>
                             </View>
                           )}
                         </View>
-                        <View style={styles.scoreRow}>
-                          <Text style={styles.scoreText}>
-                            {result.marksObtained} / {result.totalMarks}
-                          </Text>
-                          <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, {
-                              width: `${Math.min(pct, 100)}%` as any,
-                              backgroundColor: pct >= 75 ? colors.success : pct >= 50 ? colors.warning : colors.danger,
-                            }]} />
+                        <View style={styles.progressSection}>
+                          <View style={styles.scoreInfo}>
+                            <Text style={styles.obtainedMarks}>{result.marksObtained}</Text>
+                            <Text style={styles.totalMarks}> / {result.totalMarks} Marks</Text>
                           </View>
-                          <Text style={styles.pctText}>{pct.toFixed(0)}%</Text>
+                          <View style={styles.barContainer}>
+                            <View style={styles.progressBarBg}>
+                              <View style={[styles.progressBarFill, {
+                                width: `${Math.min(pct, 100)}%` as any,
+                                backgroundColor: pct >= 75 ? colors.success : pct >= 50 ? colors.warning : colors.danger,
+                              }]} />
+                            </View>
+                            <Text style={[styles.pctText, { color: pct >= 75 ? colors.success : pct >= 50 ? colors.warning : colors.danger }]}>
+                              {pct.toFixed(0)}%
+                            </Text>
+                          </View>
                         </View>
                       </AppCard>
                     );
@@ -462,85 +500,327 @@ export const ParentAcademicsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 12 },
-  childSubtitle: { color: colors.mutedText, fontSize: 13, marginBottom: 16 },
-  childSwitcherScroll: { marginBottom: 16, flexDirection: 'row' },
-  childPill: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.border,
-    marginRight: 8, backgroundColor: colors.background,
+  tabBarWrapper: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
   },
-  childPillActive: {
-    backgroundColor: colors.parent + '22',
-    borderColor: colors.parent,
+  tabBar: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 12,
+    padding: 4,
   },
-  childPillText: { color: colors.mutedText, fontSize: 13, fontWeight: '700' },
-  childPillTextActive: { color: colors.parent },
-  tabBar: { flexDirection: 'row', gap: 6, backgroundColor: colors.surfaceSoft, borderRadius: 12, padding: 4, marginBottom: 16 },
-  tabItem: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
-  tabItemActive: { backgroundColor: colors.surface, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
-  tabText: { color: colors.mutedText, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  tabTextActive: { color: colors.parent },
-  centered: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
-  contentContainer: { marginTop: 4 },
-  dayTabsScroll: { marginBottom: 12 },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabItemActive: {
+    backgroundColor: colors.surface,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  tabText: {
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tabTextActive: {
+    color: colors.parent,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  centered: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    color: colors.mutedText,
+    marginTop: 12,
+    fontSize: 14,
+  },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  contentContainer: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+  },
+  dayTabsScroll: {
+    marginBottom: spacing.md,
+    flexDirection: 'row',
+  },
   dayTab: {
-    color: colors.mutedText, fontSize: 13, fontWeight: '700',
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.border,
-    marginRight: 8, overflow: 'hidden',
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
   },
-  dayTabActive: { backgroundColor: colors.parent + '22', borderColor: colors.parent, color: colors.parent },
-  card: { marginBottom: 8 },
-  timetableRow: { flexDirection: 'row', alignItems: 'stretch', gap: 14 },
-  timeBlock: { alignItems: 'center', width: 48 },
-  startTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  timeLine: { flex: 1, width: 1, backgroundColor: colors.border, marginVertical: 4 },
-  endTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  subjectBlock: { flex: 1, justifyContent: 'center' },
-  periodPill: {
-    backgroundColor: colors.parent + '22', borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginBottom: 4,
+  dayTabActive: {
+    backgroundColor: colors.parentSoft,
+    borderColor: colors.parent,
+    color: colors.parent,
   },
-  periodText: { color: colors.parent, fontSize: 10, fontWeight: '700' },
-  subjectName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  teacherName: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
+  timetableList: {
+    gap: spacing.xs,
+  },
   pendingAlert: {
-    backgroundColor: colors.warning + '18', borderRadius: 12, borderWidth: 1,
-    borderColor: colors.warning + '44', padding: 12, marginBottom: 12,
+    backgroundColor: colors.warning + '18',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.warning + '44',
+    padding: 12,
+    marginBottom: 12,
   },
-  pendingAlertText: { color: colors.warning, fontSize: 13, fontWeight: '700' },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  pendingAlertText: {
+    color: colors.warning,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
   filterPill: {
-    color: colors.mutedText, fontSize: 12, fontWeight: '700',
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
   },
-  filterPillActive: { backgroundColor: colors.parent + '22', borderColor: colors.parent, color: colors.parent },
-  hwHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  hwTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  hwSub: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  dueText: { color: colors.mutedText, fontSize: 12 },
-  descText: { color: colors.text, fontSize: 14, lineHeight: 20, marginTop: 8 },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  examTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  examSub: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  examMeta: { color: colors.mutedText, fontSize: 12, marginTop: 4 },
-  dateBlock: { alignItems: 'center', marginLeft: 12 },
-  dateDay: { color: colors.text, fontSize: 24, fontWeight: '800' },
-  dateMonth: { color: colors.mutedText, fontSize: 11 },
-  daysLeft: { fontSize: 10, fontWeight: '700', marginTop: 2 },
-  marksTotal: { color: colors.mutedText, fontSize: 12, marginTop: 8 },
-  gradeBadge: { borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 6 },
-  gradeText: { fontSize: 18, fontWeight: '800' },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
-  scoreText: { color: colors.text, fontSize: 14, fontWeight: '700', minWidth: 60 },
-  progressBarBg: { flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: 6, borderRadius: 3 },
-  pctText: { color: colors.mutedText, fontSize: 12, minWidth: 36, textAlign: 'right' },
+  filterPillActive: {
+    backgroundColor: colors.parentSoft,
+    borderColor: colors.parent,
+    color: colors.parent,
+  },
+  hwCard: {
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  hwHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 6,
+  },
+  hwTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  hwSub: {
+    color: colors.mutedText,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  hwMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xxs,
+  },
+  dueText: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  hwScoreText: {
+    color: colors.parent,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  expandedDetails: {
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  detailBlock: {
+    gap: 4,
+  },
+  detailLabel: {
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  feedbackBlock: {
+    backgroundColor: colors.parentSoft,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginTop: spacing.xxs,
+  },
+  feedbackLabel: {
+    color: colors.parent,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  feedbackValue: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontStyle: 'italic',
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  examCard: {
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  examTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  examSub: {
+    color: colors.mutedText,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  examMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  examMetaText: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dateBlock: {
+    alignItems: 'center',
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 54,
+    backgroundColor: colors.surfaceSoft,
+  },
+  dateBlockUrgent: {
+    borderColor: colors.danger + '40',
+    backgroundColor: colors.danger + '08',
+  },
+  dateDay: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  dateMonth: {
+    color: colors.mutedText,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  daysLeftText: {
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  resultCard: {
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  resultExamTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  resultSubjectName: {
+    color: colors.mutedText,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  gradeBox: {
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradeText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  progressSection: {
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingTop: spacing.md,
+    gap: spacing.xs,
+  },
+  scoreInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  obtainedMarks: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  totalMarks: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  barContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: radii.full,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 8,
+    borderRadius: radii.full,
+  },
+  pctText: {
+    fontSize: 13,
+    fontWeight: '800',
+    minWidth: 40,
+    textAlign: 'right',
+  },
 });
 
 export default ParentAcademicsScreen;
