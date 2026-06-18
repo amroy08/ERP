@@ -1,3 +1,7 @@
+/**
+ * Vantage ERP – LoginScreen (Premium Design System)
+ * Modern login screen with gradient branding, Ionicons, premium card layout.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -8,16 +12,22 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppButton } from '../../components/AppButton';
 import { AppInput } from '../../components/AppInput';
+import { AppIcon } from '../../components/AppIcon';
 import { useAuth } from '../../store/AuthContext';
-import { colors } from '../../constants/colors';
+import { colors, gradients } from '../../constants/colors';
+import { spacing, radii, sizing } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 
 const QUICK_LOGINS = [
-  { label: 'Parent Demo', email: 'parent@school.com', password: 'Admin@123', color: colors.parent },
-  { label: 'Student Demo', email: 'student@school.com', password: 'Admin@123', color: colors.student },
-  { label: 'Teacher Demo', email: 'teacher@school.com', password: 'Admin@123', color: colors.teacher },
+  { label: 'Parent', email: 'parent@school.com', password: 'Admin@123', color: colors.parent, icon: 'people' as const },
+  { label: 'Student', email: 'student@school.com', password: 'Admin@123', color: colors.student, icon: 'school' as const },
+  { label: 'Teacher', email: 'teacher@school.com', password: 'Admin@123', color: colors.teacher, icon: 'person' as const },
 ];
 
 export const LoginScreen: React.FC = () => {
@@ -49,7 +59,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer noPadding>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -59,77 +69,91 @@ export const LoginScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo & Title */}
-          <View style={styles.logoContainer}>
+          {/* Hero / Brand Section */}
+          <LinearGradient
+            colors={gradients.dark}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}
+          >
             <View style={styles.logoBox}>
-              <Text style={styles.logoEmoji}>🏫</Text>
+              <Ionicons name="school" size={32} color={colors.white} />
             </View>
             <Text style={styles.appTitle}>Vantage ERP</Text>
             <Text style={styles.appSubtitle}>School Management Portal</Text>
-          </View>
+          </LinearGradient>
 
-          {/* Form */}
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Sign In</Text>
-            <Text style={styles.formSubtitle}>Access your school account</Text>
+          {/* Form Card */}
+          <View style={styles.formWrapper}>
+            <View style={styles.formCard}>
+              <Text style={styles.formTitle}>Welcome Back</Text>
+              <Text style={styles.formSubtitle}>Sign in to your account</Text>
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️  {error}</Text>
+              {error ? (
+                <View style={styles.errorBox}>
+                  <AppIcon name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <AppInput
+                label="Email Address"
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+
+              <AppInput
+                label="Password"
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!loading}
+              />
+
+              <AppButton
+                title={loading ? 'Signing in…' : 'Sign In'}
+                onPress={() => handleLogin()}
+                loading={loading}
+                gradient
+                style={styles.signInBtn}
+                icon={!loading ? <Ionicons name="log-in-outline" size={20} color={colors.white} /> : undefined}
+              />
+            </View>
+
+            {/* Quick Demo Access */}
+            <View style={styles.quickSection}>
+              <Text style={styles.quickTitle}>Quick Demo Access</Text>
+              <View style={styles.quickRow}>
+                {QUICK_LOGINS.map((q) => (
+                  <TouchableOpacity
+                    key={q.label}
+                    style={[styles.quickChip, { borderColor: q.color + '40', backgroundColor: q.color + '08' }]}
+                    onPress={() => handleLogin(q.email, q.password)}
+                    disabled={loading}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={q.icon} size={16} color={q.color} style={{ marginRight: spacing.xs }} />
+                    <Text style={[styles.quickChipText, { color: q.color }]}>
+                      {q.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            ) : null}
+            </View>
 
-            <AppInput
-              label="Email Address"
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-
-            <AppInput
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!loading}
-            />
-
-            <AppButton
-              title={loading ? 'Signing in…' : 'Sign In'}
-              onPress={() => handleLogin()}
-              loading={loading}
-              style={styles.signInBtn}
-            />
-          </View>
-
-          {/* Quick Access for Demo */}
-          <View style={styles.quickSection}>
-            <Text style={styles.quickTitle}>Quick Demo Access</Text>
-            <View style={styles.quickRow}>
-              {QUICK_LOGINS.map((q) => (
-                <TouchableOpacity
-                  key={q.label}
-                  style={[styles.quickChip, { borderColor: q.color, backgroundColor: q.color + '15' }]}
-                  onPress={() => handleLogin(q.email, q.password)}
-                  disabled={loading}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.quickChipText, { color: q.color }]}>
-                    {q.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.footer}>
+              <View style={styles.footerDivider} />
+              <Text style={styles.footerNote}>
+                Secure access · Vantage ERP © 2026
+              </Text>
             </View>
           </View>
-
-          <Text style={styles.footerNote}>
-            Secure access · Vantage ERP © 2026
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -139,99 +163,117 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-    paddingVertical: 48,
-    paddingHorizontal: 4,
   },
-  logoContainer: {
+  hero: {
+    paddingTop: spacing.massive + spacing.xxl,
+    paddingBottom: spacing.xxxl + spacing.lg,
+    paddingHorizontal: spacing.screenPadding,
     alignItems: 'center',
-    marginBottom: 32,
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
   },
   logoBox: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
+    width: 72,
+    height: 72,
+    borderRadius: radii.xl,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  logoEmoji: { fontSize: 44 },
   appTitle: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '800',
+    ...typography.displayMedium,
+    color: colors.white,
     letterSpacing: 0.5,
   },
   appSubtitle: {
-    color: colors.mutedText,
-    fontSize: 14,
-    marginTop: 4,
+    ...typography.bodySmall,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: spacing.xs,
+  },
+  formWrapper: {
+    marginTop: -spacing.xxl,
+    paddingHorizontal: spacing.screenPadding,
+    flex: 1,
   },
   formCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
+    borderRadius: radii.xl,
+    padding: spacing.xxl,
+    ...shadows.lg,
   },
   formTitle: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...typography.headingLarge,
+    marginBottom: spacing.xxs,
   },
   formSubtitle: {
+    ...typography.bodySmall,
     color: colors.mutedText,
-    fontSize: 13,
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   errorBox: {
-    backgroundColor: 'rgba(239,68,68,0.12)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.danger,
+    borderColor: colors.danger + '30',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   errorText: {
+    ...typography.bodySmall,
     color: colors.danger,
-    fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
-  signInBtn: { marginTop: 8 },
+  signInBtn: {
+    marginTop: spacing.md,
+  },
   quickSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: spacing.xxl,
+    marginBottom: spacing.lg,
   },
   quickTitle: {
-    color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
+    ...typography.overline,
+    marginBottom: spacing.md,
   },
   quickRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   quickChip: {
     borderWidth: 1.5,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'transparent',
+    borderRadius: radii.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  quickChipText: { fontSize: 13, fontWeight: '700' },
+  quickChipText: {
+    ...typography.labelSmall,
+    fontWeight: '700',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: spacing.xxl,
+  },
+  footerDivider: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.md,
+  },
   footerNote: {
+    ...typography.captionSmall,
     color: colors.mutedText,
-    fontSize: 11,
-    textAlign: 'center',
   },
 });
 

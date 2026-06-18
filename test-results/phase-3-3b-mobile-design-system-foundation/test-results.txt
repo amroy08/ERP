@@ -1,0 +1,6 @@
+=== Mobile Typecheck ===
+Mobile compiler: OK
+=== Server Typecheck ===
+Server compiler: OK
+=== Client Typecheck ===
+Client compiler: OK

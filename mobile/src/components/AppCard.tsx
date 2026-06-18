@@ -1,41 +1,53 @@
+/**
+ * Vantage ERP – AppCard (Premium Design System)
+ * Elevated card with consistent shadows, radii, and subtle border styling.
+ */
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { colors } from '../constants/colors';
+import { spacing, radii } from '../constants/layout';
+import { shadows } from '../constants/shadows';
 
 interface AppCardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  /** Remove shadow and border for an embedded look */
+  flat?: boolean;
 }
 
-export const AppCard: React.FC<AppCardProps> = ({ children, style, onPress }) => {
+export const AppCard: React.FC<AppCardProps> = ({ children, style, onPress, flat = false }) => {
+  const cardStyle = [
+    styles.card,
+    !flat && shadows.sm,
+    flat && styles.flat,
+    style,
+  ];
+
   if (onPress) {
     return (
-      <TouchableOpacity style={[styles.card, style]} onPress={onPress} activeOpacity={0.75}>
+      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.7}>
         {children}
       </TouchableOpacity>
     );
   }
-  return (
-    <View style={[styles.card, style]}>
-      {children}
-    </View>
-  );
+
+  return <View style={cardStyle}>{children}</View>;
 };
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 4,
+    borderRadius: radii.lg,
+    padding: spacing.cardPadding,
+    marginVertical: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: colors.borderSoft,
+  },
+  flat: {
+    borderWidth: 0,
+    backgroundColor: colors.surfaceSoft,
   },
 });
+
 export default AppCard;

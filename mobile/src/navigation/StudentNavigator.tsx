@@ -1,7 +1,16 @@
+/**
+ * Vantage ERP – StudentNavigator (Premium Design System)
+ * Bottom tab navigation for student role with Ionicons and premium styling.
+ */
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
+import { spacing, sizing } from '../constants/layout';
+import { typography } from '../constants/typography';
+import { shadows } from '../constants/shadows';
+
 import StudentHomeScreen from '../screens/student/StudentHomeScreen';
 import StudentTimetableScreen from '../screens/student/StudentTimetableScreen';
 import StudentHomeworkScreen from '../screens/student/StudentHomeworkScreen';
@@ -9,9 +18,22 @@ import StudentExamsScreen from '../screens/student/StudentExamsScreen';
 
 const Tab = createBottomTabNavigator();
 
-const tabBarIcon = (emoji: string, focused: boolean) => (
-  <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-);
+type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
+
+interface TabConfig {
+  name: string;
+  component: React.ComponentType<any>;
+  label: string;
+  iconFocused: TabIconName;
+  iconDefault: TabIconName;
+}
+
+const tabs: TabConfig[] = [
+  { name: 'StudentHome',      component: StudentHomeScreen,      label: 'Home',      iconFocused: 'home',          iconDefault: 'home-outline' },
+  { name: 'StudentTimetable', component: StudentTimetableScreen, label: 'Timetable', iconFocused: 'calendar',      iconDefault: 'calendar-outline' },
+  { name: 'StudentHomework',  component: StudentHomeworkScreen,  label: 'Homework',  iconFocused: 'book',          iconDefault: 'book-outline' },
+  { name: 'StudentExams',     component: StudentExamsScreen,     label: 'Exams',     iconFocused: 'document-text', iconDefault: 'document-text-outline' },
+];
 
 export const StudentNavigator: React.FC = () => (
   <Tab.Navigator
@@ -19,49 +41,37 @@ export const StudentNavigator: React.FC = () => (
       headerShown: false,
       tabBarStyle: {
         backgroundColor: colors.surface,
-        borderTopColor: colors.border,
-        borderTopWidth: 1,
-        paddingBottom: 8,
-        paddingTop: 6,
-        height: 64,
+        borderTopWidth: 0,
+        height: sizing.tabBarHeight,
+        paddingBottom: Platform.OS === 'ios' ? spacing.sm : spacing.md,
+        paddingTop: spacing.sm,
+        ...shadows.md,
       },
       tabBarActiveTintColor: colors.student,
       tabBarInactiveTintColor: colors.mutedText,
-      tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+      tabBarLabelStyle: {
+        ...typography.tabLabel,
+        marginTop: spacing.xxs,
+      },
     }}
   >
-    <Tab.Screen
-      name="StudentHome"
-      component={StudentHomeScreen}
-      options={{
-        tabBarLabel: 'Home',
-        tabBarIcon: ({ focused }) => tabBarIcon('🏠', focused),
-      }}
-    />
-    <Tab.Screen
-      name="StudentTimetable"
-      component={StudentTimetableScreen}
-      options={{
-        tabBarLabel: 'Timetable',
-        tabBarIcon: ({ focused }) => tabBarIcon('🗓', focused),
-      }}
-    />
-    <Tab.Screen
-      name="StudentHomework"
-      component={StudentHomeworkScreen}
-      options={{
-        tabBarLabel: 'Homework',
-        tabBarIcon: ({ focused }) => tabBarIcon('📚', focused),
-      }}
-    />
-    <Tab.Screen
-      name="StudentExams"
-      component={StudentExamsScreen}
-      options={{
-        tabBarLabel: 'Exams',
-        tabBarIcon: ({ focused }) => tabBarIcon('📝', focused),
-      }}
-    />
+    {tabs.map((tab) => (
+      <Tab.Screen
+        key={tab.name}
+        name={tab.name}
+        component={tab.component}
+        options={{
+          tabBarLabel: tab.label,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? tab.iconFocused : tab.iconDefault}
+              size={22}
+              color={color}
+            />
+          ),
+        }}
+      />
+    ))}
   </Tab.Navigator>
 );
 

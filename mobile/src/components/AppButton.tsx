@@ -1,67 +1,132 @@
+/**
+ * Vantage ERP – AppButton (Premium Design System)
+ * Primary, secondary, role-themed, and danger button variants with
+ * consistent typography, shadows, and gradient support.
+ */
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
-import { colors } from '../constants/colors';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  ViewStyle,
+  TextStyle,
+  View,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, gradients } from '../constants/colors';
+import { spacing, radii, sizing } from '../constants/layout';
+import { typography } from '../constants/typography';
+import { shadows } from '../constants/shadows';
+
+type ButtonVariant = 'primary' | 'secondary' | 'parent' | 'student' | 'teacher' | 'danger' | 'ghost';
+type ButtonSize = 'large' | 'medium' | 'small';
 
 interface AppButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'parent' | 'student' | 'teacher' | 'danger';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  /** Use gradient background instead of flat color */
+  gradient?: boolean;
+  /** Optional left icon element */
+  icon?: React.ReactNode;
 }
+
+const getGradientColors = (variant: ButtonVariant): [string, string] => {
+  switch (variant) {
+    case 'parent':  return gradients.parent;
+    case 'student': return gradients.student;
+    case 'teacher': return gradients.teacher;
+    case 'danger':  return gradients.danger;
+    default:        return gradients.primary;
+  }
+};
 
 export const AppButton: React.FC<AppButtonProps> = ({
   title,
   onPress,
   variant = 'primary',
+  size = 'large',
   loading = false,
   disabled = false,
   style,
   textStyle,
+  gradient = false,
+  icon,
 }) => {
+  const isGhost = variant === 'ghost';
+  const isSecondary = variant === 'secondary';
+
   const getBackgroundColor = () => {
     if (disabled) return colors.surfaceSoft;
+    if (isGhost || isSecondary) return colors.transparent;
     switch (variant) {
       case 'primary': return colors.primary;
-      case 'secondary': return colors.surface;
-      case 'parent': return colors.parent;
+      case 'parent':  return colors.parent;
       case 'student': return colors.student;
       case 'teacher': return colors.teacher;
-      case 'danger': return colors.danger;
-      default: return colors.primary;
+      case 'danger':  return colors.danger;
+      default:        return colors.primary;
     }
   };
 
   const getTextColor = () => {
     if (disabled) return colors.mutedText;
-    if (variant === 'secondary') return colors.text;
-    return colors.white;
+    if (isGhost) return colors.primary;
+    if (isSecondary) return colors.text;
+    return colors.textInverse;
   };
 
-  const getBorderStyle = () => {
-    if (variant === 'secondary') {
-      return {
-        borderWidth: 1,
-        borderColor: colors.border,
-      };
-    }
-    return {};
+  const heightMap: Record<ButtonSize, number> = {
+    large: sizing.inputHeight,
+    medium: 44,
+    small: sizing.buttonSmall,
   };
 
-  const getShadowStyle = () => {
-    if (disabled || variant === 'secondary') {
-      return { elevation: 0, shadowOpacity: 0 };
-    }
-    return {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.08,
-      shadowRadius: 2,
-      elevation: 2,
-    };
-  };
+  const textPreset = size === 'small' ? typography.buttonSmall : size === 'medium' ? typography.buttonMedium : typography.buttonLarge;
+  const btnHeight = heightMap[size];
+  const btnRadius = size === 'small' ? radii.sm : radii.md;
+
+  const inner = (
+    <View style={styles.inner}>
+      {loading ? (
+        <ActivityIndicator size="small" color={getTextColor()} />
+      ) : (
+        <>
+          {icon && <View style={styles.iconSlot}>{icon}</View>}
+          <Text style={[textPreset, { color: getTextColor() }, textStyle]}>{title}</Text>
+        </>
+      )}
+    </View>
+  );
+
+  if (gradient && !disabled && !isGhost && !isSecondary) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        disabled={disabled || loading}
+        style={[{ marginVertical: spacing.sm }, shadows.md, style]}
+      >
+        <LinearGradient
+          colors={getGradientColors(variant)}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[
+            styles.button,
+            { height: btnHeight, borderRadius: btnRadius },
+          ]}
+        >
+          {inner}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -70,33 +135,45 @@ export const AppButton: React.FC<AppButtonProps> = ({
       disabled={disabled || loading}
       style={[
         styles.button,
-        { backgroundColor: getBackgroundColor() },
-        getBorderStyle(),
-        getShadowStyle(),
-        style
+        {
+          height: btnHeight,
+          borderRadius: btnRadius,
+          backgroundColor: getBackgroundColor(),
+        },
+        isSecondary && styles.secondary,
+        isGhost && styles.ghost,
+        !disabled && !isGhost && !isSecondary && shadows.sm,
+        style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color={getTextColor()} />
-      ) : (
-        <Text style={[styles.text, { color: getTextColor() }, textStyle]}>{title}</Text>
-      )}
+      {inner}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
-    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginVertical: 8,
+    paddingHorizontal: spacing.xl,
+    marginVertical: spacing.sm,
   },
-  text: {
-    fontSize: 16,
-    fontWeight: '700',
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconSlot: {
+    marginRight: spacing.sm,
+  },
+  secondary: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  ghost: {
+    backgroundColor: colors.transparent,
   },
 });
+
 export default AppButton;

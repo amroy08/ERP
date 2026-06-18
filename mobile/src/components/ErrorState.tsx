@@ -1,8 +1,16 @@
+/**
+ * Vantage ERP – ErrorState (Premium Design System)
+ * Styled error card with role-themed retry button, using Ionicons.
+ */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../constants/colors';
+import { spacing, radii } from '../constants/layout';
+import { typography } from '../constants/typography';
+import { shadows } from '../constants/shadows';
 import { AppCard } from './AppCard';
 import { AppButton } from './AppButton';
+import { AppIcon } from './AppIcon';
 
 interface ErrorStateProps {
   error: string;
@@ -11,28 +19,38 @@ interface ErrorStateProps {
   style?: any;
 }
 
-export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry, roleTheme = 'parent', style }) => {
-  const getThemeColor = () => {
-    if (roleTheme === 'student') return colors.student;
-    if (roleTheme === 'teacher') return colors.teacher;
-    return colors.parent;
-  };
-
-  const themeColor = getThemeColor();
+export const ErrorState: React.FC<ErrorStateProps> = ({
+  error,
+  onRetry,
+  roleTheme = 'parent',
+  style,
+}) => {
+  const themeColor =
+    roleTheme === 'student' ? colors.student
+    : roleTheme === 'teacher' ? colors.teacher
+    : colors.parent;
 
   return (
-    <AppCard style={[styles.card, { borderColor: themeColor + '55', borderWidth: 1 }, style]}>
+    <AppCard style={[styles.card, { borderColor: themeColor + '40' }, style]}>
       <View style={styles.container}>
-        <Text style={styles.emoji}>⚠️</Text>
+        <AppIcon
+          name="alert-circle-outline"
+          size={28}
+          color={colors.danger}
+          contained
+          containerColor={colors.dangerSoft}
+          containerSize={56}
+          containerStyle={{ borderRadius: radii.xl, marginBottom: spacing.md }}
+        />
         <Text style={styles.title}>Something went wrong</Text>
         <Text style={styles.message}>{error}</Text>
         {onRetry && (
           <AppButton
-            title="Retry"
+            title="Try Again"
             onPress={onRetry}
             variant={roleTheme}
+            size="small"
             style={styles.retryBtn}
-            textStyle={styles.retryBtnText}
           />
         )}
       </View>
@@ -42,42 +60,29 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry, roleThem
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 12,
-    padding: 24,
+    marginVertical: spacing.md,
+    padding: spacing.xxl,
+    borderWidth: 1,
   },
   container: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
   title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...typography.headingSmall,
     textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   message: {
+    ...typography.bodySmall,
     color: colors.danger,
-    fontSize: 13,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     fontWeight: '600',
   },
   retryBtn: {
-    height: 40,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    marginTop: 4,
+    marginTop: spacing.xs,
     marginVertical: 0,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  retryBtnText: {
-    fontSize: 14,
   },
 });
 
