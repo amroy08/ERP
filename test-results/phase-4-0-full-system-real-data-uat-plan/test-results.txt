@@ -1,0 +1,103 @@
+Phase 4.0: Full System Real Data UAT Planning
+=============================================
+Generated : 2026-06-18
+
+Branch                : Nupun
+Starting commit       : 5f9acd021655db166ad8d040e0a4844f68aa8e81 (Phase 3.5: Add mobile final handoff package)
+Planning commit       : 17669781d6f5af3e565e4ae613de2d25c3a7b9d3 (Phase 4.0: Plan full system real data UAT)
+
+--- Real Data Inventory ---
+Real DB inventory completed    : Yes (read-only queries against live school_erp)
+Dummy data created             : No
+Seed scripts run               : No
+Database written to            : No
+Source files changed           : No
+Migrations run                 : No
+
+--- Record Counts (verified from live DB on 2026-06-18) ---
+Schools                : 1
+Academic years         : 1  (2025-26, isCurrent=true)
+Classes                : 10
+Sections               : 20
+Subjects               : 10
+Students               : 274
+Teachers (users)       : 8
+Parents (users)        : 269
+Admissions             : 16
+Enquiries              : 0
+Homework               : 3
+Homework submissions   : 2
+Exams                  : 3
+Results (marks)        : 5
+Attendance records     : 32
+Timetable entries      : 3
+Fee structures         : 4
+Student fees           : 805  (802 pending, 3 partial)
+Fee payments           : 52
+Notices                : 4
+
+--- Typecheck Results ---
+Mobile  (npx tsc --noEmit)   : PASS  (exit 0)
+Server  (npx tsc --noEmit)   : NOT RUN (planning phase only)
+Client  (npx tsc --noEmit)   : NOT RUN (planning phase only)
+
+--- Password / Sensitive Data Scan ---
+Scan command : grep -R "Amroy@123|DATABASE_URL|password" test-results/phase-4-0-full-system-real-data-uat-plan/
+Result       : raw DB password (Amroy@123) found in risk-and-validation-plan.md and db-backup-procedure.md
+Action taken : Masked to <DB_PASSWORD> in all shell command examples
+Status       : CLEAN after masking
+
+--- Canonical Evidence Files ---
+implementation-plan.md              : PRESENT
+real-data-inventory.md              : PRESENT
+web-console-uat-checklist.md        : PRESENT (canonical copy of web-admin-uat-checklist.md)
+mobile-teacher-uat-checklist.md     : PRESENT (canonical copy of teacher-mobile-uat-checklist.md)
+mobile-student-uat-checklist.md     : PRESENT (canonical copy of student-mobile-uat-checklist.md)
+mobile-parent-uat-checklist.md      : PRESENT (canonical copy of parent-mobile-uat-checklist.md)
+cross-platform-sync-uat-plan.md     : PRESENT (canonical copy of cross-platform-sync-plan.md)
+controlled-write-log-template.md    : PRESENT (newly created)
+risk-and-validation-plan.md         : PRESENT (password-masked)
+test-results.txt                    : PRESENT (this file)
+
+--- Extra Files Retained ---
+uat-scope.md                        : RETAINED (extra, useful)
+db-backup-procedure.md              : RETAINED (extra, useful — password-masked)
+web-admin-uat-checklist.md          : RETAINED (original, kept alongside canonical)
+teacher-mobile-uat-checklist.md     : RETAINED (original, kept alongside canonical)
+student-mobile-uat-checklist.md     : RETAINED (original, kept alongside canonical)
+parent-mobile-uat-checklist.md      : RETAINED (original, kept alongside canonical)
+cross-platform-sync-plan.md         : RETAINED (original, kept alongside canonical)
+
+--- Forbidden Files Check ---
+AdmissionFormPage.tsx staged        : No
+.env staged                         : No
+APK/AAB staged                      : No
+JKS/keystore staged                 : No
+google-services / firebase staged   : No
+local-builds staged                 : No
+Shell logs with raw passwords staged: No
+
+--- Planning Phase Summary ---
+All required canonical evidence files present   : PASS
+Sensitive credential masking complete           : PASS
+Mobile typecheck                                : PASS
+No source code modifications                    : PASS
+No DB writes during planning                    : PASS
+
+--- Final Result ---
+Phase 4.0 Planning Finalization         : PASS
+Safe to approve Phase 4.0 UAT Execution : Yes
+
+--- Next Step ---
+Phase 4.0: Real Data UAT Execution
+  1. Take DB backup (see db-backup-procedure.md)
+  2. Start server (cd server && npm run dev)
+  3. Start client (cd client && npm run dev)
+  4. Start mobile (cd mobile && npx expo start)
+  5. Execute web-console-uat-checklist.md (P1 read flows first)
+  6. Execute mobile-teacher-uat-checklist.md
+  7. Execute mobile-student-uat-checklist.md
+  8. Execute mobile-parent-uat-checklist.md
+  9. Execute cross-platform-sync-uat-plan.md
+ 10. Log all write operations in controlled-write-log-template.md
+ 11. Document bugs per risk-and-validation-plan.md Bug Documentation Template

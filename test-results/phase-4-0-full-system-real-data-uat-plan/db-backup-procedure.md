@@ -23,7 +23,7 @@ Take a fresh backup **before** running any of these P2 write flows:
 cd /Users/amroy/Desktop/ERP
 
 # Create timestamped backup (excludes local-builds and test artifacts)
-mysqldump -u root '-pAmroy@123' school_erp > school_erp_uat_backup_$(date +%Y%m%d_%H%M%S).sql
+mysqldump -u root '-p<DB_PASSWORD>' school_erp > school_erp_uat_backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Verify backup file was created and is non-zero
 ls -lh school_erp_uat_backup_*.sql | tail -1
@@ -52,12 +52,12 @@ If a write-heavy UAT step causes an unintended data state, restore with:
 ```bash
 # Step 1: Stop all active server connections if possible
 # Step 2: Restore
-mysql -u root '-pAmroy@123' school_erp < school_erp_uat_backup_<TIMESTAMP>.sql
+mysql -u root '-p<DB_PASSWORD>' school_erp < school_erp_uat_backup_<TIMESTAMP>.sql
 
 # Step 3: Verify count is back to expected
-mysql -u root '-pAmroy@123' school_erp -e "SELECT COUNT(*) FROM students;"
+mysql -u root '-p<DB_PASSWORD>' school_erp -e "SELECT COUNT(*) FROM students;"
 # Expected: 274
-mysql -u root '-pAmroy@123' school_erp -e "SELECT COUNT(*) FROM student_fees;"
+mysql -u root '-p<DB_PASSWORD>' school_erp -e "SELECT COUNT(*) FROM student_fees;"
 # Expected: 805
 ```
 

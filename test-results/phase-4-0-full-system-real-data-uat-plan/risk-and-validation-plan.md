@@ -57,19 +57,19 @@ curl -s http://localhost:3000/api/health || echo "Server not running"
 # Test admin login
 curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@school.com","password":"Admin@123"}' | head -c 200
+  -d '{"email":"admin@school.com","password":"<ADMIN_PASSWORD>"}' | head -c 200
 ```
 
 ### 3. DB Integrity Quick Checks
 ```bash
-mysql -u root '-pAmroy@123' school_erp -e "
+mysql -u root '-p<DB_PASSWORD>' school_erp -e "
 SELECT 'student_fee_orphans' as check_name,
   COUNT(*) as count FROM student_fees sf
   LEFT JOIN students s ON s.id=sf.studentId
   WHERE s.id IS NULL;
 "
 
-mysql -u root '-pAmroy@123' school_erp -e "
+mysql -u root '-p<DB_PASSWORD>' school_erp -e "
 SELECT 'parent_child_links' as check_name,
   COUNT(*) as count FROM parents p
   WHERE p.studentId IS NOT NULL;
@@ -90,7 +90,7 @@ npx ts-node --transpile-only scripts/audit-mobile-academic-parity.ts
 
 ```bash
 # Step 1: Create timestamped backup
-mysqldump -u root '-pAmroy@123' school_erp > \
+mysqldump -u root '-p<DB_PASSWORD>' school_erp > \
   /Users/amroy/Desktop/ERP/school_erp_uat_backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Step 2: Verify backup file was created and is non-zero
@@ -102,7 +102,7 @@ echo "Backup created: $(ls -t /Users/amroy/Desktop/ERP/school_erp_uat_backup_*.s
 
 **Restore procedure if write test causes bad state**:
 ```bash
-mysql -u root '-pAmroy@123' school_erp < school_erp_uat_backup_<timestamp>.sql
+mysql -u root '-p<DB_PASSWORD>' school_erp < school_erp_uat_backup_<timestamp>.sql
 ```
 
 ---
