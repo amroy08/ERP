@@ -22,6 +22,7 @@ import schoolAdminRoutes from './routes/schoolAdminRoutes';
 import transportRoutes from './routes/transportRoutes';
 import supportRoutes from './routes/supportRoutes';
 import mobileRoutes from './routes/mobileRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -59,6 +60,7 @@ app.use('/api/admin/schools', schoolAdminRoutes);
 app.use('/api/transport', transportRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/mobile', mobileRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', moduleRoutes);
 
 // 404 & error handlers

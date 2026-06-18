@@ -27,6 +27,7 @@ model User {
   teacher      Teacher?
   supportTickets SupportTicket[]
   deviceTokens DeviceToken[]
+  notifications Notification[]
   school       School?   @relation("UserSchool", fields: [schoolId], references: [id])
 
   @@index([schoolId], map: "users_schoolId_fkey")
@@ -210,6 +211,7 @@ model Student {
   school            School?        @relation("StudentSchool", fields: [schoolId], references: [id])
   section           Section        @relation(fields: [sectionId], references: [id])
   user              User?          @relation(fields: [userId], references: [id])
+  notifications     Notification[]
 
   @@index([academicYearId], map: "students_academicYearId_fkey")
   @@index([classId], map: "students_classId_fkey")
@@ -734,6 +736,8 @@ model School {
   users          User[]         @relation("UserSchool")
   emailNotificationLogs EmailNotificationLog[]
   subjectTeachers SubjectTeacher[]
+  notifications  Notification[]
+  notificationRules NotificationRule[]
 
   @@map("school_settings")
 }
@@ -936,4 +940,101 @@ model HomeworkSubmission {
   @@index([homeworkId])
   @@index([studentId])
   @@map("homework_submissions")
+}
+
+// ── In-App & Push Notification Record ─────────────────────────────────────
+model Notification {
+  id                 String           @id @default(uuid())
+  schoolId           String
+  recipientUserId    String
+  recipientRole      Role
+  studentId          String?
+  type               NotificationType
+  title              String
+  message            String           @db.Text
+  relatedEntityType  String?
+  relatedEntityId    String?
+  priority           NotificationPriority @default(NORMAL)
+  isRead             Boolean          @default(false)
+  readAt             DateTime?
+  createdAt          DateTime         @default(now())
+  expiresAt          DateTime?
+
+  // Relations
+  school             School           @relation(fields: [schoolId], references: [id])
+  recipientUser      User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  student            Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  deliveryLogs       NotificationDeliveryLog[]
+
+  @@index([schoolId])
+  @@index([recipientUserId])
+  @@index([studentId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ── Notification Delivery Log ───────────────────────────────────────────
+model NotificationDeliveryLog {
+  id             String           @id @default(uuid())
+  notificationId String
+  channel        DeliveryChannel
+  status         DeliveryStatus
+  sentAt         DateTime         @default(now())
+  errorMessage   String?          @db.Text
+
+  // Relations
+  notification   Notification     @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([status])
+  @@map("notification_delivery_logs")
+}
+
+// ── Notification Rule Settings ─────────────────────────────────────────
+model NotificationRule {
+  id             String           @id @default(uuid())
+  schoolId       String
+  type           NotificationType
+  enabled        Boolean          @default(true)
+  cooldownHours  Int              @default(0)
+  thresholdCount Int?
+  thresholdDays  Int?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  school         School           @relation(fields: [schoolId], references: [id])
+
+  @@unique([schoolId, type])
+  @@map("notification_rules")
+}
+
+enum NotificationType {
+  HOMEWORK_POSTED
+  EXAM_POSTED
+  MARKS_POSTED
+  NOTICE_POSTED
+  FEES_OVERDUE
+  FEES_REMINDER
+  ATTENDANCE_ABSENCE_ALERT
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum DeliveryChannel {
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
 }

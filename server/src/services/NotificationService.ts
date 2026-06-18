@@ -27,6 +27,7 @@
  */
 
 import prisma from '../config/prisma';
+import { Role, NotificationType, NotificationPriority, DeliveryChannel } from '@prisma/client';
 import { EmailService, SendEmailResult } from './EmailService';
 import { PushNotificationService } from './PushNotificationService';
 import { FeeService } from './FeeService';
@@ -62,6 +63,358 @@ const NOT_IMPLEMENTED: NotifyResult = {
 // ── Service ────────────────────────────────────────────────────────
 
 export class NotificationService {
+  // ── Database Notification Foundation Methods ─────────────────────
+
+  /**
+   * Create a single in-app notification in DB and safely log delivery states.
+   */
+  static async createNotification(params: {
+    schoolId: string;
+    recipientUserId: string;
+    recipientRole: Role;
+    studentId?: string | null;
+    type: NotificationType;
+    title: string;
+    message: string;
+    relatedEntityType?: string | null;
+    relatedEntityId?: string | null;
+    priority?: NotificationPriority;
+    expiresAt?: Date | null;
+    channels?: DeliveryChannel[];
+  }) {
+    try {
+      const priority = params.priority || 'NORMAL';
+      const notification = await prisma.notification.create({
+        data: {
+          schoolId: params.schoolId,
+          recipientUserId: params.recipientUserId,
+          recipientRole: params.recipientRole,
+          studentId: params.studentId || null,
+          type: params.type,
+          title: params.title,
+          message: params.message,
+          relatedEntityType: params.relatedEntityType || null,
+          relatedEntityId: params.relatedEntityId || null,
+          priority,
+          isRead: false,
+          expiresAt: params.expiresAt || null,
+        },
+      });
+
+      const channels = params.channels || ['IN_APP'];
+      await prisma.notificationDeliveryLog.createMany({
+        data: channels.map(channel => ({
+          notificationId: notification.id,
+          channel,
+          status: 'SENT',
+        })),
+      });
+
+      if (channels.includes('PUSH')) {
+        PushNotificationService.sendToUser(params.recipientUserId, {
+          title: params.title,
+          body: params.message,
+          data: {
+            type: String(params.type),
+            relatedEntityType: params.relatedEntityType || '',
+            relatedEntityId: params.relatedEntityId || '',
+          },
+        }).catch(err => {
+          console.error('[NotificationService] Async push dispatch failed:', err);
+        });
+      }
+
+      return notification;
+    } catch (error) {
+      console.error('[NotificationService] createNotification failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create bulk notifications in the DB and delivery logs.
+   */
+  static async createBulkNotifications(paramsArray: Array<{
+    schoolId: string;
+    recipientUserId: string;
+    recipientRole: Role;
+    studentId?: string | null;
+    type: NotificationType;
+    title: string;
+    message: string;
+    relatedEntityType?: string | null;
+    relatedEntityId?: string | null;
+    priority?: NotificationPriority;
+    expiresAt?: Date | null;
+    channels?: DeliveryChannel[];
+  }>) {
+    try {
+      if (paramsArray.length === 0) return [];
+
+      const createdNotifications = [];
+      for (const params of paramsArray) {
+        const notif = await this.createNotification(params);
+        if (notif) {
+          createdNotifications.push(notif);
+        }
+      }
+      return createdNotifications;
+    } catch (error) {
+      console.error('[NotificationService] createBulkNotifications failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch paginated notifications for a user.
+   */
+  static async getUserNotifications(params: {
+    userId: string;
+    studentId?: string;
+    isRead?: boolean;
+    limit?: number;
+    page?: number;
+  }) {
+    try {
+      const page = params.page || 1;
+      const limit = params.limit || 20;
+      const skip = (page - 1) * limit;
+
+      const where: any = {
+        recipientUserId: params.userId,
+      };
+
+      if (params.studentId) {
+        where.studentId = params.studentId;
+      }
+
+      if (params.isRead !== undefined) {
+        where.isRead = params.isRead;
+      }
+
+      const [notifications, total] = await Promise.all([
+        prisma.notification.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.notification.count({ where }),
+      ]);
+
+      return {
+        notifications,
+        pagination: {
+          page,
+          limit,
+          total,
+        },
+      };
+    } catch (error) {
+      console.error('[NotificationService] getUserNotifications failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get count of unread notifications for a user.
+   */
+  static async getUnreadCount(userId: string, studentId?: string) {
+    try {
+      const where: any = {
+        recipientUserId: userId,
+        isRead: false,
+      };
+
+      if (studentId) {
+        where.studentId = studentId;
+      }
+
+      const unreadCount = await prisma.notification.count({ where });
+      return { unreadCount };
+    } catch (error) {
+      console.error('[NotificationService] getUnreadCount failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark a specific notification as read.
+   */
+  static async markAsRead(notificationId: string, userId: string) {
+    try {
+      const notification = await prisma.notification.findFirst({
+        where: {
+          id: notificationId,
+          recipientUserId: userId,
+        },
+      });
+
+      if (!notification) {
+        return null;
+      }
+
+      return await prisma.notification.update({
+        where: { id: notificationId },
+        data: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('[NotificationService] markAsRead failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark all unread notifications as read for a user.
+   */
+  static async markAllAsRead(userId: string, studentId?: string) {
+    try {
+      const where: any = {
+        recipientUserId: userId,
+        isRead: false,
+      };
+
+      if (studentId) {
+        where.studentId = studentId;
+      }
+
+      await prisma.notification.updateMany({
+        where,
+        data: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.error('[NotificationService] markAllAsRead failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register or update a device token.
+   */
+  static async registerDeviceToken(params: {
+    userId: string;
+    token: string;
+    deviceType: string;
+    platform?: string;
+    appVersion?: string;
+  }) {
+    try {
+      return await prisma.deviceToken.upsert({
+        where: { token: params.token },
+        create: {
+          token: params.token,
+          userId: params.userId,
+          deviceType: params.deviceType,
+          platform: params.platform || null,
+          appVersion: params.appVersion || null,
+          isActive: true,
+          lastSeenAt: new Date(),
+        },
+        update: {
+          userId: params.userId,
+          deviceType: params.deviceType,
+          platform: params.platform || null,
+          appVersion: params.appVersion || null,
+          isActive: true,
+          lastSeenAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('[NotificationService] registerDeviceToken failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unregister / Deactivate a device token.
+   */
+  static async removeDeviceToken(userId: string, token: string) {
+    try {
+      const deviceToken = await prisma.deviceToken.findFirst({
+        where: { token, userId },
+      });
+
+      if (!deviceToken) {
+        return false;
+      }
+
+      await prisma.deviceToken.update({
+        where: { token },
+        data: {
+          isActive: false,
+          lastSeenAt: new Date(),
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.error('[NotificationService] removeDeviceToken failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Evaluate cooldown rules to see if a notification of a given type is allowed.
+   */
+  static async shouldSendReminder(params: {
+    schoolId: string;
+    type: NotificationType;
+    recipientUserId: string;
+    studentId?: string | null;
+    relatedEntityId?: string | null;
+  }): Promise<boolean> {
+    try {
+      const rule = await prisma.notificationRule.findUnique({
+        where: {
+          schoolId_type: {
+            schoolId: params.schoolId,
+            type: params.type,
+          },
+        },
+      });
+
+      if (rule && !rule.enabled) {
+        return false;
+      }
+
+      const cooldownHours = rule?.cooldownHours || 0;
+      if (cooldownHours <= 0) {
+        return true;
+      }
+
+      const lastNotification = await prisma.notification.findFirst({
+        where: {
+          schoolId: params.schoolId,
+          recipientUserId: params.recipientUserId,
+          type: params.type,
+          studentId: params.studentId || null,
+          relatedEntityId: params.relatedEntityId || null,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!lastNotification) {
+        return true;
+      }
+
+      const diffMs = Date.now() - lastNotification.createdAt.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      return diffHours >= cooldownHours;
+    } catch (error) {
+      console.error('[NotificationService] shouldSendReminder failed:', error);
+      return true;
+    }
+  }
+
   // ── Foundation Methods ─────────────────────────────────────────
 
   /**
