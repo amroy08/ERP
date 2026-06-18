@@ -751,6 +751,20 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
       take: 5,
     });
 
+    // 4.5 Recent Notices
+    const notices = await prisma.notice.findMany({
+      where: {
+        isPublished: true,
+        schoolId: authUser.schoolId,
+        OR: [
+          { targetRoles: { contains: 'all' } },
+          { targetRoles: { contains: 'teacher' } },
+        ],
+      },
+      orderBy: { publishDate: 'desc' },
+      take: 5,
+    });
+
     // 5. Quick Stats
     // Active students count in classes they teach
     const sectionIds = assignedSections.map(s => s.id);
@@ -776,6 +790,7 @@ export const getTeacherDashboard = async (req: AuthRequest, res: Response, next:
         assignedSubjects,
         pendingAttendanceClasses,
         recentHomework: homework,
+        recentNotices: notices,
         quickStats: {
           totalStudents,
           totalSubjects: assignedSubjects.length,
@@ -1069,25 +1084,26 @@ export const getParentFees = async (req: AuthRequest, res: Response, next: NextF
         where: { studentId: child.id },
         include: { feeStructure: { select: { name: true, totalAmount: true } } },
       });
-      // Fetch payments separately since StudentFee has no direct payments relation
-      const payments = await prisma.feePayment.findMany({
-        where: { studentId: child.id, status: 'completed' },
-        select: { amountPaid: true },
-      });
-      const totalPaid = payments.reduce((sum, p) => sum + p.amountPaid, 0);
 
       for (const sf of studentFees) {
+        const allocations = await (prisma as any).feePaymentAllocation.findMany({
+          where: { studentFeeId: sf.id },
+          select: { allocatedAmount: true },
+        });
+        const feePaid = allocations.reduce((sum: number, a: any) => sum + a.allocatedAmount, 0);
+
         const totalAmount = sf.feeStructure.totalAmount ?? 0;
-        const dueAmount = Math.max(0, totalAmount - totalPaid);
+        const dueAmount = Math.max(0, totalAmount - feePaid);
         const status =
           dueAmount <= 0 ? 'paid' :
-          totalPaid > 0 ? 'partial' : 'unpaid';
+          feePaid > 0 ? 'partial' : 'unpaid';
+
         result.push({
           id: sf.id,
           studentName: child.fullName,
           feeStructureName: sf.feeStructure.name,
           totalAmount,
-          paidAmount: totalPaid,
+          paidAmount: feePaid,
           dueAmount,
           dueDate: null,
           status,

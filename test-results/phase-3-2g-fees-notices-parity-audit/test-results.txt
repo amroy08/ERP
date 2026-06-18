@@ -1,0 +1,47 @@
+================================================================
+ Phase 3.2G: Fees + Notices Parity and Security Audit
+================================================================
+
+--- 1. Authenticating Roles ---
+  ✅ Admin Authentication
+  ✅ Teacher Authentication
+  ✅ Parent Authentication
+  ✅ Student Authentication (student@school.com)
+
+--- 2. Discovering Target IDs from DB ---
+  ℹ️  Linked Child ID: 38518d8e-968a-4eaf-aec0-c5878808da1c (Jane Doe)
+  ℹ️  Unlinked Student ID (for IDOR): 9484158e-51ae-4b3d-b1e6-bb00c4888d59 (Reyansh68 Kulkarni)
+
+--- 3. Testing Web Console Role Restrictions (RBAC) ---
+  ✅ Admin access to GET /fees/structures (Allowed)
+  ✅ Teacher access to GET /fees/structures (Blocked)
+  ✅ Parent access to POST /fees/collect (Blocked)
+  ✅ Student access to POST /fees/collect (Blocked)
+  ✅ Admin access to GET /notices (Allowed)
+  ✅ Teacher access to POST /notices (Blocked)
+
+--- 4. Testing Mobile App Endpoint Access Control ---
+  ✅ Parent access to GET /mobile/parent/fees (Allowed)
+  ✅ Teacher access to GET /mobile/parent/fees (Blocked)
+  ✅ Student access to GET /mobile/parent/fees (Blocked)
+  ✅ Parent access to GET /mobile/parent/notices (Allowed)
+  ✅ Teacher access to GET /mobile/parent/notices (Blocked)
+
+--- 5. Testing Parent Linked-Child IDOR Boundaries ---
+  ✅ Parent viewing linked child profile (Allowed)
+  ✅ Parent viewing unlinked student profile (Blocked)
+
+--- 6. Testing Notice Target Audience & Sync Parity ---
+  ✅ Targeted notice appears in Parent notices feed
+  ✅ Parent-targeted notice is filtered out of Teacher notices feed
+  ✅ Notice targeted to student role appears in Student dashboard
+
+--- 7. Verifying Fee Calculation Ledger Parity ---
+  ✅ Mobile parent fee calculation matches allocations (Total - Paid === Due)
+  ✅ API fee ledger matches raw database fee payment allocations
+
+═══════════════════════════════════════════════════════════════
+ Audit Complete: 22 passed, 0 failed
+═══════════════════════════════════════════════════════════════
+
+✅ All parity and security checks passed successfully!
