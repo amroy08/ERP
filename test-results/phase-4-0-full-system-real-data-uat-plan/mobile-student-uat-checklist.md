@@ -2,16 +2,16 @@
 
 **Platform**: Mobile App — Student Role
 **Test Credentials**:
-- Student 1: `stu.adm20267672@school.local` / `Student@123` (Prisha72 Mehta)
-- Student 2: `stu.adm20268263@school.local` / `Student@123` (Myra191 Pillai)
-- Student 3: `stu.adm20264757@school.local` / `Student@123` (Anika32 Kulkarni)
+- Student 1: `stu.adm20267672@school.local` / `<STUDENT_PASSWORD>` (Prisha72 Mehta)
+- Student 2: `stu.adm20268263@school.local` / `<STUDENT_PASSWORD>` (Myra191 Pillai)
+- Student 3: `stu.adm20264757@school.local` / `<STUDENT_PASSWORD>` (Anika32 Kulkarni)
 **Real data basis**: Live `school_erp` database
 **Device/Emulator**: Pixel_8 API 34 (Android Emulator)
 
 ---
 
 ## Pre-Check: Credential Verification
-- [ ] Confirm `stu.adm20267672@school.local` + `Student@123` logs in successfully
+- [ ] Confirm `stu.adm20267672@school.local` + `<STUDENT_PASSWORD>` logs in successfully
 - [ ] Note which class/section the student belongs to
 - [ ] Identify if this student has any homework, exam results, or attendance records
 
@@ -19,7 +19,7 @@
 
 ## 1. Student Login
 - **Screen**: `LoginScreen`
-- **Flow**: Enter student email → enter `Student@123` → tap Login
+- **Flow**: Enter student email → enter `<STUDENT_PASSWORD>` → tap Login
 - **Expected**: Redirects to `StudentHomeScreen`; correct student name shown
 - **Risk**: Role detection returning PARENT or TEACHER for student account
 - **Priority**: P1 / Read

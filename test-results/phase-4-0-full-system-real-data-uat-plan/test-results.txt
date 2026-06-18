@@ -42,10 +42,10 @@ Server  (npx tsc --noEmit)   : NOT RUN (planning phase only)
 Client  (npx tsc --noEmit)   : NOT RUN (planning phase only)
 
 --- Password / Sensitive Data Scan ---
-Scan command : grep -R "Amroy@123|DATABASE_URL|password" test-results/phase-4-0-full-system-real-data-uat-plan/
-Result       : raw DB password (Amroy@123) found in risk-and-validation-plan.md and db-backup-procedure.md
-Action taken : Masked to <DB_PASSWORD> in all shell command examples
-Status       : CLEAN after masking
+Scan command : grep -R "<DB_PASSWORD>|DATABASE_URL|password" test-results/phase-4-0-full-system-real-data-uat-plan/
+Result       : raw DB password (<MASKED>) found in risk-and-validation-plan.md and db-backup-procedure.md
+Action taken : Masked to <DB_PASSWORD> in all shell command examples; raw string removed from report
+Status       : CLEAN after masking (this file updated in credential cleanup pass)
 
 --- Canonical Evidence Files ---
 implementation-plan.md              : PRESENT
@@ -101,3 +101,17 @@ Phase 4.0: Real Data UAT Execution
   9. Execute cross-platform-sync-uat-plan.md
  10. Log all write operations in controlled-write-log-template.md
  11. Document bugs per risk-and-validation-plan.md Bug Documentation Template
+
+--- Credential Handling Note ---
+Raw database credentials were removed from Phase 4.0 planning evidence in the
+credential cleanup pass (Phase 4.0 Final Credential Cleanup commit). Future
+database commands should use interactive password entry, a local ignored
+environment file, or masked placeholders in documentation. No credentials
+should be committed to version control.
+
+IMPORTANT: If the previously exposed DB root password is still valid,
+rotate or change it before real-data UAT execution begins.
+
+All admin and student demo passwords referenced in checklists have been
+masked to <ADMIN_PASSWORD> and <STUDENT_PASSWORD>. Retrieve actual values
+from the local .env file or the running system before UAT.

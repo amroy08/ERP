@@ -1,14 +1,14 @@
 # Phase 4.0: Web Admin UAT Checklist
 
 **Platform**: Web Console (`http://localhost:5173`)
-**Role**: Admin (`admin@school.com` / `Admin@123`)
+**Role**: Admin (`admin@school.com` / `<ADMIN_PASSWORD>`)
 **Real data basis**: Live `school_erp` database
 
 ---
 
 ## 1. Authentication
 - **Screen**: Login page
-- **Flow**: Enter email `admin@school.com` + password `Admin@123` → Submit
+- **Flow**: Enter email `admin@school.com` + password `<ADMIN_PASSWORD>` → Submit
 - **Expected**: Redirect to admin dashboard, JWT token set, role shown as Admin
 - **Risk**: Login fails if server not running — verify `npm run dev` in `/server`
 - **Priority**: P1 / Read

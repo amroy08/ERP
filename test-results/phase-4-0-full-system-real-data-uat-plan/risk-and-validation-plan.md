@@ -148,3 +148,19 @@ Status: Open / In Review / Fixed
 6. **Cross-Platform Sync**: Run sync matrix scenarios; verify DB state changes
 7. **Role Isolation**: Test role boundaries with two logged-in accounts
 8. **Post-UAT**: Run parity scripts; document all bugs; create execution report
+
+---
+
+## Credential Handling Note
+
+Raw database credentials were removed from Phase 4.0 planning evidence during the
+credential cleanup pass. Future database commands in documentation should use:
+- Interactive password entry (`mysql -u root -p school_erp`)
+- A local ignored environment file (`.env` excluded by `.gitignore`)
+- Masked placeholders (`<DB_PASSWORD>`, `<ADMIN_PASSWORD>`, `<STUDENT_PASSWORD>`)
+
+**No credentials should be committed to version control.**
+
+> **IMPORTANT**: If the previously exposed DB root password is still valid in the live system,
+> rotate or change it before real-data UAT execution begins. Use `ALTER USER` in MySQL or
+> reset via your hosting provider's admin panel.

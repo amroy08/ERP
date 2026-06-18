@@ -106,7 +106,7 @@ Specific homework: to be queried during execution for teacher email/class mappin
 ### Web Console (Admin)
 | Role | Email | Password | Notes |
 |---|---|---|---|
-| Admin | `admin@school.com` | `Admin@123` | Verified — system default |
+| Admin | `admin@school.com` | `<ADMIN_PASSWORD>` | Verified — system default |
 
 ### Mobile — Teacher
 | Role | Email | Password | Notes |
@@ -117,9 +117,9 @@ Specific homework: to be queried during execution for teacher email/class mappin
 ### Mobile — Student
 | Role | Email | Password | Notes |
 |---|---|---|---|
-| Student 1 | `stu.adm20267672@school.local` | `Student@123` | Default password |
-| Student 2 | `stu.adm20268263@school.local` | `Student@123` | Default password |
-| Student 3 | `stu.adm20264757@school.local` | `Student@123` | Default password |
+| Student 1 | `stu.adm20267672@school.local` | `<STUDENT_PASSWORD>` | Default password |
+| Student 2 | `stu.adm20268263@school.local` | `<STUDENT_PASSWORD>` | Default password |
+| Student 3 | `stu.adm20264757@school.local` | `<STUDENT_PASSWORD>` | Default password |
 
 ### Mobile — Parent
 | Role | Email | Password | Notes |

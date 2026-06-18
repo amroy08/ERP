@@ -51,14 +51,14 @@ The following record counts were verified directly from the live MySQL database:
 ### Key Test Credentials
 | Role | Email | Password |
 |---|---|---|
-| Admin (Web) | `admin@school.com` | `Admin@123` |
+| Admin (Web) | `admin@school.com` | `<ADMIN_PASSWORD>` |
 | Teacher (Mobile) | `teacher@school.com` | *(existing password)* |
 | Teacher (Alt) | `tea.alice.0070@school.local` | *(existing password)* |
-| Student (Mobile) | `stu.adm20267672@school.local` | `Student@123` |
+| Student (Mobile) | `stu.adm20267672@school.local` | `<STUDENT_PASSWORD>` |
 | Parent (Mobile) | `parent.adm20267881@school.local` | *(existing password)* |
 
 > **Note**: Teacher and parent passwords are set at account creation and must be verified
-> against the real database before execution. Default student password is `Student@123`.
+> against the real database before execution. Default student password is `<STUDENT_PASSWORD>`.
 
 ---
 
