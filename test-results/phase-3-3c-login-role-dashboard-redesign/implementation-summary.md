@@ -4,7 +4,8 @@
 - **Result**: PASS
 - **Date**: June 18, 2026
 - **Branch**: Nupun
-- **Latest Commit**: 36dffc5d13a15900dc430076c372272b5ef73e9d (before Phase 3.3C implementation commits)
+- **Implementation Commit**: 6363b12eaf2c1dadefbb2ebd7097eb63ed12ca6f (Phase 3.3C: Redesign login and role dashboards)
+- **Evidence Commit**: ee97562b4ff9ccc03e1eda5c5c0a94ef0344a11f (Phase 3.3C: Update test-results with final commit hash)
 
 ## Summary of Changes
 Implemented a premium, modern, role-based redesign of the three primary mobile home screens (Teacher, Student, Parent) using the mobile design system tokens established in Phase 3.3B. The design features dynamic gradient headers, elegant drop shadows, status badges, metrics grids, timeline schedule views, notices previews, and context-specific alerts.
