@@ -639,6 +639,7 @@ export const createNotice = async (req: AuthRequest, res: Response, next: NextFu
       }
     });
 
+    // Phase 4.1B: Trigger notice publication notification
     NotificationService.notifyNoticePublished(notice).catch((error) => {
       console.error('Notice email notification failed:', error);
     });
@@ -1493,6 +1494,7 @@ export const markAttendance = async (req: AuthRequest, res: Response, next: Next
     
     const absentRecords = results.filter((r: any) => r.status === 'absent');
     if (absentRecords.length > 0) {
+      // Phase 4.1B: Trigger attendance absence threshold notification
       NotificationService.notifyAttendanceAbsent(absentRecords).catch((error) => {
         console.error('Attendance absent email notification failed:', error);
       });
@@ -2062,6 +2064,7 @@ export const createHomework = async (req: AuthRequest, res: Response, next: Next
       }
     });
 
+    // Phase 4.1B: Trigger homework posted notification
     NotificationService.notifyHomeworkAssigned(homework).catch((error) => {
       console.error('Homework email notification failed:', error);
     });

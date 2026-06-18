@@ -765,6 +765,20 @@ export class NotificationService {
         schoolName,
       });
 
+      // Create database notifications in-app
+      const bulkNotificationsData = users.map(user => ({
+        schoolId: notice.schoolId || '',
+        recipientUserId: user.id,
+        recipientRole: user.role,
+        type: 'NOTICE_POSTED' as NotificationType,
+        title: `New Notice: ${notice.title}`,
+        message: notice.content.substring(0, 150) + (notice.content.length > 150 ? '...' : ''),
+        relatedEntityType: 'notice',
+        relatedEntityId: notice.id,
+        priority: (notice.priority?.toUpperCase() === 'HIGH' ? 'HIGH' : 'NORMAL') as NotificationPriority,
+      }));
+      await this.createBulkNotifications(bulkNotificationsData);
+
       const batchSize = 10;
       for (let i = 0; i < users.length; i += batchSize) {
         const batch = users.slice(i, i + batchSize);
@@ -808,7 +822,6 @@ export class NotificationService {
       return { success: false, status: 'failed', error: String(error) };
     }
   }
-
   /** Homework assigned — notifies students + parents in class/section */
   static async notifyHomeworkAssigned(homework: any): Promise<NotifyResult> {
     try {
@@ -876,6 +889,22 @@ export class NotificationService {
           }
         }
       }
+
+      // Create database notifications in-app
+      const bulkNotificationsData = recipients.map(r => ({
+        schoolId: homework.schoolId || '',
+        recipientUserId: r.userId as string,
+        recipientRole: (r.role === 'parent' ? 'parent' : 'student') as Role,
+        studentId: r.studentId,
+        type: 'HOMEWORK_POSTED' as NotificationType,
+        title: 'New Homework Posted',
+        message: `Homework has been posted for ${sub?.name || 'Subject'}. Due date: ${homework.dueDate ? new Date(homework.dueDate).toLocaleDateString() : 'N/A'}`,
+        relatedEntityType: 'homework',
+        relatedEntityId: homework.id,
+        priority: 'NORMAL' as NotificationPriority,
+      })).filter(r => r.recipientUserId);
+
+      await this.createBulkNotifications(bulkNotificationsData);
 
       const batchSize = 10;
       for (let i = 0; i < recipients.length; i += batchSize) {
@@ -997,6 +1026,22 @@ export class NotificationService {
           }
         }
       }
+
+      // Create database notifications in-app
+      const bulkNotificationsData = recipients.map(r => ({
+        schoolId: exam.schoolId || '',
+        recipientUserId: r.userId as string,
+        recipientRole: (r.role === 'parent' ? 'parent' : 'student') as Role,
+        studentId: r.studentId,
+        type: 'EXAM_POSTED' as NotificationType,
+        title: 'New Exam Scheduled',
+        message: `Exam "${exam.name}" (${exam.type}) has been scheduled for Class ${cls?.name || 'N/A'} from ${exam.startDate ? new Date(exam.startDate).toLocaleDateString() : 'N/A'} to ${exam.endDate ? new Date(exam.endDate).toLocaleDateString() : 'N/A'}.`,
+        relatedEntityType: 'exam',
+        relatedEntityId: exam.id,
+        priority: 'NORMAL' as NotificationPriority,
+      })).filter(r => r.recipientUserId);
+
+      await this.createBulkNotifications(bulkNotificationsData);
 
       const batchSize = 10;
       for (let i = 0; i < recipients.length; i += batchSize) {
@@ -1148,7 +1193,9 @@ export class NotificationService {
     }
   }
 
-  /** Result published — notifies individual students + parents */
+
+
+        /** Result published — notifies individual students + parents */
   static async notifyResultPublished(data: { examId: string; subjectId: string; results: any[]; schoolId?: string }): Promise<NotifyResult> {
     try {
       const exam = await prisma.exam.findUnique({
@@ -1189,7 +1236,61 @@ export class NotificationService {
           schoolName
         });
 
-        if (student.parent?.user) {
+        // Cooldown checks to avoid duplicates in save loops
+        let parentAllowed = false;
+        if (student.parent?.user?.id) {
+          parentAllowed = await this.shouldSendReminder({
+            schoolId: schoolId || student.schoolId || '',
+            type: 'MARKS_POSTED',
+            recipientUserId: student.parent.user.id,
+            studentId: student.id,
+            relatedEntityId: resRecord.id,
+          });
+        }
+
+        let studentAllowed = false;
+        if (student.user?.id) {
+          studentAllowed = await this.shouldSendReminder({
+            schoolId: schoolId || student.schoolId || '',
+            type: 'MARKS_POSTED',
+            recipientUserId: student.user.id,
+            studentId: student.id,
+            relatedEntityId: resRecord.id,
+          });
+        }
+
+        // Create database notifications in-app if allowed
+        if (parentAllowed && student.parent?.user?.id) {
+          await this.createNotification({
+            schoolId: schoolId || student.schoolId || '',
+            recipientUserId: student.parent.user.id,
+            recipientRole: 'parent',
+            studentId: student.id,
+            type: 'MARKS_POSTED',
+            title: 'Exam Result Published',
+            message: `Result for ${student.fullName} in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
+            relatedEntityType: 'result',
+            relatedEntityId: resRecord.id,
+            priority: 'NORMAL',
+          });
+        }
+
+        if (studentAllowed && student.user?.id) {
+          await this.createNotification({
+            schoolId: schoolId || student.schoolId || '',
+            recipientUserId: student.user.id,
+            recipientRole: 'student',
+            studentId: student.id,
+            type: 'MARKS_POSTED',
+            title: 'Exam Result Published',
+            message: `Your result in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
+            relatedEntityType: 'result',
+            relatedEntityId: resRecord.id,
+            priority: 'NORMAL',
+          });
+        }
+
+        if (parentAllowed && student.parent?.user) {
           const pUser = student.parent.user;
           if (pUser.isActive && pUser.email) {
             await EmailService.sendEmail({
@@ -1211,7 +1312,7 @@ export class NotificationService {
           }
         }
 
-        if (student.user) {
+        if (studentAllowed && student.user) {
           const sUser = student.user;
           if (sUser.isActive && sUser.email) {
             await EmailService.sendEmail({
@@ -1233,9 +1334,8 @@ export class NotificationService {
           }
         }
 
-        // Safe push notification call
         try {
-          if (student.parent?.user?.id) {
+          if (parentAllowed && student.parent?.user?.id) {
             PushNotificationService.sendToUser(student.parent.user.id, {
               title: `Exam Result Published`,
               body: `Result for ${student.fullName} in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
@@ -1247,7 +1347,7 @@ export class NotificationService {
             }).catch(err => console.error('[NotificationService] Result parent push notification failed:', err));
           }
 
-          if (student.user?.id) {
+          if (studentAllowed && student.user?.id) {
             PushNotificationService.sendToUser(student.user.id, {
               title: `Exam Result Published`,
               body: `Your result in ${sub.name} is published. Marks: ${resRecord.marksObtained}/${resRecord.maxMarks}`,
@@ -1446,7 +1546,7 @@ export class NotificationService {
     }
   }
 
-  /** Attendance absent alert — notifies parent */
+  /** Attendance absent alert — notifies parent when threshold is crossed */
   static async notifyAttendanceAbsent(absentRecords: any[]): Promise<NotifyResult> {
     try {
       if (!absentRecords) {
@@ -1479,15 +1579,86 @@ export class NotificationService {
             continue;
           }
 
+          // Evaluate the repeated absence rule & threshold
+          const rule = await prisma.notificationRule.findUnique({
+            where: {
+              schoolId_type: {
+                schoolId: student.schoolId || '',
+                type: 'ATTENDANCE_ABSENCE_ALERT',
+              },
+            },
+          });
+
+          const ruleEnabled = rule ? rule.enabled : true;
+          if (!ruleEnabled) {
+            continue;
+          }
+
+          const thresholdCount = rule?.thresholdCount ?? 3;
+          const thresholdDays = rule?.thresholdDays ?? 7;
+
+          const endDate = new Date(record.date);
+          endDate.setUTCHours(23, 59, 59, 999);
+
+          const startDate = new Date(record.date);
+          startDate.setDate(startDate.getDate() - thresholdDays + 1);
+          startDate.setUTCHours(0, 0, 0, 0);
+
+          const absenceCount = await prisma.attendance.count({
+            where: {
+              studentId: student.id,
+              status: 'absent',
+              date: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+          });
+
+          if (absenceCount < thresholdCount) {
+            // Threshold is not met, skip notifying
+            continue;
+          }
+
+          const parentUser = student.parent?.user;
+          if (!parentUser || !parentUser.id) {
+            continue;
+          }
+
+          // Check cooldown
+          const allowed = await this.shouldSendReminder({
+            schoolId: student.schoolId || '',
+            type: 'ATTENDANCE_ABSENCE_ALERT',
+            recipientUserId: parentUser.id,
+            studentId: student.id,
+            relatedEntityId: null,
+          });
+
+          if (!allowed) {
+            continue;
+          }
+
           // Format date normalized as YYYY-MM-DD
           const dateObj = new Date(record.date);
           const attendanceDate = dateObj.toISOString().split('T')[0];
 
           const parentName = student.parent ? (student.parent.fatherName || student.parent.motherName || 'Parent') : 'Parent';
-          const parentUser = student.parent?.user;
-          const parentEmail = parentUser?.email;
-
+          const parentEmail = parentUser.email;
           const schoolName = student.school?.name || 'School ERP';
+
+          // Create database notification
+          await this.createNotification({
+            schoolId: student.schoolId || '',
+            recipientUserId: parentUser.id,
+            recipientRole: 'parent',
+            studentId: student.id,
+            type: 'ATTENDANCE_ABSENCE_ALERT',
+            title: 'Attendance Alert: Repeated Absence',
+            message: `${student.fullName} has been marked absent ${absenceCount} times in the last ${thresholdDays} days.`,
+            relatedEntityType: 'attendance',
+            relatedEntityId: record.id || null,
+            priority: 'HIGH',
+          });
 
           const template = attendanceAbsentAlertTemplate({
             parentName,
@@ -1504,18 +1675,18 @@ export class NotificationService {
             attendanceDate,
             classId: student.classId,
             sectionId: student.sectionId,
-            schoolId: student.schoolId
+            schoolId: student.schoolId || ''
           };
 
           // Send to parent only. Skip/log if synthetic or missing.
-          if (parentUser && parentEmail && isRealEmail(parentEmail)) {
+          if (parentEmail && isRealEmail(parentEmail)) {
             await EmailService.sendEmail({
               to: parentEmail,
               subject: template.subject,
               html: template.html,
               text: template.text,
               eventType: 'attendance_absent_alert',
-              schoolId: student.schoolId,
+              schoolId: student.schoolId || '',
               recipientUserId: parentUser.id,
               recipientRole: 'parent',
               metadata
@@ -1528,7 +1699,7 @@ export class NotificationService {
               html: template.html,
               text: template.text,
               eventType: 'attendance_absent_alert',
-              schoolId: student.schoolId,
+              schoolId: student.schoolId || '',
               recipientUserId: student.parent?.userId || null,
               recipientRole: 'parent',
               metadata
@@ -1537,17 +1708,15 @@ export class NotificationService {
 
           // Safe push notification call
           try {
-            if (student.parent?.user?.id) {
-              PushNotificationService.sendToUser(student.parent.user.id, {
-                title: `Attendance Alert: Absent`,
-                body: `${student.fullName} has been marked absent today (${new Date(record.date).toLocaleDateString()}).`,
-                data: {
-                  type: 'attendance_absent',
-                  entityId: record.id || '',
-                  studentId: student.id,
-                },
-              }).catch(err => console.error('[NotificationService] Attendance parent push notification failed:', err));
-            }
+            PushNotificationService.sendToUser(parentUser.id, {
+              title: `Attendance Alert: Repeated Absence`,
+              body: `${student.fullName} has been marked absent ${absenceCount} times in the last ${thresholdDays} days.`,
+              data: {
+                type: 'attendance_absent',
+                entityId: record.id || '',
+                studentId: student.id,
+              },
+            }).catch(err => console.error('[NotificationService] Attendance parent push notification failed:', err));
           } catch (pushErr) {
             console.error('[NotificationService] Error triggering attendance push:', pushErr);
           }
@@ -1559,6 +1728,96 @@ export class NotificationService {
       return { success: true, status: 'sent' };
     } catch (error) {
       console.error('[NotificationService] notifyAttendanceAbsent error:', error);
+      return { success: false, status: 'failed', error: String(error) };
+    }
+  }
+
+  /** Fee pending/overdue reminder trigger - helper method */
+  static async notifyFeeReminderIfAllowed(studentFeeId: string): Promise<NotifyResult> {
+    try {
+      const studentFee = await prisma.studentFee.findUnique({
+        where: { id: studentFeeId },
+        include: {
+          feeStructure: true,
+          student: {
+            include: {
+              parent: {
+                include: {
+                  user: { select: { id: true, email: true, name: true, isActive: true } }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!studentFee) {
+        return { success: false, status: 'failed', error: `StudentFee with ID ${studentFeeId} not found` };
+      }
+
+      if (studentFee.status === 'paid') {
+        return { success: true, status: 'skipped', error: 'Fee is already fully paid' };
+      }
+
+      const parentUser = studentFee.student.parent?.user;
+      if (!parentUser || !parentUser.id) {
+        return { success: true, status: 'skipped', error: 'No parent user linked to student' };
+      }
+
+      const allowed = await this.shouldSendReminder({
+        schoolId: studentFee.schoolId || '',
+        type: 'FEES_REMINDER',
+        recipientUserId: parentUser.id,
+        studentId: studentFee.studentId,
+        relatedEntityId: studentFee.id,
+      });
+
+      if (!allowed) {
+        return { success: true, status: 'skipped', error: 'Fee reminder blocked by cooldown rule' };
+      }
+
+      const school = studentFee.schoolId ? await prisma.school.findUnique({ where: { id: studentFee.schoolId } }) : null;
+      const schoolName = school?.name || 'School ERP';
+
+      // Create database notification
+      await this.createNotification({
+        schoolId: studentFee.schoolId || '',
+        recipientUserId: parentUser.id,
+        recipientRole: 'parent',
+        studentId: studentFee.studentId,
+        type: 'FEES_REMINDER',
+        title: 'Fee Payment Reminder',
+        message: `This is a reminder that the fee for ${studentFee.feeStructure.name} is pending. Please make the payment soon.`,
+        relatedEntityType: 'fee',
+        relatedEntityId: studentFee.id,
+        priority: 'NORMAL',
+      });
+
+      // Send email using generic template
+      if (parentUser.email && isRealEmail(parentUser.email)) {
+        const template = genericNotificationTemplate({
+          recipientName: studentFee.student.parent?.fatherName || studentFee.student.parent?.motherName || 'Parent',
+          schoolName,
+          title: 'Fee Payment Reminder',
+          message: `This is a reminder that the fee for ${studentFee.feeStructure.name} is pending. Please make the payment soon.`,
+        });
+
+        await EmailService.sendEmail({
+          to: parentUser.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          eventType: 'fee_reminder',
+          schoolId: studentFee.schoolId,
+          recipientUserId: parentUser.id,
+          recipientRole: 'parent',
+          metadata: { studentFeeId: studentFee.id }
+        }).catch(err => console.error('[NotificationService] Fee reminder email fail:', parentUser.email, err));
+      }
+
+      return { success: true, status: 'sent' };
+    } catch (error) {
+      console.error('[NotificationService] notifyFeeReminderIfAllowed error:', error);
       return { success: false, status: 'failed', error: String(error) };
     }
   }

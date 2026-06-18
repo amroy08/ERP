@@ -7,6 +7,7 @@ import { createError } from '../middleware/errorHandler';
 import { FeeService } from '../services/FeeService';
 import { ExamService } from '../services/ExamService';
 import { PushNotificationService } from '../services/PushNotificationService';
+import { NotificationService } from '../services/NotificationService';
 
 // ── Helper to calculate attendance stats ──
 const calculateAttendanceSummary = (records: any[]) => {
@@ -1739,7 +1740,14 @@ export const submitTeacherAttendance = async (req: AuthRequest, res: Response, n
       })
     );
 
-    await prisma.$transaction(ops);
+    const results = await prisma.$transaction(ops);
+
+    const absentRecords = results.filter(r => r.status === 'absent');
+    if (absentRecords.length > 0) {
+      NotificationService.notifyAttendanceAbsent(absentRecords).catch((error) => {
+        console.error('Attendance absent notification failed from mobile controller:', error);
+      });
+    }
 
     res.status(200).json({
       success: true,

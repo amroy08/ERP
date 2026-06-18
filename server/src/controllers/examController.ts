@@ -238,6 +238,12 @@ export const updateExam = async (req: AuthRequest, res: Response, next: NextFunc
       });
     }
 
+    if (updated.status === 'published' && exam.status !== 'published') {
+      NotificationService.notifyExamScheduled(updated).catch((error) => {
+        console.error('Exam published email notification failed:', error);
+      });
+    }
+
     res.json({ success: true, data: updated });
   } catch (error) {
     next(error);
@@ -512,6 +518,15 @@ export const saveStudentMark = async (req: AuthRequest, res: Response, next: Nex
       where: { examId_studentId_subjectId: { examId, studentId, subjectId } },
       update: { marksObtained: marksVal, maxMarks: maxMarksVal, grade, remark: remark ?? '' },
       create: { examId, studentId, subjectId, marksObtained: marksVal, maxMarks: maxMarksVal, grade, remark: remark ?? '', ...sidWhere(schoolId) }
+    });
+
+    NotificationService.notifyResultPublished({
+      examId,
+      subjectId,
+      results: [result],
+      schoolId: schoolId || undefined,
+    }).catch((error) => {
+      console.error('Marks save single student notification failed:', error);
     });
 
     res.json({ success: true, message: 'Marks saved successfully', data: {
