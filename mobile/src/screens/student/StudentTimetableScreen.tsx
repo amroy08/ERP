@@ -1,10 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  StyleSheet, Text, View, ScrollView, RefreshControl,
+  ActivityIndicator, TouchableOpacity,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
-import { AppCard } from '../../components/AppCard';
+import { TodayScheduleCard } from '../../components/dashboard/TodayScheduleCard';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { StudentScreenHeader } from '../../components/student/StudentScreenHeader';
 import { colors } from '../../constants/colors';
+import { spacing, radii } from '../../constants/layout';
+import { typography } from '../../constants/typography';
 import { fetchStudentTimetable } from '../../api/mobileApi';
 
 interface TimetableEntry {
@@ -17,6 +24,10 @@ interface TimetableEntry {
 }
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_ABBR: Record<string, string> = {
+  Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed',
+  Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat',
+};
 
 const todayName = () => {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -29,6 +40,7 @@ export const StudentTimetableScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [activeDay, setActiveDay] = useState(todayName());
+  const tabScrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -36,7 +48,7 @@ export const StudentTimetableScreen: React.FC = () => {
     try {
       const res = await fetchStudentTimetable();
       const entries: TimetableEntry[] = res.data ?? res ?? [];
-      // Group by day
+      
       const grouped: Record<string, TimetableEntry[]> = {};
       entries.forEach((e) => {
         if (!grouped[e.dayOfWeek]) grouped[e.dayOfWeek] = [];
@@ -50,64 +62,110 @@ export const StudentTimetableScreen: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const days = DAY_ORDER.filter((d) => Object.keys(data).includes(d));
+  const today = todayName();
+  const days = DAY_ORDER.filter((d) => Object.keys(data).length === 0 || Object.keys(data).includes(d));
   const activeDayEntries = data[activeDay] ?? [];
+  const activePeriodCount = activeDayEntries.length;
 
   return (
     <ScreenContainer>
+      <StudentScreenHeader
+        title="My Timetable"
+        subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        badge={activeDay === today ? `${activePeriodCount} Today` : undefined}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.student} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.student} />
+        }
       >
-        <Text style={styles.pageTitle}>My Timetable</Text>
-
-        {loading && <ActivityIndicator color={colors.student} style={{ marginTop: 40 }} />}
-        {error && !loading && <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.student} size="large" />
+            <Text style={styles.loadingText}>Loading timetable…</Text>
+          </View>
+        )}
+        {error && !loading && (
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />
+          </View>
+        )}
 
         {!loading && !error && (
           <>
-            {/* Day Tabs */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayTabsScroll}>
-              {days.map((day) => (
-                <Text
-                  key={day}
-                  onPress={() => setActiveDay(day)}
-                  style={[
-                    styles.dayTab,
-                    activeDay === day && styles.dayTabActive,
-                    day === todayName() && { borderColor: colors.student + '55' },
-                  ]}
-                >
-                  {day.slice(0, 3)}
-                  {day === todayName() ? ' •' : ''}
-                </Text>
-              ))}
+            {/* Day Tab Strip */}
+            <ScrollView
+              ref={tabScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dayTabRow}
+              style={styles.dayTabScroll}
+            >
+              {days.map((day) => {
+                const isActive = activeDay === day;
+                const isToday = day === today;
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={[
+                      styles.dayTab,
+                      isActive && styles.dayTabActive,
+                      !isActive && isToday && styles.dayTabToday,
+                    ]}
+                    onPress={() => setActiveDay(day)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.dayTabText,
+                        isActive && styles.dayTabTextActive,
+                        !isActive && isToday && styles.dayTabTextToday,
+                      ]}
+                    >
+                      {DAY_ABBR[day] ?? day.slice(0, 3)}
+                    </Text>
+                    {isToday && <View style={[styles.todayDot, isActive && styles.todayDotActive]} />}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
-            {activeDayEntries.length === 0 ? (
-              <EmptyState emoji="📅" title="No Classes Scheduled" subtitle={`You have no classes scheduled on ${activeDay}.`} />
-            ) : (
-              activeDayEntries.map((entry, i) => (
-                <AppCard key={i} style={styles.entryCard}>
-                  <View style={styles.entryRow}>
-                    <View style={styles.timeBlock}>
-                      <Text style={styles.startTime}>{entry.startTime}</Text>
-                      <View style={styles.timeLine} />
-                      <Text style={styles.endTime}>{entry.endTime}</Text>
-                    </View>
-                    <View style={styles.subjectBlock}>
-                      <View style={styles.periodPill}>
-                        <Text style={styles.periodText}>Period {entry.period}</Text>
-                      </View>
-                      <Text style={styles.subjectName}>{entry.subjectName}</Text>
-                      {entry.teacherName && <Text style={styles.teacherName}>{entry.teacherName}</Text>}
-                    </View>
-                  </View>
-                </AppCard>
-              ))
+            {/* Today context banner */}
+            {activeDay === today && activePeriodCount > 0 && (
+              <View style={styles.todayBanner}>
+                <Ionicons name="calendar" size={14} color={colors.student} />
+                <Text style={styles.todayBannerText}>
+                  Today's Schedule — {activePeriodCount} class{activePeriodCount !== 1 ? 'es' : ''}
+                </Text>
+              </View>
             )}
+
+            {/* Period Cards */}
+            <View style={styles.listContainer}>
+              {activeDayEntries.length === 0 ? (
+                <EmptyState
+                  emoji="📅"
+                  title="No Classes Scheduled"
+                  subtitle={`You have no classes scheduled on ${activeDay}.`}
+                />
+              ) : (
+                activeDayEntries.map((entry, i) => (
+                  <TodayScheduleCard
+                    key={i}
+                    period={`P${entry.period}`}
+                    subjectName={entry.subjectName}
+                    timeRange={`${entry.startTime} – ${entry.endTime}`}
+                    subText={entry.teacherName}
+                    roleColor={colors.student}
+                  />
+                ))
+              )}
+            </View>
           </>
         )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
@@ -115,32 +173,88 @@ export const StudentTimetableScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 16 },
-  dayTabsScroll: { marginBottom: 8 },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.huge,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.mutedText,
+    marginTop: spacing.sm,
+  },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  dayTabScroll: {
+    marginTop: spacing.md,
+  },
+  dayTabRow: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
   dayTab: {
-    color: colors.mutedText, fontSize: 13, fontWeight: '700',
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: colors.border,
-    marginRight: 8, overflow: 'hidden',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    minWidth: 52,
   },
-  dayTabActive: { backgroundColor: colors.student + '22', borderColor: colors.student, color: colors.student },
-  entryCard: { marginBottom: 8 },
-  entryRow: { flexDirection: 'row', alignItems: 'stretch', gap: 14 },
-  timeBlock: { alignItems: 'center', width: 48 },
-  startTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  timeLine: { flex: 1, width: 1, backgroundColor: colors.border, marginVertical: 4 },
-  endTime: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  subjectBlock: { flex: 1, justifyContent: 'center' },
-  periodPill: {
-    backgroundColor: colors.student + '22', borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginBottom: 4,
+  dayTabActive: {
+    backgroundColor: colors.student,
+    borderColor: colors.student,
   },
-  periodText: { color: colors.student, fontSize: 10, fontWeight: '700' },
-  subjectName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  teacherName: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  errorCard: { marginVertical: 16 },
-  errorText: { color: colors.danger, fontSize: 14 },
-  emptyText: { color: colors.mutedText, fontSize: 14 },
+  dayTabToday: {
+    backgroundColor: colors.student + '12',
+    borderColor: colors.student + '50',
+  },
+  dayTabText: {
+    ...typography.labelSmall,
+    color: colors.mutedText,
+    fontWeight: '700',
+  },
+  dayTabTextActive: {
+    color: colors.white,
+  },
+  dayTabTextToday: {
+    color: colors.student,
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.student,
+    marginTop: 3,
+  },
+  todayDotActive: {
+    backgroundColor: colors.white,
+  },
+  todayBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.student + '10',
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.student + '25',
+  },
+  todayBannerText: {
+    ...typography.labelSmall,
+    color: colors.student,
+    fontWeight: '700',
+  },
+  listContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
 });
 
 export default StudentTimetableScreen;

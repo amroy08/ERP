@@ -11,8 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors } from '../../../constants/colors';
+import { spacing, radii } from '../../../constants/layout';
+import { typography } from '../../../constants/typography';
+import { shadows } from '../../../constants/shadows';
 import { submitStudentHomework } from '../../../api/mobileApi';
 import { HomeworkItem } from '../../../types/mobile.types';
 
@@ -137,22 +141,28 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
         >
           <View style={styles.container}>
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Submit Homework</Text>
-              <TouchableOpacity onPress={onClose} disabled={loading} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
+              <View style={styles.titleWithIcon}>
+                <Ionicons name="cloud-upload-outline" size={20} color={colors.student} />
+                <Text style={styles.headerTitle}>Submit Homework</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} disabled={loading} style={styles.closeBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={20} color={colors.mutedText} />
               </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
               <Text style={styles.hwTitle}>{homework.title}</Text>
               <Text style={styles.subjectText}>{homework.subjectName}</Text>
-              <Text style={styles.dueText}>
-                Due: {new Date(homework.dueDate).toLocaleDateString('en-IN', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: 'short',
-                })}
-              </Text>
+              <View style={styles.dueDateBadge}>
+                <Ionicons name="time-outline" size={12} color={colors.warning} />
+                <Text style={styles.dueText}>
+                  Due: {new Date(homework.dueDate).toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                  })}
+                </Text>
+              </View>
 
               <Text style={styles.label}>Your Text Answer (Optional)</Text>
               <TextInput
@@ -172,8 +182,9 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
                   style={styles.uploadBox}
                   onPress={handlePickDocument}
                   disabled={loading}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.uploadIcon}>📎</Text>
+                  <Ionicons name="attach" size={26} color={colors.student} style={styles.uploadIcon} />
                   <Text style={styles.uploadText}>Select File</Text>
                   <Text style={styles.uploadSubtext}>
                     PDF, DOC, DOCX, JPG, JPEG, PNG, TXT up to 10MB
@@ -182,7 +193,7 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
               ) : (
                 <View style={styles.fileCard}>
                   <View style={styles.fileIcon}>
-                    <Text style={{ fontSize: 20 }}>📄</Text>
+                    <Ionicons name="document-text-outline" size={22} color={colors.student} />
                   </View>
                   <View style={styles.fileDetails}>
                     <Text style={styles.fileName} numberOfLines={1}>
@@ -196,13 +207,19 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
                     style={styles.removeBtn}
                     onPress={handleRemoveFile}
                     disabled={loading}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.removeIcon}>✕</Text>
+                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
                   </TouchableOpacity>
                 </View>
               )}
 
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
             </ScrollView>
 
             <View style={styles.actions}>
@@ -210,6 +227,7 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
                 style={[styles.btn, styles.cancelBtn]}
                 onPress={onClose}
                 disabled={loading}
+                activeOpacity={0.8}
               >
                 <Text style={styles.cancelBtnLabel}>Cancel</Text>
               </TouchableOpacity>
@@ -217,11 +235,15 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
                 style={[styles.btn, styles.submitBtn]}
                 onPress={handleSubmit}
                 disabled={loading}
+                activeOpacity={0.8}
               >
                 {loading ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.submitBtnLabel}>Submit</Text>
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={16} color={colors.white} />
+                    <Text style={styles.submitBtnLabel}>Submit</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
@@ -235,7 +257,7 @@ export const HomeworkSubmissionModal: React.FC<HomeworkSubmissionModalProps> = (
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'flex-end',
   },
   modalWrapper: {
@@ -243,96 +265,109 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    ...shadows.lg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   headerTitle: {
-    fontSize: 18,
+    ...typography.label,
     fontWeight: '800',
     color: colors.text,
   },
   closeBtn: {
-    padding: 4,
-  },
-  closeBtnText: {
-    fontSize: 18,
-    color: colors.mutedText,
-    fontWeight: '600',
+    padding: spacing.xxs,
   },
   scrollContent: {
-    padding: 20,
+    padding: spacing.xl,
   },
   hwTitle: {
-    fontSize: 16,
+    ...typography.label,
     fontWeight: '700',
     color: colors.text,
   },
   subjectText: {
-    fontSize: 13,
+    ...typography.caption,
     color: colors.mutedText,
-    marginTop: 2,
+    marginTop: spacing.xxs,
+  },
+  dueDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.warning + '12',
+    borderWidth: 1,
+    borderColor: colors.warning + '25',
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   dueText: {
-    fontSize: 13,
+    ...typography.captionSmall,
     color: colors.warning,
-    fontWeight: '600',
-    marginTop: 4,
-    marginBottom: 16,
+    fontWeight: '700',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.captionSmall,
+    fontWeight: '800',
     color: colors.text,
-    marginBottom: 8,
-    marginTop: 8,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
   },
   textInput: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: radii.md,
+    padding: spacing.md,
     color: colors.text,
-    fontSize: 14,
-    minHeight: 100,
+    ...typography.bodyMedium,
+    minHeight: 120,
     textAlignVertical: 'top',
     backgroundColor: colors.surfaceSoft,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   uploadBox: {
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: colors.student + '45',
     borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: radii.md,
+    padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceSoft,
-    marginBottom: 16,
+    backgroundColor: colors.student + '06',
+    marginBottom: spacing.md,
   },
   uploadIcon: {
-    fontSize: 24,
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   uploadText: {
-    fontSize: 14,
+    ...typography.labelSmall,
     fontWeight: '700',
     color: colors.student,
   },
   uploadSubtext: {
-    fontSize: 11,
+    ...typography.captionSmall,
     color: colors.mutedText,
-    marginTop: 4,
+    marginTop: spacing.xxs,
     textAlign: 'center',
   },
   fileCard: {
@@ -340,63 +375,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: radii.md,
+    padding: spacing.md,
     backgroundColor: colors.surfaceSoft,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   fileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: colors.border,
+    width: 38,
+    height: 38,
+    borderRadius: radii.sm,
+    backgroundColor: colors.student + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
   fileDetails: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    marginLeft: spacing.md,
+    marginRight: spacing.sm,
   },
   fileName: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.labelSmall,
+    fontWeight: '700',
     color: colors.text,
   },
   fileSize: {
-    fontSize: 11,
+    ...typography.captionSmall,
     color: colors.mutedText,
     marginTop: 2,
   },
   removeBtn: {
-    padding: 8,
+    padding: spacing.xs,
   },
-  removeIcon: {
-    fontSize: 14,
-    color: colors.danger,
-    fontWeight: '700',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.danger + '20',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 12,
+    ...typography.captionSmall,
+    fontWeight: '700',
+    flex: 1,
   },
   actions: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: 12,
+    gap: spacing.md,
   },
   btn: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   cancelBtn: {
     backgroundColor: colors.surfaceSoft,
@@ -404,16 +447,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cancelBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.buttonMedium,
     color: colors.mutedText,
+    fontWeight: '700',
   },
   submitBtn: {
     backgroundColor: colors.student,
   },
   submitBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.buttonMedium,
     color: colors.white,
+    fontWeight: '700',
   },
 });
+
+export default HomeworkSubmissionModal;

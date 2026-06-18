@@ -7,28 +7,53 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { StatusBadge } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { StudentScreenHeader } from '../../components/student/StudentScreenHeader';
 import { colors } from '../../constants/colors';
+import { spacing, radii } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 import { fetchStudentHomework, getStudentHomeworkSubmission } from '../../api/mobileApi';
 import { HomeworkItem, StudentHomeworkSubmission } from '../../types/mobile.types';
 import { HomeworkSubmissionModal } from './components/HomeworkSubmissionModal';
 
-const getStatusColorInfo = (status: string) => {
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const getStatusBadgeType = (status: string): 'success' | 'danger' | 'warning' | 'info' => {
   const s = status?.toLowerCase();
-  if (s === 'submitted' || s === 'reviewed' || s === 'graded') {
-    return { bg: colors.success + '18', border: colors.success, text: colors.success };
-  }
-  if (s === 'late' || s === 'overdue') {
-    return { bg: colors.danger + '18', border: colors.danger, text: colors.danger };
-  }
-  if (s === 'returned') {
-    return { bg: colors.warning + '18', border: colors.warning, text: colors.warning };
-  }
-  return { bg: colors.warning + '18', border: colors.warning, text: colors.warning };
+  if (s === 'submitted' || s === 'reviewed' || s === 'graded') return 'success';
+  if (s === 'late' || s === 'overdue') return 'danger';
+  if (s === 'returned') return 'warning';
+  return 'info';
+};
+
+const getDueDateStyle = (dueDate?: string): { color: string; label: string; urgent: boolean } => {
+  if (!dueDate) return { color: colors.mutedText, label: '', urgent: false };
+  const due = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diff < 0) return { color: colors.danger, label: 'Overdue', urgent: true };
+  if (diff === 0) return { color: colors.warning, label: 'Due Today', urgent: true };
+  if (diff <= 2) return { color: colors.warning, label: `Due in ${diff}d`, urgent: true };
+  return {
+    color: colors.mutedText,
+    label: `Due ${due.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`,
+    urgent: false,
+  };
 };
 
 export const StudentHomeworkScreen: React.FC = () => {
@@ -69,6 +94,7 @@ export const StudentHomeworkScreen: React.FC = () => {
     const isCurrentlyExpanded = expanded === homeworkId;
     const targetHw = data.find((h) => h.id === homeworkId);
 
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (isCurrentlyExpanded) {
       setExpanded(null);
     } else {
@@ -125,6 +151,12 @@ export const StudentHomeworkScreen: React.FC = () => {
 
   return (
     <ScreenContainer>
+      <StudentScreenHeader
+        title="My Homework"
+        subtitle="Track assignments and view grades"
+        badge={pendingCount > 0 ? `${pendingCount} Pending` : undefined}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -135,12 +167,12 @@ export const StudentHomeworkScreen: React.FC = () => {
           />
         }
       >
-        <Text style={styles.pageTitle}>Homework</Text>
-
-        {pendingCount > 0 && !loading && (
+        {/* Urgent/Pending Banner */}
+        {!loading && pendingCount > 0 && (
           <View style={styles.pendingAlert}>
+            <Ionicons name="book" size={18} color={colors.warning} />
             <Text style={styles.pendingAlertText}>
-              📚  {pendingCount} assignment{pendingCount !== 1 ? 's' : ''} pending
+              You have {pendingCount} homework assignment{pendingCount !== 1 ? 's' : ''} to submit.
             </Text>
           </View>
         )}
@@ -148,180 +180,224 @@ export const StudentHomeworkScreen: React.FC = () => {
         {/* Filter Pills */}
         <View style={styles.filterRow}>
           {(['all', 'pending', 'submitted'] as const).map((f) => (
-            <Text
+            <TouchableOpacity
               key={f}
+              style={[
+                styles.filterPill,
+                filter === f && styles.filterPillActive,
+              ]}
               onPress={() => setFilter(f)}
-              style={[styles.filterPill, filter === f && styles.filterPillActive]}
+              activeOpacity={0.75}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  filter === f && styles.filterPillTextActive,
+                ]}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
 
-        {error && !loading && (
-          <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />
+        {loading && (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.student} size="large" />
+            <Text style={styles.loadingText}>Loading assigned homework…</Text>
+          </View>
         )}
 
-        {!loading &&
-          filtered.map((hw) => {
-            const hasSub = hw.hasSubmission;
-            const subStatus = hw.submissionStatus || 'pending';
-            const badge = getStatusColorInfo(subStatus);
-            const isPending = !hasSub;
-            const isDueClose =
-              isPending &&
-              new Date(hw.dueDate) <= new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+        {error && !loading && (
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={error} onRetry={() => load(false)} roleTheme="student" />
+          </View>
+        )}
 
-            return (
-              <AppCard
-                key={hw.id}
-                style={[
-                  styles.hwCard,
-                  isDueClose ? { borderColor: colors.warning + '55', borderWidth: 1 } : undefined,
-                ]}
-                onPress={() => handleExpandCard(hw.id)}
-              >
-                <View style={styles.hwHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.hwTitle}>{hw.title}</Text>
-                    <Text style={styles.hwSub}>{hw.subjectName}</Text>
-                  </View>
-                  <View
+        {!loading && !error && (
+          <View style={styles.listContainer}>
+            {filtered.map((hw) => {
+              const hasSub = hw.hasSubmission;
+              const subStatus = hw.submissionStatus || 'pending';
+              const badgeType = getStatusBadgeType(subStatus);
+              const dueInfo = getDueDateStyle(hw.dueDate);
+
+              return (
+                <TouchableOpacity
+                  key={hw.id}
+                  activeOpacity={0.85}
+                  onPress={() => handleExpandCard(hw.id)}
+                >
+                  <AppCard
                     style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: badge.bg,
-                        borderColor: badge.border,
-                      },
+                      styles.hwCard,
+                      dueInfo.urgent && !hasSub
+                        ? { borderColor: colors.warning + '50', borderWidth: 1 }
+                        : undefined,
+                      expanded === hw.id && styles.hwCardExpanded,
                     ]}
                   >
-                    <Text style={[styles.statusText, { color: badge.text }]}>{subStatus}</Text>
-                  </View>
-                </View>
-                <Text style={styles.dueText}>
-                  Due:{' '}
-                  {new Date(hw.dueDate).toLocaleDateString('en-IN', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                  })}
-                </Text>
-
-                {expanded === hw.id && (
-                  <View style={styles.expandedContainer}>
-                    {hw.description ? (
-                      <View style={styles.detailSection}>
-                        <Text style={styles.sectionLabel}>Description</Text>
-                        <Text style={styles.descText}>{hw.description}</Text>
+                    <View style={styles.hwHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.hwTitle} numberOfLines={expanded === hw.id ? undefined : 2}>
+                          {hw.title}
+                        </Text>
+                        <Text style={styles.hwSub}>{hw.subjectName}</Text>
                       </View>
-                    ) : null}
+                      <View style={styles.rightCol}>
+                        <StatusBadge
+                          label={subStatus.toUpperCase()}
+                          type={badgeType}
+                        />
+                        <Ionicons
+                          name={expanded === hw.id ? 'chevron-up' : 'chevron-down'}
+                          size={16}
+                          color={colors.mutedText}
+                          style={styles.chevron}
+                        />
+                      </View>
+                    </View>
 
-                    {hasSub && (
-                      <View style={styles.detailSection}>
-                        <Text style={styles.sectionLabel}>Submission Details</Text>
-                        {loadingSubmissions[hw.id] ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.student}
-                            style={{ marginVertical: 8 }}
-                          />
-                        ) : submissions[hw.id] ? (
-                          <View style={styles.subDetails}>
-                            <Text style={styles.subDetailText}>
-                              Status:{' '}
-                              <Text style={styles.highlightText}>
-                                {submissions[hw.id].status}
-                              </Text>
-                            </Text>
-                            <Text style={styles.subDetailText}>
-                              Submitted At:{' '}
-                              {new Date(submissions[hw.id].submittedAt!).toLocaleString('en-IN')}
-                            </Text>
-                            {submissions[hw.id].submissionText ? (
-                              <Text style={styles.subDetailText}>
-                                Answer: "{submissions[hw.id].submissionText}"
-                              </Text>
-                            ) : null}
-                            {submissions[hw.id].fileName ? (
-                              <Text style={styles.subDetailText}>
-                                File: 📄 {submissions[hw.id].fileName}
-                              </Text>
-                            ) : null}
-                            {submissions[hw.id].teacherFeedback ? (
-                              <View style={styles.feedbackBox}>
-                                <Text style={styles.feedbackTitle}>Teacher Feedback:</Text>
-                                <Text style={styles.feedbackText}>
-                                  {submissions[hw.id].teacherFeedback}
-                                </Text>
-                              </View>
-                            ) : null}
-                            {submissions[hw.id].marks !== null &&
-                            submissions[hw.id].marks !== undefined ? (
-                              <Text style={styles.marksText}>
-                                Marks:{' '}
-                                <Text style={{ color: colors.student, fontWeight: '800' }}>
-                                  {submissions[hw.id].marks}
-                                </Text>
-                              </Text>
-                            ) : null}
-                            {submissions[hw.id].reviewedAt ? (
-                              <Text style={styles.subDetailText}>
-                                Reviewed At:{' '}
-                                {new Date(submissions[hw.id].reviewedAt!).toLocaleString('en-IN')}
-                              </Text>
-                            ) : null}
+                    <View style={styles.metaRow}>
+                      <View style={[styles.dueBadge, { borderColor: dueInfo.color + '35' }]}>
+                        <Ionicons name="time-outline" size={11} color={dueInfo.color} />
+                        <Text style={[styles.dueText, { color: dueInfo.color }]}>
+                          {dueInfo.label}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {expanded === hw.id && (
+                      <View style={styles.expandedContainer}>
+                        {hw.description ? (
+                          <View style={styles.detailSection}>
+                            <Text style={styles.sectionLabel}>Description</Text>
+                            <Text style={styles.descText}>{hw.description}</Text>
                           </View>
-                        ) : (
-                          <Text style={styles.infoText}>Failed to load submission details.</Text>
+                        ) : null}
+
+                        {hasSub && (
+                          <View style={styles.detailSection}>
+                            <Text style={styles.sectionLabel}>Submission Details</Text>
+                            {loadingSubmissions[hw.id] ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.student}
+                                style={{ marginVertical: spacing.sm }}
+                              />
+                            ) : submissions[hw.id] ? (
+                              <View style={styles.subDetails}>
+                                <Text style={styles.subDetailText}>
+                                  Status:{' '}
+                                  <Text style={styles.highlightText}>
+                                    {submissions[hw.id].status}
+                                  </Text>
+                                </Text>
+                                <Text style={styles.subDetailText}>
+                                  Submitted At:{' '}
+                                  {new Date(submissions[hw.id].submittedAt!).toLocaleString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </Text>
+                                {submissions[hw.id].submissionText ? (
+                                  <Text style={styles.subDetailText}>
+                                    Answer: "{submissions[hw.id].submissionText}"
+                                  </Text>
+                                ) : null}
+                                {submissions[hw.id].fileName ? (
+                                  <Text style={styles.subDetailText}>
+                                    File: 📄 {submissions[hw.id].fileName}
+                                  </Text>
+                                ) : null}
+                                {submissions[hw.id].teacherFeedback ? (
+                                  <View style={styles.feedbackBox}>
+                                    <Text style={styles.feedbackTitle}>Teacher Feedback:</Text>
+                                    <Text style={styles.feedbackText}>
+                                      {submissions[hw.id].teacherFeedback}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                {submissions[hw.id].marks !== null &&
+                                submissions[hw.id].marks !== undefined ? (
+                                  <Text style={styles.marksText}>
+                                    Marks:{' '}
+                                    <Text style={{ color: colors.student, fontWeight: '800' }}>
+                                      {submissions[hw.id].marks}
+                                    </Text>
+                                  </Text>
+                                ) : null}
+                                {submissions[hw.id].reviewedAt ? (
+                                  <Text style={styles.subDetailText}>
+                                    Reviewed At:{' '}
+                                    {new Date(submissions[hw.id].reviewedAt!).toLocaleString('en-IN')}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            ) : (
+                              <Text style={styles.infoText}>Failed to load submission details.</Text>
+                            )}
+                          </View>
                         )}
+
+                        <View style={styles.actionRow}>
+                          {!hasSub && hw.canSubmit && (
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.submitBtn]}
+                              onPress={() => {
+                                setSelectedHomework(hw);
+                                setModalVisible(true);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="cloud-upload-outline" size={14} color={colors.white} />
+                              <Text style={styles.actionBtnText}>Submit Homework</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {hasSub && (
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.viewBtn]}
+                              onPress={() => handleForceFetchSubmission(hw.id)}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="refresh-outline" size={14} color={colors.student} />
+                              <Text style={styles.viewBtnText}>Refresh Submission</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {hw.canResubmit && (
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.resubmitBtn]}
+                              onPress={() => {
+                                setSelectedHomework(hw);
+                                setModalVisible(true);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="repeat-outline" size={14} color={colors.white} />
+                              <Text style={styles.actionBtnText}>Resubmit</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {hasSub && !hw.canResubmit && (
+                            <View style={[styles.actionBtn, styles.disabledBtn]}>
+                              <Ionicons name="lock-closed-outline" size={14} color={colors.mutedText} />
+                              <Text style={styles.disabledBtnText}>Resubmit Locked</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     )}
-
-                    <View style={styles.actionRow}>
-                      {isPending && hw.canSubmit && (
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.submitBtn]}
-                          onPress={() => {
-                            setSelectedHomework(hw);
-                            setModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.actionBtnText}>Submit Homework</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {hasSub && (
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.viewBtn]}
-                          onPress={() => handleForceFetchSubmission(hw.id)}
-                        >
-                          <Text style={styles.viewBtnText}>View Submission</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {hw.canResubmit && (
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.resubmitBtn]}
-                          onPress={() => {
-                            setSelectedHomework(hw);
-                            setModalVisible(true);
-                          }}
-                        >
-                          <Text style={styles.actionBtnText}>Resubmit</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {hasSub && !hw.canResubmit && (
-                        <View style={[styles.actionBtn, styles.disabledBtn]}>
-                          <Text style={styles.disabledBtnText}>Resubmit Locked</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
-              </AppCard>
-            );
-          })}
+                  </AppCard>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {!loading && filtered.length === 0 && !error && (
           <EmptyState
@@ -348,61 +424,144 @@ export const StudentHomeworkScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 12 },
-  pendingAlert: {
-    backgroundColor: colors.warning + '18',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.warning + '44',
-    padding: 12,
-    marginBottom: 12,
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.huge,
   },
-  pendingAlertText: { color: colors.warning, fontSize: 13, fontWeight: '700' },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  filterPill: {
+  loadingText: {
+    ...typography.bodySmall,
     color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
+    marginTop: spacing.sm,
   },
-  filterPillActive: { backgroundColor: colors.student + '22', borderColor: colors.student, color: colors.student },
-  hwCard: { marginBottom: 8 },
-  hwHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  hwTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  hwSub: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  dueText: { color: colors.mutedText, fontSize: 12 },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  pendingAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '12',
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+    gap: spacing.sm,
+  },
+  pendingAlertText: {
+    ...typography.labelSmall,
+    color: colors.warning,
+    fontWeight: '700',
+    flex: 1,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  filterPill: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterPillActive: {
+    backgroundColor: colors.student,
+    borderColor: colors.student,
+  },
+  filterPillText: {
+    ...typography.labelSmall,
+    color: colors.mutedText,
+    fontWeight: '700',
+  },
+  filterPillTextActive: {
+    color: colors.white,
+  },
+  listContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  hwCard: {
+    marginBottom: spacing.sm,
+  },
+  hwCardExpanded: {
+    ...shadows.md,
+  },
+  hwHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  hwTitle: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  hwSub: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: spacing.xxs,
+  },
+  rightCol: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  chevron: {
+    marginTop: spacing.xs,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  dueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    borderWidth: 1,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  dueText: {
+    ...typography.captionSmall,
+    fontWeight: '700',
+  },
   expandedContainer: {
-    marginTop: 12,
+    marginTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 12,
+    paddingTop: spacing.md,
   },
   detailSection: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   sectionLabel: {
-    fontSize: 12,
+    ...typography.captionSmall,
     fontWeight: '800',
     color: colors.mutedText,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
-  descText: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  descText: {
+    ...typography.bodyMedium,
+    color: colors.text,
+    lineHeight: 20,
+  },
   subDetails: {
     backgroundColor: colors.surfaceSoft,
-    borderRadius: 12,
-    padding: 12,
-    gap: 6,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
   subDetailText: {
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.text,
     lineHeight: 18,
   },
@@ -412,52 +571,54 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   feedbackBox: {
-    marginTop: 6,
-    padding: 10,
-    backgroundColor: colors.warning + '12',
+    marginTop: spacing.xs,
+    padding: spacing.md,
+    backgroundColor: colors.warning + '10',
     borderLeftWidth: 3,
     borderLeftColor: colors.warning,
-    borderRadius: 6,
+    borderRadius: radii.sm,
   },
   feedbackTitle: {
-    fontSize: 12,
+    ...typography.captionSmall,
     fontWeight: '700',
     color: colors.warning,
     marginBottom: 2,
   },
   feedbackText: {
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.text,
   },
   marksText: {
-    fontSize: 14,
+    ...typography.label,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 4,
+    marginTop: spacing.xxs,
   },
   infoText: {
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.mutedText,
     fontStyle: 'italic',
   },
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   actionBtn: {
     flex: 1,
     minWidth: 120,
-    height: 36,
-    borderRadius: 8,
+    height: 38,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   actionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.buttonSmall,
     color: colors.white,
+    fontWeight: '700',
   },
   submitBtn: {
     backgroundColor: colors.student,
@@ -468,20 +629,20 @@ const styles = StyleSheet.create({
   viewBtn: {
     backgroundColor: colors.surfaceSoft,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.student + '40',
   },
   viewBtnText: {
-    fontSize: 13,
+    ...typography.buttonSmall,
+    color: colors.student,
     fontWeight: '700',
-    color: colors.primary,
   },
   disabledBtn: {
     backgroundColor: colors.border,
   },
   disabledBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.buttonSmall,
     color: colors.mutedText,
+    fontWeight: '700',
   },
 });
 
