@@ -8,14 +8,26 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { SectionHeader } from '../../components/SectionHeader';
 import { useAuth } from '../../store/AuthContext';
-import { colors } from '../../constants/colors';
+import { colors, gradients } from '../../constants/colors';
+import { spacing, radii } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 import { fetchTeacherDashboard } from '../../api/mobileApi';
+
+// Sub-components
+import { DashboardHero } from '../../components/dashboard/DashboardHero';
+import { MetricCard } from '../../components/dashboard/MetricCard';
+import { QuickActionButton } from '../../components/dashboard/QuickActionButton';
+import { TodayScheduleCard } from '../../components/dashboard/TodayScheduleCard';
+import { NoticePreviewCard } from '../../components/dashboard/NoticePreviewCard';
 
 interface TeacherClass {
   period: string;
@@ -43,6 +55,7 @@ interface TeacherDashboardData {
 
 export const TeacherHomeScreen: React.FC = () => {
   const { user, school, signOut } = useAuth();
+  const navigation = useNavigation<any>();
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,7 +115,9 @@ export const TeacherHomeScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const now = new Date();
   const timeGreeting =
@@ -120,15 +135,15 @@ export const TeacherHomeScreen: React.FC = () => {
           />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>{timeGreeting},</Text>
-            <Text style={styles.name}>{user?.name ?? 'Teacher'}</Text>
-            {school && <Text style={styles.schoolName}>{school.name}</Text>}
-          </View>
-          <StatusBadge label="Teacher" type="teacher" />
-        </View>
+        {/* Curved Hero Banner */}
+        <DashboardHero
+          greeting={timeGreeting}
+          name={user?.name ?? 'Teacher'}
+          subText={school?.name}
+          roleLabel="Teacher"
+          roleType="teacher"
+          gradientColors={gradients.heroTeacher}
+        />
 
         {loading && (
           <View style={styles.centered}>
@@ -138,46 +153,91 @@ export const TeacherHomeScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="teacher" />
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="teacher" />
+          </View>
         )}
 
         {data && !loading && (
-          <>
-            {/* Summary strip */}
-            <View style={styles.summaryStrip}>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.teacher }]}>
-                  {data.todayClasses.length}
-                </Text>
-                <Text style={styles.summaryLabel}>Classes Today</Text>
+          <View style={styles.contentContainer}>
+            {/* Metric Cards Grid */}
+            <View style={styles.metricsRow}>
+              <MetricCard
+                label="Classes Today"
+                value={data.todayClasses.length}
+                color={colors.teacher}
+                iconName="calendar-outline"
+                onPress={() => navigation.navigate('TeacherTimetable')}
+              />
+              <MetricCard
+                label="Pending Attd"
+                value={data.pendingAttendance.length}
+                color={data.pendingAttendance.length > 0 ? colors.warning : colors.success}
+                iconName="checkmark-circle-outline"
+                onPress={() => navigation.navigate('TeacherAttendance')}
+              />
+              <MetricCard
+                label="My Students"
+                value={data.totalStudentsCount}
+                color={colors.info}
+                iconName="people-outline"
+              />
+            </View>
+
+            {/* Quick Actions Grid */}
+            <SectionHeader title="Quick Actions" />
+            <View style={styles.actionGrid}>
+              <View style={styles.actionRow}>
+                <QuickActionButton
+                  title="Take Attendance"
+                  iconName="checkbox-outline"
+                  color={colors.teacher}
+                  onPress={() => navigation.navigate('TeacherAttendance')}
+                />
+                <QuickActionButton
+                  title="Assign Homework"
+                  iconName="book-outline"
+                  color={colors.teacher}
+                  onPress={() => navigation.navigate('TeacherHomework')}
+                />
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: data.pendingAttendance.length > 0 ? colors.warning : colors.success }]}>
-                  {data.pendingAttendance.length}
-                </Text>
-                <Text style={styles.summaryLabel}>Pending Attendance</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: colors.info }]}>
-                  {data.totalStudentsCount}
-                </Text>
-                <Text style={styles.summaryLabel}>My Students</Text>
+              <View style={styles.actionRow}>
+                <QuickActionButton
+                  title="Enter Marks"
+                  iconName="create-outline"
+                  color={colors.teacher}
+                  onPress={() => navigation.navigate('TeacherMarks')}
+                />
+                <QuickActionButton
+                  title="School Notices"
+                  iconName="megaphone-outline"
+                  color={colors.teacher}
+                  onPress={() => navigation.navigate('TeacherNotices')}
+                />
               </View>
             </View>
 
-            {/* Pending Attendance Alert */}
+            {/* Pending Attendance Alerts */}
             {data.pendingAttendance.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>⚠️  Attendance Not Marked</Text>
+              <View style={styles.section}>
+                <SectionHeader title="⚠️  Attendance Not Marked" />
                 {data.pendingAttendance.map((pa) => (
-                  <AppCard key={pa.classId} style={styles.alertCard}>
+                  <AppCard
+                    key={pa.classId}
+                    style={styles.alertCard}
+                    onPress={() => navigation.navigate('TeacherAttendance')}
+                  >
                     <View style={styles.rowBetween}>
                       <View>
-                        <Text style={styles.alertTitle}>{pa.className} – {pa.sectionName}</Text>
+                        <Text style={styles.alertTitle}>
+                          {pa.className} – {pa.sectionName}
+                        </Text>
                         <Text style={styles.alertSub}>
-                          {new Date(pa.date).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                          {new Date(pa.date).toLocaleDateString('en-IN', {
+                            weekday: 'short',
+                            day: '2-digit',
+                            month: 'short',
+                          })}
                         </Text>
                       </View>
                       <View style={styles.markBadge}>
@@ -186,78 +246,55 @@ export const TeacherHomeScreen: React.FC = () => {
                     </View>
                   </AppCard>
                 ))}
-              </>
+              </View>
             )}
 
-            {/* Today's Classes */}
-            <Text style={styles.sectionTitle}>Today's Classes</Text>
-            {data.todayClasses.length === 0 ? (
-              <EmptyState emoji="🎉" title="No Classes Today" subtitle="You have no classes scheduled for today!" />
-            ) : (
-              data.todayClasses.map((cls, i) => (
-                <AppCard key={i} style={styles.classCard}>
-                  <View style={styles.classRow}>
-                    <View style={styles.periodBox}>
-                      <Text style={styles.periodText}>P{cls.period}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.subjectName}>{cls.subjectName}</Text>
-                      <Text style={styles.classMeta}>
-                        {cls.className} – {cls.sectionName}
-                      </Text>
-                    </View>
-                    <Text style={styles.classTime}>
-                      {cls.startTime}{'\n'}{cls.endTime}
-                    </Text>
-                  </View>
-                </AppCard>
-              ))
-            )}
+            {/* Today's Schedule */}
+            <View style={styles.section}>
+              <SectionHeader title="Today's Classes" />
+              {data.todayClasses.length === 0 ? (
+                <EmptyState
+                  emoji="🎉"
+                  title="No Classes Today"
+                  subtitle="You have no classes scheduled for today!"
+                />
+              ) : (
+                data.todayClasses.map((cls, i) => (
+                  <TodayScheduleCard
+                    key={i}
+                    period={`P${cls.period}`}
+                    subjectName={cls.subjectName}
+                    timeRange={`${cls.startTime} - ${cls.endTime}`}
+                    subText={`${cls.className} – ${cls.sectionName}`}
+                    roleColor={colors.teacher}
+                  />
+                ))
+              )}
+            </View>
 
-            {/* Upcoming Exams */}
-            {data.upcomingExams.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Upcoming Exams</Text>
-                {data.upcomingExams.slice(0, 3).map((exam) => (
-                  <AppCard key={exam.id} style={styles.compactCard}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.compactTitle}>{exam.title}</Text>
-                      <Text style={styles.compactDate}>
-                        {new Date(exam.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                      </Text>
-                    </View>
-                    <Text style={styles.compactSub}>{exam.className}</Text>
-                  </AppCard>
-                ))}
-              </>
-            )}
-
-            {/* Recent Notices */}
+            {/* Recent School Notices */}
             {data.recentNotices.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>School Notices</Text>
+              <View style={styles.section}>
+                <SectionHeader title="School Notices" />
                 {data.recentNotices.slice(0, 3).map((notice) => (
-                  <AppCard key={notice.id} style={styles.compactCard}>
-                    <View style={styles.rowBetween}>
-                      <Text style={[styles.compactTitle, { flex: 1, marginRight: 8 }]}>{notice.title}</Text>
-                      <StatusBadge
-                        label={notice.priority}
-                        type={notice.priority === 'urgent' ? 'danger' : 'info'}
-                      />
-                    </View>
-                    <Text style={styles.compactSub}>
-                      {new Date(notice.publishDate).toLocaleDateString('en-IN')}
-                    </Text>
-                  </AppCard>
+                  <NoticePreviewCard
+                    key={notice.id}
+                    title={notice.title}
+                    priority={notice.priority}
+                    publishDate={notice.publishDate}
+                    onPress={() => navigation.navigate('TeacherNotices')}
+                  />
                 ))}
-              </>
+              </View>
             )}
-          </>
+          </View>
         )}
 
-        <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.8}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.paddingWrapper}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.8}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
@@ -265,80 +302,84 @@ export const TeacherHomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  header: {
+  centered: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.mutedText,
+    marginTop: spacing.sm,
+  },
+  contentContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  actionGrid: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  section: {
+    marginBottom: spacing.lg,
+  },
+  alertCard: {
+    marginBottom: spacing.xs,
+    borderColor: colors.warning + '55',
+    borderWidth: 1,
+  },
+  alertTitle: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  alertSub: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: 2,
+  },
+  rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: 16,
-    marginBottom: 20,
+    alignItems: 'center',
   },
-  greeting: { color: colors.mutedText, fontSize: 15 },
-  name: { color: colors.text, fontSize: 26, fontWeight: '800' },
-  schoolName: { color: colors.teacher, fontSize: 13, marginTop: 3, fontWeight: '600' },
-  centered: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
-  errorCard: { marginVertical: 16 },
-  errorText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
-  summaryStrip: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 8,
-  },
-  summaryItem: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontSize: 24, fontWeight: '800' },
-  summaryLabel: { color: colors.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 },
-  summaryDivider: { width: 1, backgroundColor: colors.border, marginHorizontal: 8 },
-  sectionTitle: {
-    color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  alertCard: { marginBottom: 8, borderColor: colors.warning + '55', borderWidth: 1 },
-  alertTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  alertSub: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
   markBadge: {
-    backgroundColor: colors.warning + '22',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: colors.warning + '15',
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderWidth: 1,
     borderColor: colors.warning,
   },
-  markBadgeText: { color: colors.warning, fontSize: 12, fontWeight: '700' },
-  classCard: { marginBottom: 8 },
-  classRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  periodBox: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: colors.teacher + '22',
-    justifyContent: 'center', alignItems: 'center',
+  markBadgeText: {
+    color: colors.warning,
+    ...typography.labelSmall,
+    fontWeight: '700',
   },
-  periodText: { color: colors.teacher, fontSize: 13, fontWeight: '800' },
-  subjectName: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  classMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  classTime: { color: colors.mutedText, fontSize: 11, textAlign: 'right' },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  compactCard: { marginBottom: 8 },
-  compactTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  compactDate: { color: colors.mutedText, fontSize: 12 },
-  compactSub: { color: colors.mutedText, fontSize: 12, marginTop: 4 },
-  emptyText: { color: colors.mutedText, fontSize: 14 },
   signOutBtn: {
-    marginTop: 24,
+    marginTop: spacing.xl,
     borderWidth: 1,
     borderColor: colors.danger + '66',
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: colors.surface,
   },
-  signOutText: { color: colors.danger, fontSize: 15, fontWeight: '700' },
+  signOutText: {
+    color: colors.danger,
+    ...typography.buttonMedium,
+  },
 });
 
 export default TeacherHomeScreen;

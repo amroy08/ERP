@@ -8,14 +8,26 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { SectionHeader } from '../../components/SectionHeader';
 import { useAuth } from '../../store/AuthContext';
-import { colors } from '../../constants/colors';
+import { colors, gradients } from '../../constants/colors';
+import { spacing, radii } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 import { fetchParentDashboard } from '../../api/mobileApi';
+
+// Sub-components
+import { DashboardHero } from '../../components/dashboard/DashboardHero';
+import { MetricCard } from '../../components/dashboard/MetricCard';
+import { ChildContextHeader } from '../../components/dashboard/ChildContextHeader';
+import { NoticePreviewCard } from '../../components/dashboard/NoticePreviewCard';
 
 interface ChildSummary {
   id: string;
@@ -29,27 +41,19 @@ interface ChildSummary {
   pendingHomeworkCount: number;
   upcomingExamsCount: number;
   latestResultSummary?: string | null;
-}
-
-interface ParentDashboardData {
-  children: ChildSummary[];
   recentNotices: { id: string; title: string; priority: string; publishDate: string }[];
   upcomingExams: { id: string; title: string; date: string; className: string }[];
 }
 
-const AttendanceBadge: React.FC<{ percent: number }> = ({ percent }) => {
-  const color =
-    percent >= 85 ? colors.success : percent >= 70 ? colors.warning : colors.danger;
-  return (
-    <View style={[styles.attendancePill, { backgroundColor: color + '22', borderColor: color }]}>
-      <Text style={[styles.attendancePillText, { color }]}>{percent.toFixed(0)}% attendance</Text>
-    </View>
-  );
-};
+interface ParentDashboardData {
+  children: ChildSummary[];
+}
 
 export const ParentHomeScreen: React.FC = () => {
   const { user, school, signOut } = useAuth();
+  const navigation = useNavigation<any>();
   const [data, setData] = useState<ParentDashboardData | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -61,23 +65,6 @@ export const ParentHomeScreen: React.FC = () => {
     try {
       const res = await fetchParentDashboard();
       const rawData = res.data ?? res;
-
-      const recentNotices = rawData.children?.[0]?.latestNotices || [];
-      const upcomingExams: any[] = [];
-      if (rawData.children) {
-        for (const child of rawData.children) {
-          if (child.upcomingExams) {
-            for (const exam of child.upcomingExams) {
-              upcomingExams.push({
-                id: exam.id,
-                title: exam.name,
-                date: exam.startDate,
-                className: child.className,
-              });
-            }
-          }
-        }
-      }
 
       const children = (rawData.children || []).map((child: any) => ({
         id: child.id,
@@ -91,13 +78,16 @@ export const ParentHomeScreen: React.FC = () => {
         pendingHomeworkCount: child.pendingHomeworkCount ?? 0,
         upcomingExamsCount: child.upcomingExamsCount ?? 0,
         latestResultSummary: child.latestResultSummary ?? null,
+        recentNotices: child.latestNotices || [],
+        upcomingExams: (child.upcomingExams || []).map((exam: any) => ({
+          id: exam.id,
+          title: exam.name,
+          date: exam.startDate,
+          className: child.className,
+        })),
       }));
 
-      setData({
-        children,
-        recentNotices,
-        upcomingExams,
-      });
+      setData({ children });
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Failed to load dashboard. Pull to retry.');
     } finally {
@@ -106,25 +96,54 @@ export const ParentHomeScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  // Set initial selected child once data loads
+  useEffect(() => {
+    if (data && data.children.length > 0 && !selectedChildId) {
+      setSelectedChildId(data.children[0].id);
+    }
+  }, [data, selectedChildId]);
+
+  const selectedChild = data?.children.find((c) => c.id === selectedChildId) || data?.children[0];
 
   return (
     <ScreenContainer>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} tintColor={colors.parent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadDashboard(true)}
+            tintColor={colors.parent}
+          />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good day,</Text>
-            <Text style={styles.name}>{user?.name ?? 'Parent'}</Text>
-            {school && <Text style={styles.schoolName}>{school.name}</Text>}
-          </View>
-          <StatusBadge label="Parent" type="parent" />
-        </View>
+        {/* Curved Hero Banner */}
+        <DashboardHero
+          greeting="Good day,"
+          name={user?.name ?? 'Parent'}
+          subText={school?.name}
+          roleLabel="Parent"
+          roleType="parent"
+          gradientColors={gradients.heroParent}
+        />
+
+        {/* Child Context Switcher */}
+        {data && data.children.length > 1 && selectedChildId && (
+          <ChildContextHeader
+            childrenList={data.children.map((c) => ({
+              id: c.id,
+              name: c.name,
+              className: c.className,
+              sectionName: c.sectionName,
+            }))}
+            selectedChildId={selectedChildId}
+            onChildSelect={(id) => setSelectedChildId(id)}
+          />
+        )}
 
         {loading && (
           <View style={styles.centered}>
@@ -134,86 +153,147 @@ export const ParentHomeScreen: React.FC = () => {
         )}
 
         {error && !loading && (
-          <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="parent" />
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={error} onRetry={() => loadDashboard(false)} roleTheme="parent" />
+          </View>
         )}
 
-        {data && !loading && (
-          <>
-            {/* Children */}
-            <Text style={styles.sectionTitle}>My Children</Text>
-            {data.children.length === 0 && (
-              <EmptyState emoji="👶" title="No children linked" subtitle="There are no active children associated with this parent account." />
-            )}
-            {data.children.map((child) => (
-              <AppCard key={child.id} style={styles.childCard}>
-                <View style={styles.childRow}>
-                  <View style={styles.childAvatar}>
-                    <Text style={styles.childAvatarText}>{child.name.charAt(0)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.childName}>{child.name}</Text>
-                    <Text style={styles.childMeta}>
-                      {child.className} – {child.sectionName} · {child.admissionNumber}
-                    </Text>
-                    <AttendanceBadge percent={child.attendancePercent} />
-                    
-                    {/* Academic Indicators */}
-                    <View style={styles.academicIndicatorsRow}>
-                      <Text style={styles.indicatorItem}>📅  {child.todayPeriodsCount} periods today</Text>
-                      <Text style={styles.indicatorItem}>📚  {child.pendingHomeworkCount} pending</Text>
-                    </View>
-                    {child.latestResultSummary && (
-                      <Text style={styles.resultSummaryText}>📊  {child.latestResultSummary}</Text>
-                    )}
-                  </View>
-                  {child.feeDue > 0 && (
-                    <View style={styles.feeDueBadge}>
-                      <Text style={styles.feeDueAmount}>₹{child.feeDue.toLocaleString('en-IN')}</Text>
-                      <Text style={styles.feeDueLabel}>Due</Text>
-                    </View>
-                  )}
+        {data && !loading && selectedChild && (
+          <View style={styles.contentContainer}>
+            {/* Selected Child Info Summary Card */}
+            <AppCard style={styles.childSummaryCard}>
+              <View style={styles.childSummaryRow}>
+                <View style={styles.childAvatar}>
+                  <Text style={styles.childAvatarText}>{selectedChild.name.charAt(0)}</Text>
                 </View>
-              </AppCard>
-            ))}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.childName}>{selectedChild.name}</Text>
+                  <Text style={styles.childMeta}>
+                    Class {selectedChild.className}–{selectedChild.sectionName}  ·  Admn No: {selectedChild.admissionNumber}
+                  </Text>
+                </View>
+              </View>
+            </AppCard>
+
+            {/* Metrics Grid */}
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricsRow}>
+                <MetricCard
+                  label="Attendance"
+                  value={`${selectedChild.attendancePercent.toFixed(0)}%`}
+                  color={selectedChild.attendancePercent >= 85 ? colors.success : colors.warning}
+                  iconName="calendar-outline"
+                  onPress={() => navigation.navigate('ParentAttendance')}
+                />
+                <MetricCard
+                  label="Fees Due"
+                  value={selectedChild.feeDue > 0 ? `₹${selectedChild.feeDue.toLocaleString('en-IN')}` : 'Paid'}
+                  color={selectedChild.feeDue > 0 ? colors.danger : colors.success}
+                  iconName="wallet-outline"
+                  onPress={() => navigation.navigate('ParentFees')}
+                />
+              </View>
+              <View style={styles.metricsRow}>
+                <MetricCard
+                  label="Homework"
+                  value={`${selectedChild.pendingHomeworkCount} Pending`}
+                  color={selectedChild.pendingHomeworkCount > 0 ? colors.warning : colors.success}
+                  iconName="book-outline"
+                  onPress={() => navigation.navigate('ParentAcademics')}
+                />
+                <MetricCard
+                  label="Today Periods"
+                  value={`${selectedChild.todayPeriodsCount}`}
+                  color={colors.parent}
+                  iconName="time-outline"
+                  onPress={() => navigation.navigate('ParentAcademics')}
+                />
+              </View>
+            </View>
+
+            {/* Latest Result / Academics summary */}
+            {selectedChild.latestResultSummary && (
+              <View style={styles.section}>
+                <SectionHeader title="Latest Exam Result" />
+                <AppCard
+                  style={styles.resultCard}
+                  onPress={() => navigation.navigate('ParentAcademics')}
+                >
+                  <View style={styles.rowBetween}>
+                    <View style={{ flex: 1, marginRight: spacing.sm }}>
+                      <Text style={styles.resultTitle}>Recent Performance Summary</Text>
+                      <Text style={styles.resultSummaryText}>
+                        {selectedChild.latestResultSummary}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
+                  </View>
+                </AppCard>
+              </View>
+            )}
 
             {/* Upcoming Exams */}
-            {data.upcomingExams.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Upcoming Exams</Text>
-                {data.upcomingExams.slice(0, 3).map((exam) => (
-                  <AppCard key={exam.id} style={styles.compactCard}>
+            {selectedChild.upcomingExams.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader title="Upcoming Exams" />
+                {selectedChild.upcomingExams.slice(0, 3).map((exam) => (
+                  <AppCard
+                    key={exam.id}
+                    style={styles.examCard}
+                    onPress={() => navigation.navigate('ParentAcademics')}
+                  >
                     <View style={styles.rowBetween}>
-                      <Text style={styles.compactTitle}>{exam.title}</Text>
-                      <Text style={styles.compactMeta}>{new Date(exam.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.examTitle}>{exam.title}</Text>
+                        <Text style={styles.examSub}>Class {exam.className}</Text>
+                      </View>
+                      <View style={styles.examDateBox}>
+                        <Text style={styles.examDateText}>
+                          {new Date(exam.date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.compactSub}>{exam.className}</Text>
                   </AppCard>
                 ))}
-              </>
+              </View>
             )}
 
-            {/* Recent Notices */}
-            {data.recentNotices.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Recent Notices</Text>
-                {data.recentNotices.slice(0, 3).map((notice) => (
-                  <AppCard key={notice.id} style={styles.compactCard}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.compactTitle}>{notice.title}</Text>
-                      <StatusBadge label={notice.priority} type={notice.priority === 'urgent' ? 'danger' : 'info'} />
-                    </View>
-                    <Text style={styles.compactSub}>{new Date(notice.publishDate).toLocaleDateString('en-IN')}</Text>
-                  </AppCard>
+            {/* School Notices */}
+            {selectedChild.recentNotices.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader title="School Notices" />
+                {selectedChild.recentNotices.slice(0, 3).map((notice) => (
+                  <NoticePreviewCard
+                    key={notice.id}
+                    title={notice.title}
+                    priority={notice.priority}
+                    publishDate={notice.publishDate}
+                    onPress={() => navigation.navigate('ParentNotices')}
+                  />
                 ))}
-              </>
+              </View>
             )}
-          </>
+          </View>
         )}
 
-        {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.8}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        {data && data.children.length === 0 && !loading && (
+          <View style={styles.paddingWrapper}>
+            <EmptyState
+              emoji="👶"
+              title="No children linked"
+              subtitle="There are no active children associated with this parent account."
+            />
+          </View>
+        )}
+
+        <View style={styles.paddingWrapper}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.8}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
@@ -221,47 +301,125 @@ export const ParentHomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  header: {
+  centered: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.mutedText,
+    marginTop: spacing.sm,
+  },
+  contentContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
+  },
+  childSummaryCard: {
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+  },
+  childSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  childAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.parentSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  childAvatarText: {
+    color: colors.parent,
+    ...typography.headingMedium,
+    fontWeight: '800',
+  },
+  childName: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  childMeta: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: 2,
+  },
+  metricsGrid: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  section: {
+    marginBottom: spacing.lg,
+  },
+  resultCard: {
+    marginBottom: spacing.xs,
+  },
+  resultTitle: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  resultSummaryText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  examCard: {
+    marginBottom: spacing.xs,
+  },
+  examTitle: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  examSub: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: 2,
+  },
+  examDateBox: {
+    backgroundColor: colors.parentSoft,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.parent + '20',
+  },
+  examDateText: {
+    color: colors.parent,
+    ...typography.captionSmall,
+    fontWeight: '700',
+  },
+  rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: 16,
-    marginBottom: 24,
+    alignItems: 'center',
   },
-  greeting: { color: colors.mutedText, fontSize: 15 },
-  name: { color: colors.text, fontSize: 26, fontWeight: '800' },
-  schoolName: { color: colors.parent, fontSize: 13, marginTop: 3, fontWeight: '600' },
-  sectionTitle: { color: colors.mutedText, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 10 },
-  centered: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
-  errorCard: { marginVertical: 16 },
-  errorText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
-  childCard: { marginBottom: 12 },
-  childRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  childAvatar: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: colors.parent + '33',
-    justifyContent: 'center', alignItems: 'center',
+  signOutBtn: {
+    marginTop: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.danger + '66',
+    borderRadius: radii.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
   },
-  childAvatarText: { color: colors.parent, fontSize: 20, fontWeight: '800' },
-  childName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  childMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  attendancePill: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 6 },
-  attendancePillText: { fontSize: 11, fontWeight: '700' },
-  academicIndicatorsRow: { flexDirection: 'row', gap: 10, marginTop: 8, flexWrap: 'wrap' },
-  indicatorItem: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  resultSummaryText: { color: colors.parent, fontSize: 11, fontWeight: '700', marginTop: 4 },
-  feeDueBadge: { alignItems: 'center', backgroundColor: colors.danger + '22', borderRadius: 10, padding: 8, borderWidth: 1, borderColor: colors.danger },
-  feeDueAmount: { color: colors.danger, fontSize: 14, fontWeight: '800' },
-  feeDueLabel: { color: colors.danger, fontSize: 10 },
-  compactCard: { marginBottom: 8 },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  compactTitle: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 },
-  compactMeta: { color: colors.mutedText, fontSize: 12 },
-  compactSub: { color: colors.mutedText, fontSize: 12, marginTop: 4 },
-  emptyText: { color: colors.mutedText, fontSize: 14 },
-  signOutBtn: { marginTop: 24, borderWidth: 1, borderColor: colors.danger + '66', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  signOutText: { color: colors.danger, fontSize: 15, fontWeight: '700' },
+  signOutText: {
+    color: colors.danger,
+    ...typography.buttonMedium,
+  },
 });
 
 export default ParentHomeScreen;
