@@ -3,11 +3,18 @@ import {
   StyleSheet, Text, View, ScrollView, RefreshControl,
   ActivityIndicator, TouchableOpacity, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
+import { AppButton } from '../../components/AppButton';
+import { StatusBadge } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { TeacherScreenHeader } from '../../components/teacher/TeacherScreenHeader';
 import { colors } from '../../constants/colors';
+import { spacing, radii, sizing } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 import apiClient from '../../api/apiClient';
 
 interface ClassSection {
@@ -24,6 +31,14 @@ interface StudentAttendance {
   admissionNumber: string;
   status: 'present' | 'absent' | 'late';
 }
+
+type AttendanceStatus = 'present' | 'absent' | 'late';
+
+const STATUS_CONFIG: Record<AttendanceStatus, { color: string; icon: any; label: string }> = {
+  present: { color: colors.success, icon: 'checkmark-circle', label: 'Present' },
+  absent: { color: colors.danger, icon: 'close-circle', label: 'Absent' },
+  late: { color: colors.warning, icon: 'time', label: 'Late' },
+};
 
 export const TeacherAttendanceScreen: React.FC = () => {
   const [classes, setClasses] = useState<ClassSection[]>([]);
@@ -76,11 +91,23 @@ export const TeacherAttendanceScreen: React.FC = () => {
     setStudents((prev) =>
       prev.map((s) => {
         if (s.studentId !== studentId) return s;
-        const next: StudentAttendance['status'] =
+        const next: AttendanceStatus =
           s.status === 'present' ? 'absent' : s.status === 'absent' ? 'late' : 'present';
         return { ...s, status: next };
       })
     );
+  };
+
+  const setStudentStatus = (studentId: string, status: AttendanceStatus) => {
+    setStudents((prev) => prev.map((s) => s.studentId === studentId ? { ...s, status } : s));
+  };
+
+  const markAllPresent = () => {
+    setStudents((prev) => prev.map((s) => ({ ...s, status: 'present' })));
+  };
+
+  const resetAll = () => {
+    setStudents((prev) => prev.map((s) => ({ ...s, status: 'present' })));
   };
 
   const submitAttendance = async () => {
@@ -104,120 +131,179 @@ export const TeacherAttendanceScreen: React.FC = () => {
     }
   };
 
-  const statusColor = (s: string) => {
-    if (s === 'present') return colors.success;
-    if (s === 'absent') return colors.danger;
-    return colors.warning;
-  };
-  const statusEmoji = (s: string) => s === 'present' ? '✅' : s === 'absent' ? '❌' : '⚠️';
+  // Summary counts
+  const presentCount = students.filter((s) => s.status === 'present').length;
+  const absentCount = students.filter((s) => s.status === 'absent').length;
+  const lateCount = students.filter((s) => s.status === 'late').length;
 
-  // ── Student marking view ──────────────────────────────────
+  // ── Student Marking View ────────────────────────────────────
   if (selectedClass) {
     return (
       <ScreenContainer>
-        <View style={styles.markingHeader}>
-          <TouchableOpacity onPress={() => setSelectedClass(null)}>
-            <Text style={styles.backBtn}>← Back</Text>
+        <TeacherScreenHeader
+          title={`${selectedClass.className} – ${selectedClass.sectionName}`}
+          subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' })}
+          onBack={() => setSelectedClass(null)}
+          backLabel="All Classes"
+          badge={`${students.length} Students`}
+        />
+
+        {/* Quick action row */}
+        <View style={styles.quickActionRow}>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={markAllPresent} activeOpacity={0.75}>
+            <Ionicons name="checkmark-done-outline" size={15} color={colors.success} />
+            <Text style={[styles.quickActionText, { color: colors.success }]}>Mark All Present</Text>
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.markingTitle}>{selectedClass.className} – {selectedClass.sectionName}</Text>
-            <Text style={styles.markingDate}>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' })}</Text>
-          </View>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={resetAll} activeOpacity={0.75}>
+            <Ionicons name="refresh-outline" size={15} color={colors.mutedText} />
+            <Text style={[styles.quickActionText, { color: colors.mutedText }]}>Reset</Text>
+          </TouchableOpacity>
         </View>
 
         {studentsLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.teacher} size="large" />
-            <Text style={styles.loadingText}>Loading students list…</Text>
+            <Text style={styles.loadingText}>Loading student list…</Text>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.tapHint}>Tap a student to toggle Present → Absent → Late</Text>
-            {students.map((s) => (
-              <TouchableOpacity key={s.studentId} onPress={() => toggleStatus(s.studentId)} activeOpacity={0.75}>
-                <AppCard style={[styles.studentCard, { borderColor: statusColor(s.status) + '55', borderWidth: 1 }]}>
-                  <View style={styles.studentRow}>
-                    <View style={[styles.statusCircle, { backgroundColor: statusColor(s.status) + '22', borderColor: statusColor(s.status) }]}>
-                      <Text style={{ fontSize: 16 }}>{statusEmoji(s.status)}</Text>
+          <>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.studentListContent}>
+              {students.map((s) => {
+                const cfg = STATUS_CONFIG[s.status];
+                return (
+                  <AppCard key={s.studentId} style={[styles.studentCard, { borderLeftColor: cfg.color, borderLeftWidth: 3 }]}>
+                    <View style={styles.studentRow}>
+                      {/* Name + adm */}
+                      <View style={styles.studentInfo}>
+                        <Text style={styles.studentName}>{s.studentName}</Text>
+                        <Text style={styles.studentAdm}>{s.admissionNumber}</Text>
+                      </View>
+                      {/* Status segmented toggle */}
+                      <View style={styles.segmentedControl}>
+                        {(['present', 'absent', 'late'] as AttendanceStatus[]).map((st) => {
+                          const c = STATUS_CONFIG[st];
+                          const isActive = s.status === st;
+                          return (
+                            <TouchableOpacity
+                              key={st}
+                              style={[
+                                styles.segment,
+                                isActive
+                                  ? { backgroundColor: c.color, borderColor: c.color }
+                                  : { backgroundColor: colors.surface, borderColor: colors.border },
+                              ]}
+                              onPress={() => setStudentStatus(s.studentId, st)}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons
+                                name={c.icon}
+                                size={14}
+                                color={isActive ? colors.white : colors.mutedText}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.studentName}>{s.studentName}</Text>
-                      <Text style={styles.studentAdm}>{s.admissionNumber}</Text>
-                    </View>
-                    <Text style={[styles.statusLabel, { color: statusColor(s.status) }]}>
-                      {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                    </Text>
-                  </View>
-                </AppCard>
-              </TouchableOpacity>
-            ))}
+                  </AppCard>
+                );
+              })}
+              <View style={{ height: 160 }} />
+            </ScrollView>
 
-            {/* Summary */}
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryChip, { color: colors.success, borderColor: colors.success + '66' }]}>
-                ✅ {students.filter((s) => s.status === 'present').length} Present
-              </Text>
-              <Text style={[styles.summaryChip, { color: colors.danger, borderColor: colors.danger + '66' }]}>
-                ❌ {students.filter((s) => s.status === 'absent').length} Absent
-              </Text>
-              <Text style={[styles.summaryChip, { color: colors.warning, borderColor: colors.warning + '66' }]}>
-                ⚠️ {students.filter((s) => s.status === 'late').length} Late
-              </Text>
+            {/* Summary + submit sticky footer */}
+            <View style={styles.stickyFooter}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryChip}>
+                  <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+                  <Text style={[styles.summaryCount, { color: colors.success }]}>{presentCount}</Text>
+                  <Text style={styles.summaryLabel}>Present</Text>
+                </View>
+                <View style={styles.summaryChip}>
+                  <Ionicons name="close-circle" size={13} color={colors.danger} />
+                  <Text style={[styles.summaryCount, { color: colors.danger }]}>{absentCount}</Text>
+                  <Text style={styles.summaryLabel}>Absent</Text>
+                </View>
+                <View style={styles.summaryChip}>
+                  <Ionicons name="time" size={13} color={colors.warning} />
+                  <Text style={[styles.summaryCount, { color: colors.warning }]}>{lateCount}</Text>
+                  <Text style={styles.summaryLabel}>Late</Text>
+                </View>
+                <View style={[styles.summaryChip, styles.totalChip]}>
+                  <Text style={styles.totalCount}>{students.length}</Text>
+                  <Text style={styles.summaryLabel}>Total</Text>
+                </View>
+              </View>
+              <AppButton
+                title={saving ? 'Submitting…' : 'Submit Attendance'}
+                onPress={submitAttendance}
+                loading={saving}
+                gradient
+                variant="teacher"
+                icon={!saving ? <Ionicons name="checkmark-done-outline" size={18} color={colors.white} /> : undefined}
+              />
             </View>
-
-            <TouchableOpacity
-              style={[styles.submitBtn, saving ? { opacity: 0.6 } : undefined]}
-              onPress={submitAttendance}
-              disabled={saving}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.submitBtnText}>{saving ? 'Submitting…' : 'Submit Attendance'}</Text>
-            </TouchableOpacity>
-            <View style={{ height: 40 }} />
-          </ScrollView>
+          </>
         )}
       </ScreenContainer>
     );
   }
 
-  // ── Class list view ───────────────────────────────────────
+  // ── Class List View ────────────────────────────────────────
   return (
     <ScreenContainer>
+      <TeacherScreenHeader
+        title="Mark Attendance"
+        subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+        badge={classes.length > 0 ? `${classes.length} Class${classes.length > 1 ? 'es' : ''}` : undefined}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadClasses(true)} tintColor={colors.teacher} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadClasses(true)} tintColor={colors.teacher} />
+        }
+        contentContainerStyle={styles.listContent}
       >
-        <Text style={styles.pageTitle}>Mark Attendance</Text>
-        <Text style={styles.pageDate}>
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-        </Text>
-
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.teacher} size="large" />
             <Text style={styles.loadingText}>Loading assigned classes…</Text>
           </View>
         )}
-        {error && !loading && <ErrorState error={error} onRetry={() => loadClasses(false)} roleTheme="teacher" />}
+        {error && !loading && (
+          <ErrorState error={error} onRetry={() => loadClasses(false)} roleTheme="teacher" />
+        )}
 
-        {!loading && classes.map((cls) => (
+        {!loading && !error && classes.map((cls) => (
           <AppCard
             key={cls.classId}
-            style={[styles.classCard, cls.attendanceMarked ? { borderColor: colors.success + '44', borderWidth: 1 } : undefined]}
+            style={[
+              styles.classCard,
+              cls.attendanceMarked
+                ? { borderColor: colors.success + '50', borderWidth: 1 }
+                : { borderColor: colors.teacher + '30', borderWidth: 1 },
+            ]}
             onPress={() => openClass(cls)}
           >
             <View style={styles.classRow}>
-              <View style={{ flex: 1 }}>
+              <View style={styles.classIconBox}>
+                <Ionicons
+                  name={cls.attendanceMarked ? 'checkmark-circle' : 'people-outline'}
+                  size={22}
+                  color={cls.attendanceMarked ? colors.success : colors.teacher}
+                />
+              </View>
+              <View style={styles.classInfo}>
                 <Text style={styles.className}>{cls.className} – {cls.sectionName}</Text>
                 <Text style={styles.classMeta}>{cls.studentCount} students</Text>
               </View>
               {cls.attendanceMarked ? (
-                <View style={styles.doneBadge}>
-                  <Text style={styles.doneBadgeText}>✅ Done</Text>
-                </View>
+                <StatusBadge label="Done" type="success" />
               ) : (
-                <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingBadgeText}>Mark →</Text>
+                <View style={styles.markNowBadge}>
+                  <Text style={styles.markNowText}>Mark Now</Text>
+                  <Ionicons name="chevron-forward" size={13} color={colors.teacher} />
                 </View>
               )}
             </View>
@@ -225,7 +311,11 @@ export const TeacherAttendanceScreen: React.FC = () => {
         ))}
 
         {!loading && classes.length === 0 && !error && (
-          <EmptyState emoji="🏫" title="No Assigned Classes" subtitle="You have no assigned classes or sections to mark attendance for today." />
+          <EmptyState
+            emoji="🏫"
+            title="No Assigned Classes"
+            subtitle="You have no assigned classes or sections to mark attendance for today."
+          />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -234,37 +324,171 @@ export const TeacherAttendanceScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 4 },
-  pageDate: { color: colors.mutedText, fontSize: 13, marginBottom: 16 },
-  classCard: { marginBottom: 10 },
-  classRow: { flexDirection: 'row', alignItems: 'center' },
-  className: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  classMeta: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  doneBadge: { backgroundColor: colors.success + '22', borderRadius: 8, borderWidth: 1, borderColor: colors.success, paddingHorizontal: 10, paddingVertical: 5 },
-  doneBadgeText: { color: colors.success, fontSize: 12, fontWeight: '700' },
-  pendingBadge: { backgroundColor: colors.teacher + '22', borderRadius: 8, borderWidth: 1, borderColor: colors.teacher, paddingHorizontal: 10, paddingVertical: 5 },
-  pendingBadgeText: { color: colors.teacher, fontSize: 12, fontWeight: '700' },
+  listContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.huge,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.mutedText,
+    marginTop: spacing.sm,
+  },
+  classCard: {
+    marginBottom: spacing.sm,
+  },
+  classRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  classIconBox: {
+    width: sizing.iconBoxSmall,
+    height: sizing.iconBoxSmall,
+    borderRadius: radii.md,
+    backgroundColor: colors.teacher + '12',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  classInfo: {
+    flex: 1,
+  },
+  className: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  classMeta: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: spacing.xxs,
+  },
+  markNowBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.teacher + '12',
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.teacher + '30',
+  },
+  markNowText: {
+    ...typography.captionSmall,
+    color: colors.teacher,
+    fontWeight: '700',
+  },
   // Marking view
-  markingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 16, marginBottom: 16 },
-  backBtn: { color: colors.teacher, fontSize: 15, fontWeight: '700', paddingRight: 4 },
-  markingTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  markingDate: { color: colors.mutedText, fontSize: 12, marginTop: 2 },
-  tapHint: { color: colors.mutedText, fontSize: 12, marginBottom: 12, fontStyle: 'italic' },
-  studentCard: { marginBottom: 6 },
-  studentRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  statusCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  studentName: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  studentAdm: { color: colors.mutedText, fontSize: 11, marginTop: 1 },
-  statusLabel: { fontSize: 12, fontWeight: '700' },
-  summaryRow: { flexDirection: 'row', gap: 8, marginVertical: 16 },
-  summaryChip: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 10, paddingVertical: 8, overflow: 'hidden' },
-  submitBtn: { backgroundColor: colors.teacher, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
-  submitBtnText: { color: colors.white, fontSize: 16, fontWeight: '800' },
-  errorCard: { marginVertical: 16 },
-  errorText: { color: colors.danger, fontSize: 14 },
-  emptyText: { color: colors.mutedText, fontSize: 14 },
-  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  loadingText: { color: colors.mutedText, marginTop: 12, fontSize: 14 },
+  quickActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  quickActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActionText: {
+    ...typography.captionSmall,
+    fontWeight: '700',
+  },
+  studentListContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  studentCard: {
+    marginBottom: spacing.sm,
+    paddingLeft: spacing.md,
+  },
+  studentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 52,
+  },
+  studentInfo: {
+    flex: 1,
+  },
+  studentName: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  studentAdm: {
+    ...typography.captionSmall,
+    color: colors.mutedText,
+    marginTop: spacing.xxs,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: radii.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segment: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0,
+  },
+  stickyFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    ...shadows.md,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  summaryChip: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  totalChip: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  summaryCount: {
+    ...typography.headingMedium,
+    fontWeight: '800',
+  },
+  totalCount: {
+    ...typography.headingMedium,
+    color: colors.text,
+    fontWeight: '800',
+  },
+  summaryLabel: {
+    ...typography.captionSmall,
+    color: colors.mutedText,
+    fontWeight: '600',
+  },
 });
 
 export default TeacherAttendanceScreen;

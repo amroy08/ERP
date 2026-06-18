@@ -1,25 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
+  StyleSheet, Text, View, FlatList, ActivityIndicator,
+  RefreshControl, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppCard } from '../../components/AppCard';
 import { AppButton } from '../../components/AppButton';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { StatusBadge } from '../../components/StatusBadge';
+import { TeacherScreenHeader } from '../../components/teacher/TeacherScreenHeader';
+import { MarksExamCard } from '../../components/teacher/MarksExamCard';
+import { MarksSubjectCard } from '../../components/teacher/MarksSubjectCard';
 import { colors } from '../../constants/colors';
+import { spacing, radii, sizing } from '../../constants/layout';
+import { typography } from '../../constants/typography';
+import { shadows } from '../../constants/shadows';
 import {
   getTeacherMarksExams,
   getTeacherMarksExamSubjects,
@@ -40,7 +36,7 @@ export const TeacherMarksScreen: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<TeacherMarksSubject | null>(null);
   const [students, setStudents] = useState<TeacherMarksStudent[]>([]);
 
-  // Loading and refreshing states
+  // Loading states
   const [examsLoading, setExamsLoading] = useState(true);
   const [examsRefreshing, setExamsRefreshing] = useState(false);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
@@ -58,7 +54,7 @@ export const TeacherMarksScreen: React.FC = () => {
     Record<string, { marksObtained: string; remarks: string; error?: string }>
   >({});
 
-  // ── 1. Fetch Exams ─────────────────────────────────────────────────────────
+  // ── 1. Fetch Exams ─────────────────────────────────────────────
   const loadExams = useCallback(async (isRefresh = false) => {
     if (isRefresh) setExamsRefreshing(true);
     else setExamsLoading(true);
@@ -74,11 +70,9 @@ export const TeacherMarksScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadExams();
-  }, [loadExams]);
+  useEffect(() => { loadExams(); }, [loadExams]);
 
-  // ── 2. Fetch Subjects ──────────────────────────────────────────────────────
+  // ── 2. Fetch Subjects ──────────────────────────────────────────
   const loadSubjects = async (exam: TeacherMarksExam) => {
     setSelectedExam(exam);
     setSubjectsLoading(true);
@@ -93,7 +87,7 @@ export const TeacherMarksScreen: React.FC = () => {
     }
   };
 
-  // ── 3. Fetch Students & Marks ──────────────────────────────────────────────
+  // ── 3. Fetch Students & Marks ──────────────────────────────────
   const loadStudents = async (subj: TeacherMarksSubject) => {
     if (!selectedExam) return;
     setSelectedSubject(subj);
@@ -105,15 +99,17 @@ export const TeacherMarksScreen: React.FC = () => {
       const data = res.data ?? res;
       const studentList: TeacherMarksStudent[] = data.students ?? [];
       setStudents(studentList);
-      
+
       const defaultMaxMarks = String(data.maxMarks ?? subj.maxMarks ?? 100);
       setMaxMarks(defaultMaxMarks);
 
-      // Pre-fill existing marks and remarks
       const initialMarks: typeof marksState = {};
-      studentList.forEach(s => {
+      studentList.forEach((s) => {
         initialMarks[s.studentId] = {
-          marksObtained: s.marksObtained !== null && s.marksObtained !== undefined ? String(s.marksObtained) : '',
+          marksObtained:
+            s.marksObtained !== null && s.marksObtained !== undefined
+              ? String(s.marksObtained)
+              : '',
           remarks: s.remarks ?? '',
         };
       });
@@ -125,79 +121,61 @@ export const TeacherMarksScreen: React.FC = () => {
     }
   };
 
-  // ── 4. Live Input Validations ──────────────────────────────────────────────
+  // ── 4. Validations ─────────────────────────────────────────────
   const handleMarksChange = (studentId: string, val: string, currentMax: number) => {
-    setMarksState(prev => {
+    setMarksState((prev) => {
       const entry = prev[studentId] || { marksObtained: '', remarks: '' };
       const updated = { ...entry, marksObtained: val };
-
-      // Validate input value
       if (val.trim() === '') {
         updated.error = undefined;
       } else {
         const parsed = parseInt(val, 10);
-        if (isNaN(parsed) || parsed < 0) {
-          updated.error = 'Must be ≥ 0';
-        } else if (parsed > currentMax) {
-          updated.error = `Max is ${currentMax}`;
-        } else {
-          updated.error = undefined;
-        }
+        if (isNaN(parsed) || parsed < 0) updated.error = 'Must be ≥ 0';
+        else if (parsed > currentMax) updated.error = `Max is ${currentMax}`;
+        else updated.error = undefined;
       }
-
       return { ...prev, [studentId]: updated };
     });
   };
 
   const handleRemarksChange = (studentId: string, val: string) => {
-    setMarksState(prev => {
+    setMarksState((prev) => {
       const entry = prev[studentId] || { marksObtained: '', remarks: '' };
       return { ...prev, [studentId]: { ...entry, remarks: val } };
     });
   };
 
-  // Re-validate all student marks if maxMarks changes
   const handleMaxMarksChange = (val: string) => {
     setMaxMarks(val);
     const parsedMax = parseInt(val, 10) || 100;
-    setMarksState(prev => {
+    setMarksState((prev) => {
       const updated = { ...prev };
-      Object.keys(updated).forEach(id => {
+      Object.keys(updated).forEach((id) => {
         const entry = updated[id];
         if (entry.marksObtained.trim() !== '') {
           const parsed = parseInt(entry.marksObtained, 10);
-          if (isNaN(parsed) || parsed < 0) {
-            entry.error = 'Must be ≥ 0';
-          } else if (parsed > parsedMax) {
-            entry.error = `Max is ${parsedMax}`;
-          } else {
-            entry.error = undefined;
-          }
+          if (isNaN(parsed) || parsed < 0) entry.error = 'Must be ≥ 0';
+          else if (parsed > parsedMax) entry.error = `Max is ${parsedMax}`;
+          else entry.error = undefined;
         }
       });
       return updated;
     });
   };
 
-  // ── 5. Save/Submit Marks ───────────────────────────────────────────────────
+  // ── 5. Submit ──────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!selectedExam || !selectedSubject || saving) return;
-
     const parsedMax = parseInt(maxMarks, 10);
     if (isNaN(parsedMax) || parsedMax <= 0) {
       Alert.alert('Validation Error', 'Please enter a valid positive integer for Maximum Marks.');
       return;
     }
-
-    // Assemble payload
     const finalMarks: Array<{ studentId: string; marksObtained: number; remarks?: string }> = [];
     let hasValidationError = false;
-
-    Object.keys(marksState).forEach(studentId => {
+    Object.keys(marksState).forEach((studentId) => {
       const entry = marksState[studentId];
-      if (entry.error) {
-        hasValidationError = true;
-      }
+      if (entry.error) hasValidationError = true;
       if (entry.marksObtained.trim() !== '') {
         const parsedScore = parseInt(entry.marksObtained, 10);
         if (!isNaN(parsedScore)) {
@@ -209,17 +187,14 @@ export const TeacherMarksScreen: React.FC = () => {
         }
       }
     });
-
     if (hasValidationError) {
       Alert.alert('Validation Error', 'Please fix all error highlights before saving.');
       return;
     }
-
     if (finalMarks.length === 0) {
       Alert.alert('Information', 'Please enter marks for at least one student.');
       return;
     }
-
     setSaving(true);
     try {
       await saveTeacherMarks(selectedExam.examId, {
@@ -227,10 +202,7 @@ export const TeacherMarksScreen: React.FC = () => {
         maxMarks: parsedMax,
         marks: finalMarks,
       });
-
       Alert.alert('✅ Saved', 'Marks saved successfully.');
-      
-      // Refresh current student list view
       loadStudents(selectedSubject);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.message ?? 'Failed to save marks. Please try again.');
@@ -239,162 +211,105 @@ export const TeacherMarksScreen: React.FC = () => {
     }
   };
 
-  // ── 6. Render Sub-views ────────────────────────────────────────────────────
-
-  // Render 1: Exam List View
-  const renderExamItem = ({ item }: { item: TeacherMarksExam }) => (
-    <AppCard style={styles.card} onPress={() => loadSubjects(item)}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.examTitle}>{item.examName}</Text>
-        <Text style={styles.classBadge}>{item.className}</Text>
-      </View>
-      <Text style={styles.examDate}>Date: {item.examDate ?? 'N/A'}</Text>
-      
-      <View style={styles.statsStrip}>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{item.totalSubjects ?? 0}</Text>
-          <Text style={styles.statLabel}>Subjects</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{item.totalStudents ?? 0}</Text>
-          <Text style={styles.statLabel}>Students</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={[styles.statVal, { color: colors.teacher }]}>
-            {item.marksEnteredCount ?? 0}
-          </Text>
-          <Text style={styles.statLabel}>Marks Entered</Text>
-        </View>
-      </View>
-
-      <View style={styles.cardFooter}>
-        <StatusBadge label={item.status ?? 'scheduled'} type={item.status === 'completed' ? 'success' : 'info'} />
-        <Text style={styles.actionLinkText}>Manage Marks →</Text>
-      </View>
-    </AppCard>
-  );
-
-  // Render 2: Subject List View
-  const renderSubjectItem = ({ item }: { item: TeacherMarksSubject }) => (
-    <AppCard style={styles.card} onPress={() => loadStudents(item)}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.subjTitle}>{item.subjectName}</Text>
-        <Text style={styles.classBadge}>Max: {item.maxMarks ?? 100}</Text>
-      </View>
-      <Text style={styles.subjMeta}>Sections: {item.sectionName ?? 'N/A'}</Text>
-      
-      <View style={styles.statsStrip}>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{item.totalStudents ?? 0}</Text>
-          <Text style={styles.statLabel}>Students</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={[styles.statVal, { color: colors.teacher }]}>
-            {item.marksEnteredCount ?? 0}
-          </Text>
-          <Text style={styles.statLabel}>Graded</Text>
-        </View>
-      </View>
-
-      <View style={styles.cardFooter}>
-        <View />
-        <Text style={styles.actionLinkText}>Enter Marks →</Text>
-      </View>
-    </AppCard>
-  );
-
-  // Render 3: Student Row in Entry List
+  // ── 6. Student Row ─────────────────────────────────────────────
   const renderStudentRow = ({ item }: { item: TeacherMarksStudent }) => {
     const state = marksState[item.studentId] || { marksObtained: '', remarks: '' };
+    const hasError = !!state.error;
     return (
-      <View style={styles.studentRow}>
-        <View style={styles.studentInfo}>
-          <Text style={styles.studentName} numberOfLines={1}>{item.studentName}</Text>
-          <Text style={styles.studentMeta}>
-            Roll: {item.rollNo || 'N/A'} {item.admissionNo ? ` · Adm: ${item.admissionNo}` : ''}
-          </Text>
-          {item.grade ? (
-            <Text style={styles.gradeText}>Existing Grade: {item.grade}</Text>
-          ) : null}
+      <AppCard style={styles.studentRowCard}>
+        <View style={styles.studentTopRow}>
+          <View style={styles.studentIconBox}>
+            <Ionicons name="person" size={15} color={colors.teacher} />
+          </View>
+          <View style={styles.studentInfoBlock}>
+            <Text style={styles.studentName} numberOfLines={1}>{item.studentName}</Text>
+            <Text style={styles.studentMeta}>
+              Roll: {item.rollNo || 'N/A'}
+              {item.admissionNo ? ` · Adm: ${item.admissionNo}` : ''}
+            </Text>
+            {item.grade ? (
+              <Text style={styles.existingGrade}>Grade: {item.grade}</Text>
+            ) : null}
+          </View>
         </View>
 
-        <View style={styles.inputsContainer}>
-          <View style={styles.inputBoxContainer}>
+        <View style={styles.inputRow}>
+          <View style={styles.scoreWrapper}>
             <TextInput
-              style={[styles.scoreInput, state.error ? styles.scoreInputError : null]}
+              style={[styles.scoreInput, hasError && styles.scoreInputError]}
               placeholder="Score"
+              placeholderTextColor={colors.mutedText}
               value={state.marksObtained}
               keyboardType="number-pad"
-              onChangeText={val => handleMarksChange(item.studentId, val, parseInt(maxMarks, 10) || 100)}
+              onChangeText={(val) =>
+                handleMarksChange(item.studentId, val, parseInt(maxMarks, 10) || 100)
+              }
             />
-            {state.error ? (
+            {hasError ? (
               <Text style={styles.fieldError} numberOfLines={1}>{state.error}</Text>
             ) : null}
           </View>
-
           <TextInput
             style={styles.remarkInput}
-            placeholder="Remark"
+            placeholder="Remarks (optional)"
+            placeholderTextColor={colors.mutedText}
             value={state.remarks}
-            onChangeText={val => handleRemarksChange(item.studentId, val)}
+            onChangeText={(val) => handleRemarksChange(item.studentId, val)}
           />
         </View>
-      </View>
+      </AppCard>
     );
   };
 
-  // ── 7. Page Routing ────────────────────────────────────────────────────────
+  // ── 7. Page Routing ────────────────────────────────────────────
 
-  // Case A: Student Marks Entry Screen
+  // Case A: Student Marks Entry
   if (selectedExam && selectedSubject) {
     return (
       <ScreenContainer>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.flexContainer}
+          style={styles.flex}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedSubject(null);
-                loadSubjects(selectedExam);
-              }}
-              style={styles.backBtn}
-            >
-              <Text style={styles.backBtnText}>← Back to Subjects</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{selectedSubject.subjectName}</Text>
-            <Text style={styles.headerSub}>
-              {selectedExam.examName} ({selectedSubject.className})
-            </Text>
+          <TeacherScreenHeader
+            title={selectedSubject.subjectName}
+            subtitle={`${selectedExam.examName} · ${selectedSubject.className ?? ''}`}
+            onBack={() => {
+              setSelectedSubject(null);
+              loadSubjects(selectedExam);
+            }}
+            backLabel="Back to Subjects"
+          />
 
-            <View style={styles.maxMarksWrapper}>
-              <Text style={styles.maxMarksLabel}>Max Marks for Exam:</Text>
-              <TextInput
-                style={styles.maxMarksInput}
-                keyboardType="number-pad"
-                value={maxMarks}
-                onChangeText={handleMaxMarksChange}
-              />
-            </View>
+          {/* Max Marks row */}
+          <View style={styles.maxMarksRow}>
+            <Text style={styles.maxMarksLabel}>Max Marks:</Text>
+            <TextInput
+              style={styles.maxMarksInput}
+              keyboardType="number-pad"
+              value={maxMarks}
+              onChangeText={handleMaxMarksChange}
+              placeholderTextColor={colors.mutedText}
+            />
           </View>
 
           {studentsLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator color={colors.teacher} size="large" />
-              <Text style={styles.loadingText}>Loading students for marking…</Text>
+              <Text style={styles.loadingText}>Loading students…</Text>
             </View>
           ) : studentsError ? (
-            <ErrorState
-              error={studentsError}
-              onRetry={() => loadStudents(selectedSubject)}
-              roleTheme="teacher"
-            />
+            <View style={styles.paddingWrapper}>
+              <ErrorState
+                error={studentsError}
+                onRetry={() => loadStudents(selectedSubject)}
+                roleTheme="teacher"
+              />
+            </View>
           ) : (
             <FlatList
               data={students}
-              keyExtractor={item => item.studentId}
+              keyExtractor={(item) => item.studentId}
               renderItem={renderStudentRow}
               contentContainerStyle={styles.studentListContent}
               ListEmptyComponent={
@@ -407,9 +322,9 @@ export const TeacherMarksScreen: React.FC = () => {
             />
           )}
 
-          {/* Save/Cancel Sticky Footer */}
+          {/* Sticky footer */}
           {!studentsLoading && students.length > 0 && (
-            <View style={styles.footerContainer}>
+            <View style={styles.footer}>
               <AppButton
                 title="Cancel"
                 variant="secondary"
@@ -422,9 +337,11 @@ export const TeacherMarksScreen: React.FC = () => {
               <AppButton
                 title="Save Marks"
                 variant="teacher"
+                gradient
                 loading={saving}
                 onPress={handleSubmit}
                 style={styles.footerBtn}
+                icon={!saving ? <Ionicons name="checkmark-done-outline" size={16} color={colors.white} /> : undefined}
               />
             </View>
           )}
@@ -433,327 +350,244 @@ export const TeacherMarksScreen: React.FC = () => {
     );
   }
 
-  // Case B: Subject List View
+  // Case B: Subject List
   if (selectedExam) {
     return (
       <ScreenContainer>
-        <View style={styles.flexContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedExam(null);
-                loadExams(true);
-              }}
-              style={styles.backBtn}
-            >
-              <Text style={styles.backBtnText}>← Back to Exams</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{selectedExam.examName}</Text>
-            <Text style={styles.headerSub}>Select subject to enter student marks</Text>
-          </View>
+        <TeacherScreenHeader
+          title={selectedExam.examName}
+          subtitle="Select subject to enter student marks"
+          onBack={() => {
+            setSelectedExam(null);
+            loadExams(true);
+          }}
+          backLabel="Back to Exams"
+        />
 
-          {subjectsLoading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={colors.teacher} size="large" />
-              <Text style={styles.loadingText}>Loading exam subjects…</Text>
-            </View>
-          ) : subjectsError ? (
-            <ErrorState
-              error={subjectsError}
-              onRetry={() => loadSubjects(selectedExam)}
-              roleTheme="teacher"
-            />
-          ) : (
-            <FlatList
-              data={subjects}
-              keyExtractor={item => item.subjectId}
-              renderItem={renderSubjectItem}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <EmptyState
-                  emoji="📚"
-                  title="No Subjects"
-                  subtitle="No subjects found in your assigned class context."
-                />
-              }
-            />
-          )}
-        </View>
+        {subjectsLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.teacher} size="large" />
+            <Text style={styles.loadingText}>Loading subjects…</Text>
+          </View>
+        ) : subjectsError ? (
+          <View style={styles.paddingWrapper}>
+            <ErrorState error={subjectsError} onRetry={() => loadSubjects(selectedExam)} roleTheme="teacher" />
+          </View>
+        ) : (
+          <FlatList
+            data={subjects}
+            keyExtractor={(item) => item.subjectId}
+            renderItem={({ item }) => (
+              <MarksSubjectCard
+                subjectName={item.subjectName}
+                sectionName={item.sectionName ?? undefined}
+                className={item.className ?? undefined}
+                maxMarks={item.maxMarks}
+                totalStudents={item.totalStudents}
+                marksEnteredCount={item.marksEnteredCount}
+                onPress={() => loadStudents(item)}
+              />
+            )}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <EmptyState emoji="📚" title="No Subjects" subtitle="No subjects found for this exam." />
+            }
+          />
+        )}
       </ScreenContainer>
     );
   }
 
-  // Case C: Exam List View
+  // Case C: Exam List
   return (
     <ScreenContainer>
-      <View style={styles.flexContainer}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Exam Marks Entry</Text>
-          <Text style={styles.headerSub}>View exams and submit student scores</Text>
-        </View>
+      <TeacherScreenHeader
+        title="Exam Marks Entry"
+        subtitle="View exams and submit student scores"
+        badge={exams.length > 0 ? exams.length : undefined}
+      />
 
-        {examsLoading && !examsRefreshing ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.teacher} size="large" />
-            <Text style={styles.loadingText}>Loading exams…</Text>
-          </View>
-        ) : examsError ? (
+      {examsLoading && !examsRefreshing ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.teacher} size="large" />
+          <Text style={styles.loadingText}>Loading exams…</Text>
+        </View>
+      ) : examsError ? (
+        <View style={styles.paddingWrapper}>
           <ErrorState error={examsError} onRetry={() => loadExams(false)} roleTheme="teacher" />
-        ) : (
-          <FlatList
-            data={exams}
-            keyExtractor={item => item.examId}
-            renderItem={renderExamItem}
-            refreshControl={
-              <RefreshControl
-                refreshing={examsRefreshing}
-                onRefresh={() => loadExams(true)}
-                tintColor={colors.teacher}
-              />
-            }
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <EmptyState
-                emoji="📝"
-                title="No Exams Scheduled"
-                subtitle="There are no active exams associated with your class context."
-              />
-            }
-          />
-        )}
-      </View>
+        </View>
+      ) : (
+        <FlatList
+          data={exams}
+          keyExtractor={(item) => item.examId}
+          renderItem={({ item }) => (
+            <MarksExamCard
+              examName={item.examName}
+              className={item.className ?? ''}
+              examDate={item.examDate ?? undefined}
+              totalSubjects={item.totalSubjects}
+              totalStudents={item.totalStudents}
+              marksEnteredCount={item.marksEnteredCount}
+              status={item.status}
+              onPress={() => loadSubjects(item)}
+            />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={examsRefreshing}
+              onRefresh={() => loadExams(true)}
+              tintColor={colors.teacher}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <EmptyState
+              emoji="📝"
+              title="No Exams Scheduled"
+              subtitle="There are no active exams associated with your class context."
+            />
+          }
+        />
+      )}
     </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  flexContainer: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  headerSub: {
-    fontSize: 14,
-    color: colors.mutedText,
-    marginTop: 4,
-  },
-  backBtn: {
-    marginBottom: 8,
-  },
-  backBtnText: {
-    color: colors.teacher,
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  flex: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.xl,
   },
   loadingText: {
+    ...typography.bodySmall,
     color: colors.mutedText,
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: spacing.sm,
+  },
+  paddingWrapper: {
+    paddingHorizontal: spacing.xl,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 30,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.huge,
   },
-  studentListContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 120, // offset for sticky buttons footer
-  },
-  card: {
-    marginBottom: 12,
-    padding: 16,
-  },
-  cardHeader: {
+  // Max marks row
+  maxMarksRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-  },
-  examTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.text,
-    flex: 1,
-  },
-  subjTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.text,
-    flex: 1,
-  },
-  classBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.teacher,
-    backgroundColor: colors.teacher + '12',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    textTransform: 'uppercase',
-  },
-  examDate: {
-    fontSize: 13,
-    color: colors.mutedText,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  subjMeta: {
-    fontSize: 13,
-    color: colors.mutedText,
-    marginTop: 4,
-  },
-  statsStrip: {
-    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.surfaceSoft,
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 12,
-    gap: 4,
-  },
-  statCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statVal: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.mutedText,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  actionLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.teacher,
-  },
-  maxMarksWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignSelf: 'flex-start',
-  },
-  maxMarksLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginRight: 8,
-  },
-  maxMarksInput: {
-    width: 60,
-    height: 30,
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 6,
-    textAlign: 'center',
-    fontWeight: '700',
-    color: colors.teacher,
-    fontSize: 14,
-    padding: 0,
-  },
-  studentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginBottom: 8,
+    gap: spacing.md,
   },
-  studentInfo: {
-    flex: 1.2,
+  maxMarksLabel: {
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '600',
+    flex: 1,
+  },
+  maxMarksInput: {
+    width: 72,
+    height: 36,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.teacher + '40',
+    textAlign: 'center',
+    ...typography.label,
+    color: colors.teacher,
+    fontWeight: '800',
+  },
+  // Student list
+  studentListContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: 140,
+  },
+  studentRowCard: {
+    marginBottom: spacing.sm,
+  },
+  studentTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  studentIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.teacher + '12',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  studentInfoBlock: {
+    flex: 1,
   },
   studentName: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.label,
     color: colors.text,
+    fontWeight: '700',
   },
   studentMeta: {
-    fontSize: 12,
+    ...typography.captionSmall,
     color: colors.mutedText,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
-  gradeText: {
-    fontSize: 11,
+  existingGrade: {
+    ...typography.captionSmall,
     color: colors.success,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
+    marginTop: spacing.xxs,
   },
-  inputsContainer: {
-    flex: 1,
+  inputRow: {
     flexDirection: 'row',
+    gap: spacing.sm,
     alignItems: 'flex-start',
-    gap: 8,
   },
-  inputBoxContainer: {
-    flex: 1,
-    alignItems: 'stretch',
+  scoreWrapper: {
+    width: 72,
   },
   scoreInput: {
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 8,
     height: 40,
-    paddingHorizontal: 8,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: colors.text,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    textAlign: 'center',
+    ...typography.label,
+    color: colors.text,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm,
   },
   scoreInputError: {
     borderColor: colors.danger,
-    backgroundColor: colors.danger + '06',
+    backgroundColor: colors.dangerSoft,
   },
   fieldError: {
+    ...typography.captionSmall,
     color: colors.danger,
-    fontSize: 10,
-    marginTop: 2,
+    fontWeight: '700',
+    marginTop: spacing.xxs,
     textAlign: 'center',
-    fontWeight: '600',
   },
   remarkInput: {
-    flex: 1.5,
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 8,
+    flex: 1,
     height: 40,
-    paddingHorizontal: 8,
-    fontSize: 13,
-    color: colors.text,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    ...typography.bodySmall,
+    color: colors.text,
   },
-  footerContainer: {
+  footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -761,16 +595,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 8,
+    gap: spacing.md,
+    ...shadows.md,
   },
   footerBtn: {
     flex: 1,
