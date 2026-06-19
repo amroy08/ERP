@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { createError } from '../middleware/errorHandler';
 import { NotificationService } from '../services/NotificationService';
+import { NotificationReminderService } from '../services/NotificationReminderService';
 import prisma from '../config/prisma';
 
 /**
@@ -246,6 +247,27 @@ export const removeDeviceToken = async (req: AuthRequest, res: Response, next: N
     res.json({
       success: true,
       message: 'Device token unregistered.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin-only manual runner to scan and create reminders.
+ */
+export const runReminders = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
+      res.status(403).json({ success: false, message: 'Access denied. Admin role required.' });
+      return;
+    }
+
+    const results = await NotificationReminderService.runAllReminderScans();
+    res.json({
+      success: true,
+      message: 'Reminder scans completed successfully.',
+      data: results,
     });
   } catch (error) {
     next(error);

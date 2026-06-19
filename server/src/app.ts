@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import { NotificationReminderService } from './services/NotificationReminderService';
+
 import { connectDB } from './config/database';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
@@ -71,5 +73,43 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 School ERP Server running on http://0.0.0.0:${PORT}`);
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Scheduler startup policy
+const globalAny: any = global;
+if (
+  process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true' &&
+  process.env.NODE_ENV !== 'test' &&
+  !globalAny.__notificationSchedulerInterval
+) {
+  console.log('[Scheduler] Notification reminder scheduler is ENABLED.');
+  
+  // Run once per day (24 hours in ms)
+  const RUN_INTERVAL = 24 * 60 * 60 * 1000;
+  
+  globalAny.__notificationSchedulerInterval = setInterval(async () => {
+    try {
+      console.log('[Scheduler] Running scheduled notification reminders scan...');
+      const results = await NotificationReminderService.runAllReminderScans();
+      console.log('[Scheduler] Scheduled notification reminder scans completed. Summary:', {
+        feeReminderScan: {
+          scanned: results.feeReminderScan.scanned,
+          eligible: results.feeReminderScan.eligible,
+          created: results.feeReminderScan.created,
+          errors: results.feeReminderScan.errors,
+        },
+        absenceReminderScan: {
+          scanned: results.absenceReminderScan.scanned,
+          thresholdMet: results.absenceReminderScan.thresholdMet,
+          created: results.absenceReminderScan.created,
+          errors: results.absenceReminderScan.errors,
+        },
+      });
+    } catch (err) {
+      console.error('[Scheduler] Error running notification reminders scan:', err);
+    }
+  }, RUN_INTERVAL);
+} else {
+  console.log('[Scheduler] Notification reminder scheduler is disabled or already registered.');
+}
 
 export default app;

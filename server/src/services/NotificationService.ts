@@ -390,14 +390,22 @@ export class NotificationService {
         return true;
       }
 
+      const whereClause: any = {
+        schoolId: params.schoolId,
+        recipientUserId: params.recipientUserId,
+        type: params.type,
+      };
+
+      if (params.studentId !== undefined) {
+        whereClause.studentId = params.studentId || null;
+      }
+
+      if (params.relatedEntityId !== undefined && params.relatedEntityId !== null) {
+        whereClause.relatedEntityId = params.relatedEntityId;
+      }
+
       const lastNotification = await prisma.notification.findFirst({
-        where: {
-          schoolId: params.schoolId,
-          recipientUserId: params.recipientUserId,
-          type: params.type,
-          studentId: params.studentId || null,
-          relatedEntityId: params.relatedEntityId || null,
-        },
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
       });
 
