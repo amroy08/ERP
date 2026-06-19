@@ -10,6 +10,9 @@ import ParentNavigator from './ParentNavigator';
 import StudentNavigator from './StudentNavigator';
 import TeacherNavigator from './TeacherNavigator';
 
+// Screens
+import NotificationListScreen from '../screens/notifications/NotificationListScreen';
+
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator: React.FC = () => {
@@ -44,6 +47,7 @@ export const RootNavigator: React.FC = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainFlow" component={Component} />
+      <Stack.Screen name="Notifications" component={NotificationListScreen} />
     </Stack.Navigator>
   );
 };

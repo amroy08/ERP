@@ -146,3 +146,65 @@ export function setupNotificationListeners(): () => void {
     return () => {};
   }
 }
+
+// ─── Phase 4.1C In-App Notification APIs ────────────────────────────────────
+import apiClient from '../api/apiClient';
+
+export interface Notification {
+  id: string;
+  type: 'HOMEWORK_POSTED' | 'EXAM_POSTED' | 'MARKS_POSTED' | 'NOTICE_POSTED' | 'FEES_OVERDUE' | 'FEES_REMINDER' | 'ATTENDANCE_ABSENCE_ALERT';
+  title: string;
+  message: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+  relatedEntityType: string | null;
+  relatedEntityId: string | null;
+  studentId: string | null;
+}
+
+export async function getNotifications(params?: {
+  studentId?: string;
+  isRead?: boolean;
+  limit?: number;
+  page?: number;
+}): Promise<Notification[]> {
+  try {
+    const response = await apiClient.get('/notifications', { params });
+    return response.data.data || [];
+  } catch (error) {
+    console.error('[Notification Service] getNotifications error:', error);
+    throw error;
+  }
+}
+
+export async function getUnreadCount(params?: { studentId?: string }): Promise<number> {
+  try {
+    const response = await apiClient.get('/notifications/unread-count', { params });
+    return response.data.unreadCount ?? 0;
+  } catch (error) {
+    console.error('[Notification Service] getUnreadCount error:', error);
+    return 0;
+  }
+}
+
+export async function markNotificationRead(id: string): Promise<Notification> {
+  try {
+    const response = await apiClient.patch(`/notifications/${id}/read`);
+    return response.data.notification;
+  } catch (error) {
+    console.error('[Notification Service] markNotificationRead error:', error);
+    throw error;
+  }
+}
+
+export async function markAllNotificationsRead(payload?: { studentId?: string }): Promise<void> {
+  try {
+    await apiClient.patch('/notifications/mark-all-read', payload);
+  } catch (error) {
+    console.error('[Notification Service] markAllNotificationsRead error:', error);
+    throw error;
+  }
+}
+

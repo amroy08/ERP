@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBadge } from '../StatusBadge';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { colors } from '../../constants/colors';
 import { spacing, radii } from '../../constants/layout';
 import { typography } from '../../constants/typography';
@@ -39,7 +40,8 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           </Text>
           {subText ? <Text style={styles.subText} numberOfLines={1}>{subText}</Text> : null}
         </View>
-        <View style={styles.badgeContainer}>
+        <View style={styles.rightContainer}>
+          <NotificationBell roleType={roleType} />
           <StatusBadge label={roleLabel} type={roleType} />
         </View>
       </View>
@@ -80,9 +82,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: spacing.xxs,
   },
-  badgeContainer: {
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     marginTop: spacing.xxs,
+    gap: spacing.xs,
   },
 });
 
