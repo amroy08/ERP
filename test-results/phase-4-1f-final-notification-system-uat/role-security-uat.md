@@ -2,6 +2,10 @@
 
 Verification details of role access restrictions and data isolation.
 
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified, and all validations were freshly rerun.
+
 ## Security Controls Audited
 1. **Settings Route Isolation**:
    * Direct url navigation to `/settings/notifications` blocks non-admin users (e.g. `teacher`, `student`, `parent`) and redirects them to the main `/dashboard` page.

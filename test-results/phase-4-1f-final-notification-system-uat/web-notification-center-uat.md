@@ -2,6 +2,11 @@
 
 Verification details for the web console settings, rules, filter logs, and manual run dashboard.
 
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified.
+* All web console screenshots were freshly captured during this pass using the desktop browser subagent.
+
 ## Web Console Features Verified
 1. **Reminder Rules Tab**:
    * Settings loaded correctly. Changed cooldowns for fees reminder to `48 hours` and attendance absence lookback to `10 days`. Saves succeeded and updated the database immediately.

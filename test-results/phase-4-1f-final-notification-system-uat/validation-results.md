@@ -1,6 +1,12 @@
 # Phase 4.1F: Validation Results
 
-Detailed summary of UAT checks, regression results, build tests, and screenshot verification.
+Detailed summary of corrective UAT checks, regression results, build tests, and screenshot verification.
+
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified.
+* All web console screenshots were freshly captured.
+* Mobile screenshots are preserved under findings due to lack of connected mobile emulators/devices.
 
 ## 1. Automated Builds and Typechecks
 All workspaces typecheck successfully.
@@ -28,17 +34,17 @@ Full logs outputted in [test-results.txt](file:///Users/amroy/Desktop/ERP/test-r
 
 ## 3. Web & Mobile UI Visual Elements
 Screenshots capturing notifications and settings pages are validated and stored:
-* `teacher_notification_bell_final_uat.png`
-* `teacher_notification_list_final_uat.png`
-* `teacher_notification_mark_read_final_uat.png`
-* `student_notification_bell_final_uat.png`
-* `student_notification_list_final_uat.png`
-* `student_notification_mark_read_final_uat.png`
-* `parent_notification_bell_final_uat.png`
-* `parent_notification_list_final_uat.png`
-* `parent_notification_mark_all_read_final_uat.png`
-* `web_notification_center_rules_final_uat.png`
-* `web_notification_center_logs_final_uat.png`
-* `web_notification_center_manual_run_final_uat.png`
-* `web_notification_center_manual_result_final_uat.png`
-* `web_notification_center_access_denied_final_uat.png`
+* `teacher_notification_bell_final_uat.png` (preserved screenshot check)
+* `teacher_notification_list_final_uat.png` (preserved screenshot check)
+* `teacher_notification_mark_read_final_uat.png` (preserved screenshot check)
+* `student_notification_bell_final_uat.png` (preserved screenshot check)
+* `student_notification_list_final_uat.png` (preserved screenshot check)
+* `student_notification_mark_read_final_uat.png` (preserved screenshot check)
+* `parent_notification_bell_final_uat.png` (preserved screenshot check)
+* `parent_notification_list_final_uat.png` (preserved screenshot check)
+* `parent_notification_mark_all_read_final_uat.png` (preserved screenshot check)
+* `web_notification_center_rules_final_uat.png` (freshly captured)
+* `web_notification_center_logs_final_uat.png` (freshly captured)
+* `web_notification_center_manual_run_final_uat.png` (freshly captured)
+* `web_notification_center_manual_result_final_uat.png` (freshly captured)
+* `web_notification_center_access_denied_final_uat.png` (freshly captured)

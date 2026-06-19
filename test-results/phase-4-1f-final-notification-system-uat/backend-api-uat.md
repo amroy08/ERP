@@ -2,6 +2,10 @@
 
 Verification results for mounted notification endpoint structures.
 
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified, and all validations were freshly rerun.
+
 ## API Validation Log
 1. **GET `/api/notifications`**
    * Role: student / parent / teacher

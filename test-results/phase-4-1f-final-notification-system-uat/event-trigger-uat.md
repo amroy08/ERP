@@ -2,6 +2,10 @@
 
 Verification details for automated notifications created upon database events.
 
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified, and all validations were freshly rerun.
+
 ## Trigger Matrix
 1. **Homework Posted**
    * Action performed: Teacher creates a homework task.

@@ -2,6 +2,10 @@
 
 Verification details for Fee Reminders and Repeated Absence checks.
 
+## Fresh Corrective Pass Statement
+* This was a fresh corrective UAT evidence pass.
+* No source files were modified, and all validations were freshly rerun.
+
 ## Manual Trigger & Cooldown Verification
 We executed the manual scan check via:
 `POST /api/notifications/admin/run-reminders`
