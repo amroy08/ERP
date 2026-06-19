@@ -4,6 +4,7 @@ import { createError } from '../middleware/errorHandler';
 import { NotificationService } from '../services/NotificationService';
 import { NotificationReminderService } from '../services/NotificationReminderService';
 import prisma from '../config/prisma';
+import { NotificationType } from '@prisma/client';
 
 /**
  * Helper to validate parent-child linkage.
@@ -268,6 +269,238 @@ export const runReminders = async (req: AuthRequest, res: Response, next: NextFu
       success: true,
       message: 'Reminder scans completed successfully.',
       data: results,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieve all notification rules for the administrator's school (with default seeding).
+ */
+export const getAdminRules = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
+      res.status(403).json({ success: false, message: 'Access denied.' });
+      return;
+    }
+    const schoolId = req.user!.schoolId;
+    if (!schoolId) {
+      res.status(400).json({ success: false, message: 'No school associated with user.' });
+      return;
+    }
+
+    // Auto-create rules with safe defaults if they don't exist
+    const defaultTypes: NotificationType[] = ['FEES_REMINDER', 'ATTENDANCE_ABSENCE_ALERT'];
+    for (const type of defaultTypes) {
+      await prisma.notificationRule.upsert({
+        where: { schoolId_type: { schoolId, type } },
+        create: {
+          schoolId,
+          type,
+          enabled: true,
+          cooldownHours: 24,
+          thresholdCount: type === 'ATTENDANCE_ABSENCE_ALERT' ? 3 : null,
+          thresholdDays: type === 'ATTENDANCE_ABSENCE_ALERT' ? 7 : null,
+        },
+        update: {},
+      });
+    }
+
+    const rules = await prisma.notificationRule.findMany({
+      where: { schoolId },
+    });
+
+    res.json({ success: true, data: rules });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update a specific rule.
+ */
+export const updateAdminRule = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
+      res.status(403).json({ success: false, message: 'Access denied.' });
+      return;
+    }
+    const schoolId = req.user!.schoolId;
+    if (!schoolId) {
+      res.status(400).json({ success: false, message: 'No school associated with user.' });
+      return;
+    }
+
+    const id = req.params.id as string;
+    const { enabled, cooldownHours, thresholdCount, thresholdDays } = req.body;
+
+    const rule = await prisma.notificationRule.findFirst({
+      where: { id, schoolId },
+    });
+
+    if (!rule) {
+      res.status(404).json({ success: false, message: 'Rule not found or access denied.' });
+      return;
+    }
+
+    // Validate inputs (only non-negative numbers allowed)
+    if (cooldownHours !== undefined && (typeof cooldownHours !== 'number' || cooldownHours < 0)) {
+      res.status(400).json({ success: false, message: 'cooldownHours must be a non-negative number.' });
+      return;
+    }
+    if (thresholdCount !== undefined && thresholdCount !== null && (typeof thresholdCount !== 'number' || thresholdCount < 0)) {
+      res.status(400).json({ success: false, message: 'thresholdCount must be a non-negative number.' });
+      return;
+    }
+    if (thresholdDays !== undefined && thresholdDays !== null && (typeof thresholdDays !== 'number' || thresholdDays < 0)) {
+      res.status(400).json({ success: false, message: 'thresholdDays must be a non-negative number.' });
+      return;
+    }
+
+    const updated = await prisma.notificationRule.update({
+      where: { id },
+      data: {
+        enabled: enabled !== undefined ? enabled : rule.enabled,
+        cooldownHours: cooldownHours !== undefined ? cooldownHours : rule.cooldownHours,
+        thresholdCount: thresholdCount !== undefined ? thresholdCount : rule.thresholdCount,
+        thresholdDays: thresholdDays !== undefined ? thresholdDays : rule.thresholdDays,
+      },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieve paginated and filtered notification logs for admin.
+ */
+export const getAdminLogs = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
+      res.status(403).json({ success: false, message: 'Access denied.' });
+      return;
+    }
+    const schoolId = req.user!.schoolId;
+    if (!schoolId) {
+      res.status(400).json({ success: false, message: 'No school associated with user.' });
+      return;
+    }
+
+    const { type, recipientRole, isRead, priority, limit, page } = req.query;
+
+    const parsedLimit = limit ? parseInt(limit as string, 10) : 20;
+    const parsedPage = page ? parseInt(page as string, 10) : 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const where: any = { schoolId };
+
+    if (type) {
+      where.type = type;
+    }
+    if (recipientRole) {
+      where.recipientRole = recipientRole;
+    }
+    if (isRead !== undefined) {
+      where.isRead = isRead === 'true';
+    }
+    if (priority) {
+      where.priority = priority;
+    }
+
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: parsedLimit,
+        include: {
+          deliveryLogs: {
+            select: {
+              channel: true,
+              status: true,
+            },
+          },
+        },
+      }),
+      prisma.notification.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: notifications.map(n => ({
+        id: n.id,
+        type: n.type,
+        recipientRole: n.recipientRole,
+        recipientUserId: n.recipientUserId,
+        studentId: n.studentId,
+        title: n.title,
+        message: n.message,
+        priority: n.priority,
+        isRead: n.isRead,
+        readAt: n.readAt,
+        createdAt: n.createdAt,
+        relatedEntityType: n.relatedEntityType,
+        relatedEntityId: n.relatedEntityId,
+        deliveryLogs: n.deliveryLogs,
+      })),
+      pagination: {
+        page: parsedPage,
+        limit: parsedLimit,
+        total,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieve safe summary metrics of logs.
+ */
+export const getAdminLogsSummary = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
+      res.status(403).json({ success: false, message: 'Access denied.' });
+      return;
+    }
+    const schoolId = req.user!.schoolId;
+    if (!schoolId) {
+      res.status(400).json({ success: false, message: 'No school associated with user.' });
+      return;
+    }
+
+    const [total, read, unread, rulesCount] = await Promise.all([
+      prisma.notification.count({ where: { schoolId } }),
+      prisma.notification.count({ where: { schoolId, isRead: true } }),
+      prisma.notification.count({ where: { schoolId, isRead: false } }),
+      prisma.notificationRule.count({ where: { schoolId, enabled: true } }),
+    ]);
+
+    const typeCounts = await prisma.notification.groupBy({
+      by: ['type'],
+      where: { schoolId },
+      _count: {
+        id: true,
+      },
+    });
+
+    const breakdown = typeCounts.reduce((acc: Record<string, number>, curr) => {
+      acc[curr.type] = curr._count.id;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        read,
+        unread,
+        activeRules: rulesCount,
+        breakdown,
+      },
     });
   } catch (error) {
     next(error);

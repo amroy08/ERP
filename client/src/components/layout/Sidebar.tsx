@@ -102,6 +102,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'School Setup', href: '/settings' },
       { label: 'Module Licensing', href: '/settings/modules' },
+      { label: 'Notification Center', href: '/settings/notifications', roles: ['super_admin', 'admin'] },
       { label: 'Permissions', href: '/roles' },
     ],
     permission: 'settings:view',

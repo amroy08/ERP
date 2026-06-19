@@ -44,6 +44,7 @@ const FeeTransactionsPage = lazy(() => import('./features/fees/FeeTransactionsPa
 const ArchivePage = lazy(() => import('./features/settings/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const SuperAdminSchoolsPage = lazy(() => import('./features/superadmin/SuperAdminSchoolsPage').then(m => ({ default: m.SuperAdminSchoolsPage })));
 const ProfilePage = lazy(() => import('./features/profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const NotificationSettingsPage = lazy(() => import('./features/notifications/NotificationSettingsPage').then(m => ({ default: m.NotificationSettingsPage })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -149,6 +150,7 @@ const App: React.FC = () => {
             <Route path="/settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
             <Route path="/settings/modules" element={<Suspense fallback={<PageLoader />}><ModuleManagementPage /></Suspense>} />
             <Route path="/settings/archive" element={<Suspense fallback={<PageLoader />}><ArchivePage /></Suspense>} />
+            <Route path="/settings/notifications" element={<Suspense fallback={<PageLoader />}><NotificationSettingsPage /></Suspense>} />
             <Route path="/super-admin/schools" element={<Suspense fallback={<PageLoader />}><SuperAdminSchoolsPage /></Suspense>} />
             <Route path="/profile" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
             <Route path="/roles" element={<Suspense fallback={<PageLoader />}><RolesPage /></Suspense>} />

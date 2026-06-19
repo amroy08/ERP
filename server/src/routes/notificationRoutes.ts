@@ -8,7 +8,11 @@ import {
   markAllNotificationsAsRead,
   registerDeviceToken,
   removeDeviceToken,
-  runReminders
+  runReminders,
+  getAdminRules,
+  updateAdminRule,
+  getAdminLogs,
+  getAdminLogsSummary
 } from '../controllers/notificationController';
 
 const router = Router();
@@ -16,8 +20,12 @@ const router = Router();
 // Apply auth middleware to protect all notification routes
 router.use(protect);
 
-// Admin manual scan runner
+// Admin manual scan runner & config rule / logs check
 router.post('/admin/run-reminders', requireRoles('admin', 'super_admin'), runReminders);
+router.get('/admin/rules', requireRoles('admin', 'super_admin'), getAdminRules);
+router.put('/admin/rules/:id', requireRoles('admin', 'super_admin'), updateAdminRule);
+router.get('/admin/logs', requireRoles('admin', 'super_admin'), getAdminLogs);
+router.get('/admin/logs/summary', requireRoles('admin', 'super_admin'), getAdminLogsSummary);
 
 router.get('/', getNotifications);
 router.get('/unread-count', getUnreadNotificationsCount);
